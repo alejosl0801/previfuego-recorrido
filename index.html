@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#9e1212" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="PF Recorrido" />
+  <meta name="description" content="Gestión de recorridos diarios Previfuego" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>Previfuego Recorrido</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===== SCREEN S0: LOGIN ===== -->
+  <div id="s0" class="screen active">
+    <div class="logo-wrap">
+      <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <!-- Shield -->
+        <path d="M40 6L10 18v20c0 18 13 32 30 36 17-4 30-18 30-36V18L40 6z"
+              fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.7)" stroke-width="2.5"/>
+        <!-- Flame -->
+        <path d="M40 52c-7 0-12-5-12-11 0-4 2-7 5-9-1 3 0 6 2 7 0-5 3-9 6-12 0 5 3 8 5 10 1-2 1-4 0-6 4 3 6 7 6 10 0 6-5 11-12 11z"
+              fill="rgba(255,255,255,0.9)"/>
+      </svg>
+    </div>
+    <h1>Previfuego Recorridos</h1>
+    <p class="subtitle">Selecciona tu usuario</p>
+    <div class="login-grid">
+      <button class="btn-user" onclick="login('alejandro')">
+        <span class="emoji">&#x1F454;</span>
+        <div>
+          <span>Alejandro</span>
+          <small>Admin</small>
+        </div>
+      </button>
+      <button class="btn-user" onclick="login('raul')">
+        <span class="emoji">&#x1F477;</span>
+        <div>
+          <span>Ra&#xFA;l</span>
+          <small>T&#xE9;cnico</small>
+        </div>
+      </button>
+      <button class="btn-user" onclick="login('juan')">
+        <span class="emoji">&#x1F477;</span>
+        <div>
+          <span>Juan</span>
+          <small>T&#xE9;cnico</small>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN S1: TÉCNICO ===== -->
+  <div id="s1" class="screen">
+    <header class="app-header">
+      <button onclick="logout()" class="btn-back">&#8592; Salir</button>
+      <span id="s1-title">Mi Recorrido</span>
+      <button onclick="recargarRecorrido()" class="btn-icon" title="Actualizar">&#8635;</button>
+    </header>
+    <div class="progress-bar-wrap">
+      <div class="progress-info">
+        <span id="prog-texto">0/0 completados</span>
+      </div>
+      <div class="progress-track">
+        <div id="prog-bar" class="progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+    <div class="search-wrap">
+      <input type="search" id="s1-buscar" placeholder="Buscar cliente..." oninput="filtrarPuntos()" autocomplete="off" />
+    </div>
+    <div id="lista-puntos" class="puntos-list"></div>
+    <div id="s1-vacio" class="empty-state" style="display:none">
+      <p>No hay recorrido publicado para hoy.</p>
+      <p>Consulta con Alejandro.</p>
+    </div>
+  </div>
+
+  <!-- ===== SCREEN SADMIN: ADMIN ===== -->
+  <div id="sadmin" class="screen">
+    <header class="app-header">
+      <button onclick="logout()" class="btn-back">&#8592; Salir</button>
+      <span>Panel Admin</span>
+      <span class="header-date" id="admin-fecha"></span>
+    </header>
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('crear')" id="tab-btn-crear">Crear Recorrido</button>
+      <button class="tab" onclick="switchTab('seguimiento')" id="tab-btn-seguimiento">Seguimiento</button>
+    </div>
+
+    <!-- Tab Crear -->
+    <div id="tab-crear" class="tab-content active">
+      <div class="form-group">
+        <label for="admin-mes">Mes de contratos:</label>
+        <select id="admin-mes" onchange="cargarClientes()">
+          <option value="ENERO">Enero</option>
+          <option value="FEBRERO">Febrero</option>
+          <option value="MARZO">Marzo</option>
+          <option value="ABRIL">Abril</option>
+          <option value="MAYO">Mayo</option>
+          <option value="JUNIO" selected>Junio</option>
+          <option value="JULIO">Julio</option>
+          <option value="AGOSTO">Agosto</option>
+          <option value="SEPTIEMBRE">Septiembre</option>
+          <option value="OCTUBRE">Octubre</option>
+          <option value="NOVIEMBRE">Noviembre</option>
+          <option value="DICIEMBRE">Diciembre</option>
+        </select>
+      </div>
+      <div id="clientes-lista"></div>
+      <div class="admin-publish-wrap">
+        <button class="btn-primary btn-full" onclick="publicarRecorrido()">&#x1F4E4; Publicar Recorrido</button>
+      </div>
+    </div>
+
+    <!-- Tab Seguimiento -->
+    <div id="tab-seguimiento" class="tab-content">
+      <div class="seguimiento-counters" id="seg-counters"></div>
+      <div id="seg-tabla-wrap">
+        <table class="seg-table">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>T&#xE9;cnico</th>
+              <th>Estado</th>
+              <th>Hora</th>
+            </tr>
+          </thead>
+          <tbody id="seg-tbody"></tbody>
+        </table>
+      </div>
+      <p class="auto-refresh-note">Se actualiza cada 30 segundos</p>
+    </div>
+  </div>
+
+  <!-- ===== LOADING OVERLAY ===== -->
+  <div id="cargando" class="hidden" role="status" aria-live="polite">
+    <div class="spinner"></div>
+    <p>Cargando...</p>
+  </div>
+
+  <!-- ===== MODAL ===== -->
+  <div id="modal-overlay" class="hidden" role="dialog" aria-modal="true">
+    <div class="modal-box">
+      <div class="modal-title" id="modal-title">Aviso</div>
+      <div class="modal-msg" id="modal-msg"></div>
+      <div class="modal-actions" id="modal-actions"></div>
+    </div>
+  </div>
+
+  <!-- ===== TOAST ===== -->
+  <div id="toast" role="alert" aria-live="assertive"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
