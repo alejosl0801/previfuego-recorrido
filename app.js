@@ -376,20 +376,57 @@ function cargarClientes() {
   .then(function(res) { return res.json(); })
   .then(function(data) {
     mostrarCargando(false);
+    console.log('[PF] extintores_mes respuesta:', JSON.stringify(data).slice(0, 500));
+
+    // Intentar múltiples formatos de respuesta
     if (data && Array.isArray(data.clientes)) {
       CLIENTES_DISPONIBLES = data.clientes;
     } else if (data && Array.isArray(data.data)) {
       CLIENTES_DISPONIBLES = data.data;
+    } else if (Array.isArray(data)) {
+      CLIENTES_DISPONIBLES = data;
+    } else if (data && typeof data === 'object') {
+      // Buscar cualquier clave que sea array
+      var keys = Object.keys(data);
+      var found = false;
+      for (var k = 0; k < keys.length; k++) {
+        if (Array.isArray(data[keys[k]])) {
+          CLIENTES_DISPONIBLES = data[keys[k]];
+          found = true;
+          break;
+        }
+      }
+      if (!found) CLIENTES_DISPONIBLES = [];
     } else {
       CLIENTES_DISPONIBLES = [];
     }
+
+    if (CLIENTES_DISPONIBLES.length === 0) {
+      // Mostrar respuesta cruda para debug
+      var rawStr = JSON.stringify(data).slice(0, 300);
+      var cont = document.getElementById('clientes-lista');
+      if (cont) {
+        cont.innerHTML = '<div class="no-clientes">'
+          + '<strong>Sin clientes para ' + esc(mes) + '</strong><br>'
+          + '<small style="word-break:break-all;color:#888">Respuesta del servidor: ' + esc(rawStr) + '</small>'
+          + '</div>';
+      }
+      return;
+    }
+
     renderClientesLista();
   })
   .catch(function(err) {
     mostrarCargando(false);
+    console.error('[PF] Error cargarClientes:', err);
     CLIENTES_DISPONIBLES = [];
-    renderClientesLista();
-    showToast('Error al cargar clientes. Verifica la conexión.');
+    var cont = document.getElementById('clientes-lista');
+    if (cont) {
+      cont.innerHTML = '<div class="no-clientes">'
+        + '<strong>Error de conexión</strong><br>'
+        + '<small>' + esc(String(err)) + '</small>'
+        + '</div>';
+    }
   });
 }
 
