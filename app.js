@@ -21,9 +21,9 @@ var _seguimientoInterval = null;
 var _toastTimer = null;
 
 var USUARIOS = {
-  alejandro: { nombre: 'Alejandro', emoji: '\u{1F454}', esAdmin: true },
-  raul:      { nombre: 'Ra\xFAl',   emoji: '\u{1F477}' },
-  juan:      { nombre: 'Juan',      emoji: '\u{1F477}' }
+  alejandro: { nombre: 'Alejandro', emoji: '👔', esAdmin: true },
+  raul:      { nombre: 'Ra\xFAl',   emoji: '👷' },
+  juan:      { nombre: 'Juan',      emoji: '👷' }
 };
 
 /* ===================================================
@@ -55,6 +55,13 @@ function refreshAccessToken() {
   })
   .then(function(r) { return r.json(); })
   .then(function(d) {
+    if (d.error === 'invalid_grant' || d.error === 'expired_token') {
+      // Token revoked — clear and prompt re-auth
+      localStorage.removeItem('pf_dbx_refresh_token');
+      localStorage.removeItem('pf_dbx_access_token');
+      pfModal('Sesi\xF3n Dropbox expirada', 'La conexi\xF3n con Dropbox expir\xF3. Ve a Config → Conectar con Dropbox para reconectar.');
+      throw new Error('Sesi\xF3n Dropbox expirada — reconecta en Config');
+    }
     if (d.error) throw new Error(d.error_description || d.error);
     localStorage.setItem('pf_dbx_access_token', d.access_token);
     if (d.expires_in) {
@@ -584,20 +591,37 @@ function publicarRecorrido() {
 
   pfConfirm('Publicar recorrido', 'Se publicar\xE1n ' + puntos.length + ' punto(s) para hoy ' + fechaHoy() + '. \xBFConfirmar?', function() {
     mostrarCargando(true);
+    var btnPublicar = document.querySelector('.admin-publish-wrap .btn-primary');
+    if (btnPublicar) btnPublicar.disabled = true;
 
     dbxDownloadJSON(DBX_RECORRIDOS)
     .catch(function() { return {}; })
     .then(function(recorridos) {
+      var existing = recorridos[fechaHoy()];
+      var existingPuntos = (existing && existing.puntos) ? existing.puntos : [];
+
+      // Preserve done status from existing server state
+      puntos = puntos.map(function(p) {
+        var prev = existingPuntos.filter(function(e) { return e.nombre === p.nombre; })[0];
+        if (prev && prev.done) {
+          p.done = true;
+          p.horaCompletado = prev.horaCompletado;
+        }
+        return p;
+      });
+
       recorridos[fechaHoy()] = { fecha: fechaHoy(), publicado: new Date().toISOString(), puntos: puntos };
       return dbxUpload(DBX_RECORRIDOS, JSON.stringify(recorridos, null, 2));
     })
     .then(function() {
       mostrarCargando(false);
+      if (btnPublicar) btnPublicar.disabled = false;
       pfModal('\xA1Publicado!', 'Recorrido del d\xEDa publicado con ' + puntos.length + ' punto(s).');
       localStorage.setItem('pf_puntos_' + fechaHoy(), JSON.stringify(puntos));
     })
     .catch(function(err) {
       mostrarCargando(false);
+      if (btnPublicar) btnPublicar.disabled = false;
       pfModal('Error', 'No se pudo publicar: ' + String(err));
     });
   });
@@ -621,8 +645,18 @@ function pfRenderSeguimiento() {
   .then(function(recorridos) {
     var hoy = recorridos[fechaHoy()];
     renderTablaSeguimiento(hoy && hoy.puntos ? hoy.puntos : []);
+    // Update refresh timestamp
+    var nota = document.querySelector('.auto-refresh-note');
+    if (nota) {
+      var ahora = new Date();
+      nota.textContent = 'Actualizado: ' + ahora.getHours() + ':' + String(ahora.getMinutes()).padStart(2,'0') + ':' + String(ahora.getSeconds()).padStart(2,'0');
+    }
   })
-  .catch(function() {});
+  .catch(function(err) {
+    var nota = document.querySelector('.auto-refresh-note');
+    if (nota) nota.textContent = '⚠️ Sin conexi\xF3n — reintentando...';
+    console.error('[PF] seguimiento error:', err);
+  });
 }
 
 function renderTablaSeguimiento(puntos) {
@@ -693,13 +727,26 @@ function cargarRecorrido() {
     var hoy = recorridos[fechaHoy()];
     if (!hoy || !hoy.puntos || !hoy.puntos.length) { cargarRecorridoLocal(); return; }
     var misPuntos = hoy.puntos.filter(function(p) { return p.tecnico === tecnico; });
-    if (!misPuntos.length) { mostrarVacio(); return; }
+    if (!misPuntos.length) { mostrarVacio('No tienes puntos asignados para hoy.'); return; }
     localStorage.setItem('pf_puntos_' + fechaHoy(), JSON.stringify(misPuntos));
     procesarPuntos(misPuntos);
   })
   .catch(function() {
     mostrarCargando(false);
-    cargarRecorridoLocal();
+    // Try local cache
+    var guardados = localStorage.getItem('pf_puntos_' + fechaHoy());
+    if (guardados) {
+      try {
+        var arr = JSON.parse(guardados);
+        var mis = arr.filter(function(p) { return !p.tecnico || p.tecnico === tecnico; });
+        if (mis.length) {
+          showToast('Sin conexi\xF3n — usando datos guardados');
+          procesarPuntos(mis);
+          return;
+        }
+      } catch(e) {}
+    }
+    mostrarVacio('Sin conexi\xF3n con el servidor.\nVerifica tu internet e intenta de nuevo.');
   });
 }
 
@@ -710,16 +757,31 @@ function cargarRecorridoLocal() {
     var arr = JSON.parse(guardados);
     var tecnico = USUARIO_ACTUAL ? USUARIOS[USUARIO_ACTUAL].nombre : '';
     var mis = arr.filter(function(p) { return !p.tecnico || p.tecnico === tecnico; });
-    mis.length ? procesarPuntos(mis) : mostrarVacio();
+    if (mis.length) {
+      procesarPuntos(mis);
+    } else {
+      mostrarVacio();
+    }
   } catch(e) { mostrarVacio(); }
 }
 
-function mostrarVacio() {
+function mostrarVacio(msg) {
   PUNTOS = [];
   var lista = document.getElementById('lista-puntos');
   if (lista) lista.innerHTML = '';
   var vacio = document.getElementById('s1-vacio');
-  if (vacio) vacio.style.display = 'flex';
+  if (vacio) {
+    vacio.style.display = 'flex';
+    var p1 = vacio.querySelector('p:first-child');
+    var p2 = vacio.querySelector('p:last-child');
+    if (msg) {
+      if (p1) p1.textContent = msg;
+      if (p2) p2.textContent = '';
+    } else {
+      if (p1) p1.textContent = 'No hay recorrido publicado para hoy.';
+      if (p2) p2.textContent = 'Consulta con Alejandro.';
+    }
+  }
   actualizarProgreso();
 }
 
@@ -823,24 +885,48 @@ function marcarListo(idx) {
 
 function recargarRecorrido() { cargarRecorrido(); }
 
+var _subirFichasTimer = null;
+var _subirFichasPending = false;
+
 function subirFichas() {
+  // Debounce: wait 800ms after last call before uploading
+  if (_subirFichasTimer) clearTimeout(_subirFichasTimer);
+  _subirFichasTimer = setTimeout(function() {
+    _ejecutarSubirFichas();
+  }, 800);
+}
+
+function _ejecutarSubirFichas() {
+  if (_subirFichasPending) return; // skip if upload already in progress
+  _subirFichasPending = true;
+
   var tecnico = USUARIO_ACTUAL ? USUARIOS[USUARIO_ACTUAL].nombre : '';
+  var snapshot = PUNTOS.map(function(p) { return { nombre: p.nombre, done: p.done, horaCompletado: p.horaCompletado }; });
 
   dbxDownloadJSON(DBX_RECORRIDOS)
   .catch(function() { return {}; })
   .then(function(recorridos) {
     var hoy = recorridos[fechaHoy()];
-    if (!hoy) return;
+    if (!hoy) { _subirFichasPending = false; return; }
     hoy.puntos = hoy.puntos.map(function(p) {
       if (p.tecnico !== tecnico) return p;
-      var match = PUNTOS.filter(function(pp) { return pp.nombre === p.nombre; })[0];
+      var match = snapshot.filter(function(s) { return s.nombre === p.nombre; })[0];
       if (match) { p.done = match.done; p.horaCompletado = match.horaCompletado; }
       return p;
     });
     recorridos[fechaHoy()] = hoy;
     return dbxUpload(DBX_RECORRIDOS, JSON.stringify(recorridos, null, 2));
   })
-  .catch(function() {});
+  .then(function() {
+    _subirFichasPending = false;
+  })
+  .catch(function(err) {
+    _subirFichasPending = false;
+    console.error('[PF] subirFichas error:', err);
+    showToast('⚠️ No se pudo sincronizar. Se reintentar\xE1.');
+    // Retry once after 5s
+    setTimeout(_ejecutarSubirFichas, 5000);
+  });
 }
 
 /* ===================================================
