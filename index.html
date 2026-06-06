@@ -90,6 +90,7 @@
     </header>
     <div class="tabs">
       <button class="tab active" onclick="switchTab('crear')" id="tab-btn-crear">Crear Recorrido</button>
+      <button class="tab" onclick="switchTab('config')" id="tab-btn-config">&#x2699;&#xFE0F; Config</button>
       <button class="tab" onclick="switchTab('seguimiento')" id="tab-btn-seguimiento">Seguimiento</button>
     </div>
 
@@ -115,6 +116,25 @@
       <div id="clientes-lista"></div>
       <div class="admin-publish-wrap">
         <button class="btn-primary btn-full" onclick="publicarRecorrido()">&#x1F4E4; Publicar Recorrido</button>
+      </div>
+    </div>
+
+    <!-- Tab Config -->
+    <div id="tab-config" class="tab-content">
+      <div class="config-section">
+        <h3>Conexi&#xF3;n Dropbox</h3>
+        <p class="config-hint">La conexi&#xF3;n se guarda solo en este dispositivo. Es permanente — solo hay que hacerla una vez.</p>
+        <div id="cfg-status" style="margin-top:8px;text-align:center;font-size:15px;padding:10px 0"></div>
+        <button id="btn-conectar-dropbox" class="btn-primary btn-full" onclick="iniciarOAuth()">
+          &#x1F517; Conectar con Dropbox
+        </button>
+        <button id="btn-desconectar-dropbox" class="btn-ghost btn-full" onclick="desconectarDropbox()" style="display:none;margin-top:10px">
+          Desconectar
+        </button>
+      </div>
+      <div class="config-section" style="margin-top:20px">
+        <button class="btn-ghost btn-full" onclick="testDropbox()">&#x1F50D; Verificar conexi&#xF3;n</button>
+        <div id="cfg-debug" style="margin-top:12px;font-size:12px;color:#555;word-break:break-all;white-space:pre-wrap"></div>
       </div>
     </div>
 
@@ -156,6 +176,7 @@
   <!-- ===== TOAST ===== -->
   <div id="toast" role="alert" aria-live="assertive"></div>
 
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
