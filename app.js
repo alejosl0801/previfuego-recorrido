@@ -3,6 +3,8 @@
 /* ===================================================
    CONSTANTS — DROPBOX
 =================================================== */
+var DBX_APP_KEY    = 'alxflmx4qckl5gb';
+var DBX_REDIRECT   = 'https://alejosl0801.github.io/previfuego-recorrido/';
 var DBX_KFC_PATH   = '/Previfuego/2026/BASE_DATOS_KFC (8).xlsx';
 var DBX_OTROS_PATH = '/Previfuego/PRESUPUESTOS/PROYECCION INGRESOS MENSUAL 2026.xlsx';
 var DBX_RECORRIDOS = '/Previfuego/recorridos.json';
@@ -17,52 +19,215 @@ var _seguimientoInterval = null;
 var _toastTimer = null;
 
 var USUARIOS = {
-  alejandro: { nombre: 'Alejandro', emoji: '👔', esAdmin: true },
-  raul:      { nombre: 'Ra\xFAl',   emoji: '👷' },
-  juan:      { nombre: 'Juan',      emoji: '👷' }
+  alejandro: { nombre: 'Alejandro', emoji: '\u{1F454}', esAdmin: true },
+  raul:      { nombre: 'Ra\xFAl',   emoji: '\u{1F477}' },
+  juan:      { nombre: 'Juan',      emoji: '\u{1F477}' }
 };
 
 /* ===================================================
-   DROPBOX HELPERS
+   OAUTH PKCE — DROPBOX
 =================================================== */
-function getToken() {
-  return localStorage.getItem('pf_dropbox_token') || '';
+function getAccessToken() {
+  return localStorage.getItem('pf_dbx_access_token') || '';
 }
 
-function dbxDownload(path) {
-  return fetch('https://content.dropboxapi.com/2/files/download', {
+function getRefreshToken() {
+  return localStorage.getItem('pf_dbx_refresh_token') || '';
+}
+
+function isTokenExpired() {
+  var exp = parseInt(localStorage.getItem('pf_dbx_token_exp') || '0');
+  return Date.now() > exp - 60000;
+}
+
+function refreshAccessToken() {
+  var rt = getRefreshToken();
+  if (!rt) return Promise.reject(new Error('No conectado a Dropbox'));
+
+  return fetch('https://api.dropbox.com/oauth2/token', {
     method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + getToken(),
-      'Dropbox-API-Arg': JSON.stringify({ path: path })
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'grant_type=refresh_token'
+      + '&refresh_token=' + encodeURIComponent(rt)
+      + '&client_id=' + DBX_APP_KEY
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error) throw new Error(d.error_description || d.error);
+    localStorage.setItem('pf_dbx_access_token', d.access_token);
+    if (d.expires_in) {
+      localStorage.setItem('pf_dbx_token_exp', String(Date.now() + d.expires_in * 1000));
     }
-  }).then(function(r) {
-    if (!r.ok) throw new Error('Dropbox error ' + r.status);
-    return r.arrayBuffer();
+    return d.access_token;
+  });
+}
+
+function getValidToken() {
+  if (!getRefreshToken()) return Promise.reject(new Error('No conectado a Dropbox. Ve a Config → Conectar Dropbox.'));
+  if (!isTokenExpired()) return Promise.resolve(getAccessToken());
+  return refreshAccessToken();
+}
+
+function generateCodeVerifier() {
+  var arr = new Uint8Array(32);
+  crypto.getRandomValues(arr);
+  return btoa(String.fromCharCode.apply(null, arr))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+function generateCodeChallenge(verifier) {
+  var data = new TextEncoder().encode(verifier);
+  return crypto.subtle.digest('SHA-256', data).then(function(hash) {
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(hash)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  });
+}
+
+function iniciarOAuth() {
+  var verifier = generateCodeVerifier();
+  localStorage.setItem('pf_dbx_verifier', verifier);
+
+  generateCodeChallenge(verifier).then(function(challenge) {
+    window.location.href = 'https://www.dropbox.com/oauth2/authorize'
+      + '?client_id=' + DBX_APP_KEY
+      + '&response_type=code'
+      + '&redirect_uri=' + encodeURIComponent(DBX_REDIRECT)
+      + '&code_challenge=' + challenge
+      + '&code_challenge_method=S256'
+      + '&token_access_type=offline';
+  });
+}
+
+function handleOAuthCallback() {
+  var params = new URLSearchParams(window.location.search);
+  var code = params.get('code');
+  if (!code) return;
+
+  history.replaceState({}, '', window.location.pathname);
+
+  var verifier = localStorage.getItem('pf_dbx_verifier');
+  if (!verifier) return;
+
+  mostrarCargando(true);
+
+  fetch('https://api.dropbox.com/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'code=' + encodeURIComponent(code)
+      + '&grant_type=authorization_code'
+      + '&client_id=' + DBX_APP_KEY
+      + '&redirect_uri=' + encodeURIComponent(DBX_REDIRECT)
+      + '&code_verifier=' + encodeURIComponent(verifier)
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    mostrarCargando(false);
+    localStorage.removeItem('pf_dbx_verifier');
+    if (d.error) {
+      pfModal('Error al conectar Dropbox', d.error_description || d.error);
+      return;
+    }
+    localStorage.setItem('pf_dbx_access_token', d.access_token);
+    localStorage.setItem('pf_dbx_refresh_token', d.refresh_token);
+    if (d.expires_in) {
+      localStorage.setItem('pf_dbx_token_exp', String(Date.now() + d.expires_in * 1000));
+    }
+    showToast('✅ Dropbox conectado correctamente');
+    actualizarEstadoConexion();
+  })
+  .catch(function(err) {
+    mostrarCargando(false);
+    pfModal('Error OAuth', String(err));
+  });
+}
+
+function actualizarEstadoConexion() {
+  var status       = document.getElementById('cfg-status');
+  var btnConectar  = document.getElementById('btn-conectar-dropbox');
+  var btnDesconect = document.getElementById('btn-desconectar-dropbox');
+
+  if (getRefreshToken()) {
+    if (status)       status.innerHTML = '✅ <strong>Dropbox conectado</strong>';
+    if (btnConectar)  btnConectar.style.display = 'none';
+    if (btnDesconect) btnDesconect.style.display = 'block';
+  } else {
+    if (status)       status.innerHTML = '⚠️ No conectado a Dropbox';
+    if (btnConectar)  btnConectar.style.display = 'block';
+    if (btnDesconect) btnDesconect.style.display = 'none';
+  }
+}
+
+function desconectarDropbox() {
+  localStorage.removeItem('pf_dbx_access_token');
+  localStorage.removeItem('pf_dbx_refresh_token');
+  localStorage.removeItem('pf_dbx_token_exp');
+  actualizarEstadoConexion();
+  showToast('Dropbox desconectado');
+}
+
+function testDropbox() {
+  var debug = document.getElementById('cfg-debug');
+  if (!getRefreshToken()) {
+    if (debug) debug.textContent = '⚠️ Primero conecta Dropbox.';
+    return;
+  }
+  if (debug) debug.textContent = 'Verificando...';
+
+  getValidToken()
+  .then(function(token) {
+    return fetch('https://api.dropboxapi.com/2/users/get_current_account', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (debug) debug.textContent = '✅ Conectado como: ' + (d.email || (d.name && d.name.display_name) || '');
+  })
+  .catch(function(e) {
+    if (debug) debug.textContent = '❌ Error: ' + String(e);
+  });
+}
+
+/* ===================================================
+   DROPBOX FILE HELPERS
+=================================================== */
+function dbxDownload(path) {
+  return getValidToken().then(function(token) {
+    return fetch('https://content.dropboxapi.com/2/files/download', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Dropbox-API-Arg': JSON.stringify({ path: path })
+      }
+    }).then(function(r) {
+      if (!r.ok) throw new Error('Dropbox ' + r.status + ' al descargar ' + path);
+      return r.arrayBuffer();
+    });
   });
 }
 
 function dbxUpload(path, content) {
-  return fetch('https://content.dropboxapi.com/2/files/upload', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + getToken(),
-      'Dropbox-API-Arg': JSON.stringify({ path: path, mode: 'overwrite', autorename: false }),
-      'Content-Type': 'application/octet-stream'
-    },
-    body: typeof content === 'string' ? content : JSON.stringify(content)
-  }).then(function(r) {
-    if (!r.ok) throw new Error('Upload error ' + r.status);
-    return r.json();
+  return getValidToken().then(function(token) {
+    return fetch('https://content.dropboxapi.com/2/files/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Dropbox-API-Arg': JSON.stringify({ path: path, mode: 'overwrite', autorename: false }),
+        'Content-Type': 'application/octet-stream'
+      },
+      body: typeof content === 'string' ? content : JSON.stringify(content)
+    }).then(function(r) {
+      if (!r.ok) throw new Error('Dropbox upload error ' + r.status);
+      return r.json();
+    });
   });
 }
 
 function dbxDownloadJSON(path) {
-  return dbxDownload(path)
-    .then(function(buf) {
-      var text = new TextDecoder().decode(buf);
-      return JSON.parse(text);
-    });
+  return dbxDownload(path).then(function(buf) {
+    return JSON.parse(new TextDecoder().decode(buf));
+  });
 }
 
 /* ===================================================
@@ -71,8 +236,7 @@ function dbxDownloadJSON(path) {
 function parseExcel(buf) {
   var wb = XLSX.read(buf, { type: 'array' });
   var ws = wb.Sheets[wb.SheetNames[0]];
-  var rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-  return rows;
+  return XLSX.utils.sheet_to_json(ws, { defval: '' });
 }
 
 function normalizarCliente(row, esKfc) {
@@ -85,17 +249,14 @@ function normalizarCliente(row, esKfc) {
                row['EXT'] || row['N_EXT'] || row['TOTAL'] || 0;
   var mes    = row['MES'] || row['Mes'] || row['mes'] || '';
   var local  = row['LOCAL'] || row['Local'] || row['LOCAL_KFC'] || row['Sucursal'] || row['SUCURSAL'] || '';
-  var sector = row['SECTOR'] || row['Sector'] || '';
 
   return {
-    nombre: String(nombre).trim(),
+    nombre:    String(nombre).trim(),
     direccion: String(dir).trim() + (ciudad ? ' — ' + ciudad : ''),
     extintores: parseInt(ext) || 0,
-    mes: String(mes).trim().toUpperCase(),
+    mes:   String(mes).trim().toUpperCase(),
     local: String(local).trim(),
-    sector: String(sector).trim(),
-    esKfc: !!esKfc,
-    _raw: row
+    esKfc: !!esKfc
   };
 }
 
@@ -113,58 +274,44 @@ function esc(str) {
 }
 
 function fechaHoy() {
-  var d = new Date();
+  var d  = new Date();
   var dd = String(d.getDate()).padStart(2, '0');
   var mm = String(d.getMonth() + 1).padStart(2, '0');
-  var yyyy = d.getFullYear();
-  return dd + '/' + mm + '/' + yyyy;
+  return dd + '/' + mm + '/' + d.getFullYear();
 }
 
 function mostrarCargando(show) {
   var el = document.getElementById('cargando');
-  if (!el) return;
-  if (show) {
-    el.classList.remove('hidden');
-  } else {
-    el.classList.add('hidden');
-  }
+  if (el) el.classList[show ? 'remove' : 'add']('hidden');
 }
 
 function pfModal(titulo, msg) {
   var overlay = document.getElementById('modal-overlay');
-  var titleEl = document.getElementById('modal-title');
-  var msgEl   = document.getElementById('modal-msg');
-  var actEl   = document.getElementById('modal-actions');
   if (!overlay) return;
-  titleEl.textContent = titulo;
-  msgEl.innerHTML = esc(msg).replace(/\n/g, '<br>');
+  document.getElementById('modal-title').textContent = titulo;
+  document.getElementById('modal-msg').innerHTML = esc(msg).replace(/\n/g, '<br>');
+  var actEl = document.getElementById('modal-actions');
   actEl.innerHTML = '';
   var btn = document.createElement('button');
   btn.className = 'btn-primary';
   btn.textContent = 'OK';
-  btn.onclick = function() {
-    overlay.classList.add('hidden');
-  };
+  btn.onclick = function() { overlay.classList.add('hidden'); };
   actEl.appendChild(btn);
   overlay.classList.remove('hidden');
 }
 
 function pfConfirm(titulo, msg, cb) {
   var overlay = document.getElementById('modal-overlay');
-  var titleEl = document.getElementById('modal-title');
-  var msgEl   = document.getElementById('modal-msg');
-  var actEl   = document.getElementById('modal-actions');
   if (!overlay) return;
-  titleEl.textContent = titulo;
-  msgEl.innerHTML = esc(msg).replace(/\n/g, '<br>');
+  document.getElementById('modal-title').textContent = titulo;
+  document.getElementById('modal-msg').innerHTML = esc(msg).replace(/\n/g, '<br>');
+  var actEl = document.getElementById('modal-actions');
   actEl.innerHTML = '';
 
   var btnCancel = document.createElement('button');
   btnCancel.className = 'btn-ghost';
   btnCancel.textContent = 'Cancelar';
-  btnCancel.onclick = function() {
-    overlay.classList.add('hidden');
-  };
+  btnCancel.onclick = function() { overlay.classList.add('hidden'); };
 
   var btnOk = document.createElement('button');
   btnOk.className = 'btn-primary';
@@ -185,21 +332,16 @@ function showToast(msg) {
   el.textContent = msg;
   el.classList.add('visible');
   if (_toastTimer) clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(function() {
-    el.classList.remove('visible');
-  }, 3000);
+  _toastTimer = setTimeout(function() { el.classList.remove('visible'); }, 3000);
 }
 
 /* ===================================================
    NAVIGATION
 =================================================== */
 function showScreen(id) {
-  var screens = document.querySelectorAll('.screen');
-  for (var i = 0; i < screens.length; i++) {
-    screens[i].classList.remove('active');
-  }
-  var target = document.getElementById(id);
-  if (target) target.classList.add('active');
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  var t = document.getElementById(id);
+  if (t) t.classList.add('active');
 }
 
 function login(usuario) {
@@ -211,24 +353,16 @@ function login(usuario) {
     var fechaEl = document.getElementById('admin-fecha');
     if (fechaEl) fechaEl.textContent = fechaHoy();
     showScreen('sadmin');
-    // Set correct month based on current month
     var mesSelect = document.getElementById('admin-mes');
     if (mesSelect) {
       var meses = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
-      var mesActual = meses[new Date().getMonth()];
-      mesSelect.value = mesActual;
+      mesSelect.value = meses[new Date().getMonth()];
     }
-    // Pre-fill token field if exists
-    var savedToken = getToken();
-    var cfgInput = document.getElementById('cfg-token');
-    if (cfgInput && savedToken) cfgInput.value = savedToken.slice(0, 20) + '...';
-
+    actualizarEstadoConexion();
     cargarClientes();
   } else {
     var titleEl = document.getElementById('s1-title');
-    if (titleEl) {
-      titleEl.textContent = USUARIOS[usuario].emoji + ' ' + USUARIOS[usuario].nombre;
-    }
+    if (titleEl) titleEl.textContent = USUARIOS[usuario].emoji + ' ' + USUARIOS[usuario].nombre;
     cargarRecorrido();
   }
 }
@@ -247,78 +381,34 @@ function logout() {
    ADMIN — TABS
 =================================================== */
 function switchTab(tab) {
-  var tabs = ['crear', 'config', 'seguimiento'];
-  tabs.forEach(function(t) {
-    var content = document.getElementById('tab-' + t);
-    var btn     = document.getElementById('tab-btn-' + t);
-    if (content) content.classList.remove('active');
-    if (btn)     btn.classList.remove('active');
+  ['crear', 'config', 'seguimiento'].forEach(function(t) {
+    var c = document.getElementById('tab-' + t);
+    var b = document.getElementById('tab-btn-' + t);
+    if (c) c.classList.remove('active');
+    if (b) b.classList.remove('active');
   });
-
-  var activeContent = document.getElementById('tab-' + tab);
-  var activeBtn     = document.getElementById('tab-btn-' + tab);
-  if (activeContent) activeContent.classList.add('active');
-  if (activeBtn)     activeBtn.classList.add('active');
+  var ac = document.getElementById('tab-' + tab);
+  var ab = document.getElementById('tab-btn-' + tab);
+  if (ac) ac.classList.add('active');
+  if (ab) ab.classList.add('active');
 
   if (tab === 'seguimiento') {
     iniciarSeguimiento();
   } else {
     detenerSeguimiento();
   }
-
   if (tab === 'config') {
-    // Populate token field (masked)
-    var savedToken = getToken();
-    var cfgInput = document.getElementById('cfg-token');
-    if (cfgInput && savedToken) cfgInput.value = savedToken.slice(0, 20) + '...';
+    actualizarEstadoConexion();
   }
 }
 
 /* ===================================================
-   ADMIN — CONFIG (DROPBOX)
-=================================================== */
-function guardarToken() {
-  var input  = document.getElementById('cfg-token');
-  var status = document.getElementById('cfg-status');
-  if (!input) return;
-  var val = input.value.trim();
-  if (!val || !val.startsWith('sl.')) {
-    if (status) status.textContent = '⚠️ Token inv\xE1lido (debe empezar con sl.)';
-    return;
-  }
-  localStorage.setItem('pf_dropbox_token', val);
-  input.value = val.slice(0, 20) + '...';
-  if (status) status.textContent = '✅ Token guardado';
-}
-
-function testDropbox() {
-  var debug = document.getElementById('cfg-debug');
-  if (!getToken()) {
-    if (debug) debug.textContent = '⚠️ Primero guarda el token.';
-    return;
-  }
-  if (debug) debug.textContent = 'Conectando...';
-
-  fetch('https://api.dropboxapi.com/2/users/get_current_account', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + getToken() }
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(d) {
-    if (debug) debug.textContent = '✅ Conectado como: ' + (d.email || (d.name && d.name.display_name) || JSON.stringify(d).slice(0, 100));
-  })
-  .catch(function(e) {
-    if (debug) debug.textContent = '❌ Error: ' + String(e);
-  });
-}
-
-/* ===================================================
-   ADMIN — CREAR (cargar clientes desde Excel en Dropbox)
+   ADMIN — CREAR
 =================================================== */
 function cargarClientes() {
-  if (!getToken()) {
+  if (!getRefreshToken()) {
     var cont = document.getElementById('clientes-lista');
-    if (cont) cont.innerHTML = '<div class="no-clientes"><strong>⚙️ Configura el token de Dropbox primero</strong><br><small>Ve al tab Config y pega tu token.</small></div>';
+    if (cont) cont.innerHTML = '<div class="no-clientes"><strong>⚠️ Conecta Dropbox primero</strong><br><small>Ve al tab ⚙️ Config y pulsa "Conectar con Dropbox".</small><br><button class="btn-primary" style="margin-top:12px" onclick="switchTab(\'config\')">Ir a Config</button></div>';
     return;
   }
 
@@ -327,31 +417,24 @@ function cargarClientes() {
   mostrarCargando(true);
 
   Promise.all([
-    dbxDownload(DBX_KFC_PATH).then(function(buf) { return parseExcel(buf); }),
-    dbxDownload(DBX_OTROS_PATH).then(function(buf) { return parseExcel(buf); })
+    dbxDownload(DBX_KFC_PATH).then(parseExcel),
+    dbxDownload(DBX_OTROS_PATH).then(parseExcel)
   ])
   .then(function(results) {
     mostrarCargando(false);
-    var kfcRows   = results[0];
-    var otrosRows = results[1];
 
-    var kfc   = kfcRows.map(function(r) { return normalizarCliente(r, true); })
-                       .filter(function(c) { return c.nombre && (!mes || !c.mes || c.mes === mes || c.mes === ''); });
-    var otros = otrosRows.map(function(r) { return normalizarCliente(r, false); })
-                         .filter(function(c) { return c.nombre && (!mes || !c.mes || c.mes === mes || c.mes === ''); });
+    var kfc   = results[0].map(function(r) { return normalizarCliente(r, true); })
+                          .filter(function(c) { return c.nombre && (!mes || !c.mes || c.mes === mes || c.mes === ''); });
+    var otros = results[1].map(function(r) { return normalizarCliente(r, false); })
+                          .filter(function(c) { return c.nombre && (!mes || !c.mes || c.mes === mes || c.mes === ''); });
 
     CLIENTES_DISPONIBLES = kfc.concat(otros);
-
-    // Cache locally
     localStorage.setItem('pf_clientes_cache', JSON.stringify(CLIENTES_DISPONIBLES));
-    localStorage.setItem('pf_clientes_cache_ts', Date.now());
 
     renderClientesLista();
   })
   .catch(function(err) {
     mostrarCargando(false);
-    console.error('[PF] cargarClientes error:', err);
-    // Try cache
     var cache = localStorage.getItem('pf_clientes_cache');
     if (cache) {
       try {
@@ -370,21 +453,20 @@ function renderClientesLista() {
   var cont = document.getElementById('clientes-lista');
   if (!cont) return;
 
-  if (!CLIENTES_DISPONIBLES || CLIENTES_DISPONIBLES.length === 0) {
+  if (!CLIENTES_DISPONIBLES || !CLIENTES_DISPONIBLES.length) {
     cont.innerHTML = '<div class="no-clientes">No hay clientes para este mes.</div>';
     return;
   }
 
   var kfc   = CLIENTES_DISPONIBLES.filter(function(c) { return c.esKfc; });
   var otros = CLIENTES_DISPONIBLES.filter(function(c) { return !c.esKfc; });
+  var html  = '';
 
-  var html = '';
-
-  if (kfc.length > 0) {
+  if (kfc.length) {
     html += '<div class="clientes-grupo-header">🍗 Grupo KFC (' + kfc.length + ')</div>';
     kfc.forEach(function(c) { html += renderClienteCard(c, CLIENTES_DISPONIBLES.indexOf(c)); });
   }
-  if (otros.length > 0) {
+  if (otros.length) {
     html += '<div class="clientes-grupo-header">📋 Otros Clientes (' + otros.length + ')</div>';
     otros.forEach(function(c) { html += renderClienteCard(c, CLIENTES_DISPONIBLES.indexOf(c)); });
   }
@@ -422,11 +504,7 @@ function toggleClienteCheck(idx) {
   var card  = document.getElementById('ccard-' + idx);
   var check = document.getElementById('ccheck-' + idx);
   if (!card || !check) return;
-  if (check.checked) {
-    card.classList.add('selected');
-  } else {
-    card.classList.remove('selected');
-  }
+  card.classList[check.checked ? 'add' : 'remove']('selected');
 }
 
 function publicarRecorrido() {
@@ -438,19 +516,19 @@ function publicarRecorrido() {
     var misionEl  = document.getElementById('cmision-' + i);
     var tecnicoEl = document.getElementById('ctecnico-' + i);
     puntos.push({
-      nombre: c.nombre,
-      direccion: c.direccion,
+      nombre:     c.nombre,
+      direccion:  c.direccion,
       extintores: c.extintores,
-      local: c.local || '',
-      esKfc: c.esKfc || false,
-      mision: misionEl ? misionEl.value.trim() : 'Mantenimiento',
-      tecnico: tecnicoEl ? tecnicoEl.value : 'Ra\xFAl',
-      done: false,
+      local:      c.local || '',
+      esKfc:      c.esKfc || false,
+      mision:     misionEl  ? misionEl.value.trim()  : 'Mantenimiento',
+      tecnico:    tecnicoEl ? tecnicoEl.value         : 'Ra\xFAl',
+      done:       false,
       horaCompletado: null
     });
   }
 
-  if (puntos.length === 0) {
+  if (!puntos.length) {
     pfModal('Sin puntos', 'Selecciona al menos un cliente.');
     return;
   }
@@ -482,31 +560,20 @@ function publicarRecorrido() {
 function iniciarSeguimiento() {
   detenerSeguimiento();
   pfRenderSeguimiento();
-  _seguimientoInterval = setInterval(function() {
-    pfRenderSeguimiento();
-  }, 30000);
+  _seguimientoInterval = setInterval(pfRenderSeguimiento, 30000);
 }
 
 function detenerSeguimiento() {
-  if (_seguimientoInterval) {
-    clearInterval(_seguimientoInterval);
-    _seguimientoInterval = null;
-  }
+  if (_seguimientoInterval) { clearInterval(_seguimientoInterval); _seguimientoInterval = null; }
 }
 
 function pfRenderSeguimiento() {
   dbxDownloadJSON(DBX_RECORRIDOS)
   .then(function(recorridos) {
     var hoy = recorridos[fechaHoy()];
-    if (!hoy || !hoy.puntos) {
-      renderTablaSeguimiento([]);
-      return;
-    }
-    renderTablaSeguimiento(hoy.puntos);
+    renderTablaSeguimiento(hoy && hoy.puntos ? hoy.puntos : []);
   })
-  .catch(function() {
-    // Keep last state
-  });
+  .catch(function() {});
 }
 
 function renderTablaSeguimiento(puntos) {
@@ -514,7 +581,7 @@ function renderTablaSeguimiento(puntos) {
   var counters = document.getElementById('seg-counters');
   if (!tbody || !counters) return;
 
-  if (!puntos || puntos.length === 0) {
+  if (!puntos || !puntos.length) {
     tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:20px">Sin recorrido publicado hoy.</td></tr>';
     counters.innerHTML = '';
     return;
@@ -575,15 +642,9 @@ function cargarRecorrido() {
   .then(function(recorridos) {
     mostrarCargando(false);
     var hoy = recorridos[fechaHoy()];
-    if (!hoy || !hoy.puntos || !hoy.puntos.length) {
-      cargarRecorridoLocal();
-      return;
-    }
+    if (!hoy || !hoy.puntos || !hoy.puntos.length) { cargarRecorridoLocal(); return; }
     var misPuntos = hoy.puntos.filter(function(p) { return p.tecnico === tecnico; });
-    if (misPuntos.length === 0) {
-      mostrarVacio();
-      return;
-    }
+    if (!misPuntos.length) { mostrarVacio(); return; }
     localStorage.setItem('pf_puntos_' + fechaHoy(), JSON.stringify(misPuntos));
     procesarPuntos(misPuntos);
   })
@@ -595,22 +656,13 @@ function cargarRecorrido() {
 
 function cargarRecorridoLocal() {
   var guardados = localStorage.getItem('pf_puntos_' + fechaHoy());
-  if (guardados) {
-    try {
-      var arr = JSON.parse(guardados);
-      var tecnico = USUARIO_ACTUAL ? USUARIOS[USUARIO_ACTUAL].nombre : '';
-      var misPuntos = arr.filter(function(p) { return !p.tecnico || p.tecnico === tecnico; });
-      if (misPuntos.length === 0) {
-        mostrarVacio();
-      } else {
-        procesarPuntos(misPuntos);
-      }
-    } catch(e) {
-      mostrarVacio();
-    }
-  } else {
-    mostrarVacio();
-  }
+  if (!guardados) { mostrarVacio(); return; }
+  try {
+    var arr = JSON.parse(guardados);
+    var tecnico = USUARIO_ACTUAL ? USUARIOS[USUARIO_ACTUAL].nombre : '';
+    var mis = arr.filter(function(p) { return !p.tecnico || p.tecnico === tecnico; });
+    mis.length ? procesarPuntos(mis) : mostrarVacio();
+  } catch(e) { mostrarVacio(); }
 }
 
 function mostrarVacio() {
@@ -631,15 +683,16 @@ function procesarPuntos(arr) {
 
   PUNTOS = arr.map(function(p, i) {
     var clave = p.nombre || i;
+    var e = estadoGuardado[clave];
     return {
-      num: i + 1,
-      nombre: p.nombre || p.cliente || '',
-      direccion: p.direccion || p.dir || '',
-      mision: p.mision || 'Mantenimiento',
-      tecnico: p.tecnico || '',
-      esKfc: p.esKfc || false,
-      done: estadoGuardado[clave] ? estadoGuardado[clave].done : (p.done || false),
-      horaCompletado: estadoGuardado[clave] ? estadoGuardado[clave].hora : (p.horaCompletado || null)
+      num:           i + 1,
+      nombre:        p.nombre || p.cliente || '',
+      direccion:     p.direccion || p.dir || '',
+      mision:        p.mision || 'Mantenimiento',
+      tecnico:       p.tecnico || '',
+      esKfc:         p.esKfc || false,
+      done:          e ? e.done : (p.done || false),
+      horaCompletado: e ? e.hora : (p.horaCompletado || null)
     };
   });
 
@@ -663,23 +716,19 @@ function renderPuntos() {
   for (var i = 0; i < PUNTOS.length; i++) {
     var p = PUNTOS[i];
     if (filtro && p.nombre.toLowerCase().indexOf(filtro) === -1 &&
-        p.direccion.toLowerCase().indexOf(filtro) === -1) {
-      continue;
-    }
+        p.direccion.toLowerCase().indexOf(filtro) === -1) continue;
     count++;
-    var doneClass = p.done ? ' done' : '';
-    var accion = p.done
+
+    var kfcBadge = p.esKfc ? '<span class="badge-kfc-sm">KFC</span> ' : '';
+    var accion   = p.done
       ? '<span class="btn-done-icon">&#10003;</span>'
       : '<button class="btn-success" onclick="marcarListo(' + i + ')">&#10003; Listo</button>';
-
     var hora = p.done && p.horaCompletado
       ? '<div class="punto-card-hora">&#10003; ' + esc(p.horaCompletado) + '</div>'
       : '';
 
-    var kfcBadge = p.esKfc ? '<span class="badge-kfc-sm">KFC</span> ' : '';
-
-    html += '<div class="punto-card' + doneClass + '">'
-      + '<div class="punto-card-num">' + (p.done ? '&#10003;' : esc(String(p.num))) + '</div>'
+    html += '<div class="punto-card' + (p.done ? ' done' : '') + '">'
+      + '<div class="punto-card-num">' + (p.done ? '&#10003;' : p.num) + '</div>'
       + '<div class="punto-card-body">'
       +   '<div class="punto-card-nombre">' + kfcBadge + esc(p.nombre) + '</div>'
       +   '<div class="punto-card-dir">' + esc(p.direccion) + '</div>'
@@ -690,45 +739,31 @@ function renderPuntos() {
       + '</div>';
   }
 
-  if (count === 0 && filtro) {
-    html = '<div class="no-clientes">Sin resultados para "<strong>' + esc(filtro) + '</strong>"</div>';
-  }
-
+  if (!count && filtro) html = '<div class="no-clientes">Sin resultados para "<strong>' + esc(filtro) + '</strong>"</div>';
   lista.innerHTML = html;
 }
 
-function filtrarPuntos() {
-  renderPuntos();
-}
+function filtrarPuntos() { renderPuntos(); }
 
 function actualizarProgreso() {
   var total = PUNTOS.length;
-  var done  = 0;
-  for (var i = 0; i < PUNTOS.length; i++) {
-    if (PUNTOS[i].done) done++;
-  }
+  var done  = PUNTOS.filter(function(p) { return p.done; }).length;
   var texto = document.getElementById('prog-texto');
   var bar   = document.getElementById('prog-bar');
   if (texto) texto.textContent = done + '/' + total + ' completados';
-  if (bar) bar.style.width = (total > 0 ? Math.round((done / total) * 100) : 0) + '%';
+  if (bar)   bar.style.width = (total > 0 ? Math.round(done / total * 100) : 0) + '%';
 }
 
 function marcarListo(idx) {
-  if (idx < 0 || idx >= PUNTOS.length) return;
-  if (PUNTOS[idx].done) return;
+  if (idx < 0 || idx >= PUNTOS.length || PUNTOS[idx].done) return;
 
   PUNTOS[idx].done = true;
   var ahora = new Date();
   PUNTOS[idx].horaCompletado = ahora.getHours() + ':' + String(ahora.getMinutes()).padStart(2, '0');
 
-  // Persist state locally
   var estado = {};
-  try {
-    var raw = localStorage.getItem('pf_estado_' + fechaHoy());
-    if (raw) estado = JSON.parse(raw);
-  } catch(e) {}
-  var clave = PUNTOS[idx].nombre || idx;
-  estado[clave] = { done: true, hora: PUNTOS[idx].horaCompletado };
+  try { var r = localStorage.getItem('pf_estado_' + fechaHoy()); if (r) estado = JSON.parse(r); } catch(e) {}
+  estado[PUNTOS[idx].nombre || idx] = { done: true, hora: PUNTOS[idx].horaCompletado };
   localStorage.setItem('pf_estado_' + fechaHoy(), JSON.stringify(estado));
 
   renderPuntos();
@@ -737,9 +772,7 @@ function marcarListo(idx) {
   subirFichas();
 }
 
-function recargarRecorrido() {
-  cargarRecorrido();
-}
+function recargarRecorrido() { cargarRecorrido(); }
 
 function subirFichas() {
   var tecnico = USUARIO_ACTUAL ? USUARIOS[USUARIO_ACTUAL].nombre : '';
@@ -748,44 +781,32 @@ function subirFichas() {
   .catch(function() { return {}; })
   .then(function(recorridos) {
     var hoy = recorridos[fechaHoy()];
-    if (!hoy) return Promise.resolve();
-
+    if (!hoy) return;
     hoy.puntos = hoy.puntos.map(function(p) {
       if (p.tecnico !== tecnico) return p;
-      var match = null;
-      for (var i = 0; i < PUNTOS.length; i++) {
-        if (PUNTOS[i].nombre === p.nombre) { match = PUNTOS[i]; break; }
-      }
-      if (match) {
-        p.done = match.done;
-        p.horaCompletado = match.horaCompletado;
-      }
+      var match = PUNTOS.filter(function(pp) { return pp.nombre === p.nombre; })[0];
+      if (match) { p.done = match.done; p.horaCompletado = match.horaCompletado; }
       return p;
     });
     recorridos[fechaHoy()] = hoy;
     return dbxUpload(DBX_RECORRIDOS, JSON.stringify(recorridos, null, 2));
   })
-  .catch(function() {}); // silent
+  .catch(function() {});
 }
 
 /* ===================================================
    INIT
 =================================================== */
 document.addEventListener('DOMContentLoaded', function() {
+  // Handle OAuth callback first
+  handleOAuthCallback();
+
   // Auto-login from localStorage
   var savedUser = localStorage.getItem('pf_usuario');
-  if (savedUser && USUARIOS[savedUser]) {
-    login(savedUser);
-  }
+  if (savedUser && USUARIOS[savedUser]) login(savedUser);
 
   // Register service worker
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/previfuego-recorrido/sw.js')
-    .then(function(reg) {
-      console.log('SW registered:', reg.scope);
-    })
-    .catch(function(err) {
-      console.log('SW registration failed:', err);
-    });
+    navigator.serviceWorker.register('/previfuego-recorrido/sw.js').catch(function() {});
   }
 });
