@@ -5,9 +5,11 @@
 =================================================== */
 var DBX_APP_KEY    = 'alxflmx4qckl5gb';
 var DBX_REDIRECT   = 'https://alejosl0801.github.io/previfuego-recorrido/';
-var DBX_KFC_PATH   = '/Previfuego/2026/BASE_DATOS_KFC (8).xlsx';
-var DBX_OTROS_PATH = '/Previfuego/PRESUPUESTOS/PROYECCION INGRESOS MENSUAL 2026.xlsx';
 var DBX_RECORRIDOS = '/Previfuego/recorridos.json';
+
+// Paths configurables — se sobreescriben desde localStorage si el usuario los ajusta
+var DBX_KFC_PATH   = localStorage.getItem('pf_path_kfc')   || '/Previfuego/2026/BASE_DATOS_KFC (8).xlsx';
+var DBX_OTROS_PATH = localStorage.getItem('pf_path_otros') || '/Previfuego/PRESUPUESTOS/PROYECCION INGRESOS MENSUAL 2026.xlsx';
 
 /* ===================================================
    STATE
@@ -155,6 +157,12 @@ function actualizarEstadoConexion() {
     if (btnConectar)  btnConectar.style.display = 'block';
     if (btnDesconect) btnDesconect.style.display = 'none';
   }
+
+  // Pre-fill path inputs
+  var inKfc   = document.getElementById('cfg-path-kfc');
+  var inOtros = document.getElementById('cfg-path-otros');
+  if (inKfc)   inKfc.value   = DBX_KFC_PATH;
+  if (inOtros) inOtros.value = DBX_OTROS_PATH;
 }
 
 function desconectarDropbox() {
@@ -187,6 +195,47 @@ function testDropbox() {
   .catch(function(e) {
     if (debug) debug.textContent = '❌ Error: ' + String(e);
   });
+}
+
+function listarCarpeta(carpeta) {
+  var debug = document.getElementById('cfg-debug');
+  if (!getRefreshToken()) { if (debug) debug.textContent = '⚠️ Conecta Dropbox primero.'; return; }
+  if (debug) debug.textContent = 'Listando ' + carpeta + '...';
+
+  getValidToken()
+  .then(function(token) {
+    return fetch('https://api.dropboxapi.com/2/files/list_folder', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: carpeta, recursive: false })
+    });
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.error_summary) { if (debug) debug.textContent = '❌ ' + d.error_summary; return; }
+    var entries = (d.entries || []).filter(function(e) { return e['.tag'] === 'file'; });
+    var txt = '📂 ' + carpeta + '\n';
+    if (!entries.length) { txt += '  (sin archivos)\n'; }
+    entries.forEach(function(e) { txt += '  📄 ' + e.name + '\n'; });
+    if (debug) debug.textContent = txt;
+  })
+  .catch(function(e) { if (debug) debug.textContent = '❌ ' + String(e); });
+}
+
+function guardarPathKfc() {
+  var val = document.getElementById('cfg-path-kfc');
+  if (!val) return;
+  DBX_KFC_PATH = val.value.trim();
+  localStorage.setItem('pf_path_kfc', DBX_KFC_PATH);
+  showToast('✅ Path KFC guardado');
+}
+
+function guardarPathOtros() {
+  var val = document.getElementById('cfg-path-otros');
+  if (!val) return;
+  DBX_OTROS_PATH = val.value.trim();
+  localStorage.setItem('pf_path_otros', DBX_OTROS_PATH);
+  showToast('✅ Path clientes guardado');
 }
 
 /* ===================================================

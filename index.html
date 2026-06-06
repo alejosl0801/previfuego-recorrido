@@ -123,18 +123,29 @@
     <div id="tab-config" class="tab-content">
       <div class="config-section">
         <h3>Conexi&#xF3;n Dropbox</h3>
-        <p class="config-hint">La conexi&#xF3;n se guarda solo en este dispositivo. Es permanente — solo hay que hacerla una vez.</p>
+        <p class="config-hint">Permanente — solo se conecta una vez.</p>
         <div id="cfg-status" style="margin-top:8px;text-align:center;font-size:15px;padding:10px 0"></div>
-        <button id="btn-conectar-dropbox" class="btn-primary btn-full" onclick="iniciarOAuth()">
-          &#x1F517; Conectar con Dropbox
-        </button>
-        <button id="btn-desconectar-dropbox" class="btn-ghost btn-full" onclick="desconectarDropbox()" style="display:none;margin-top:10px">
-          Desconectar
-        </button>
+        <button id="btn-conectar-dropbox" class="btn-primary btn-full" onclick="iniciarOAuth()">&#x1F517; Conectar con Dropbox</button>
+        <button id="btn-desconectar-dropbox" class="btn-ghost btn-full" onclick="desconectarDropbox()" style="display:none;margin-top:10px">Desconectar</button>
       </div>
-      <div class="config-section" style="margin-top:20px">
-        <button class="btn-ghost btn-full" onclick="testDropbox()">&#x1F50D; Verificar conexi&#xF3;n</button>
-        <div id="cfg-debug" style="margin-top:12px;font-size:12px;color:#555;word-break:break-all;white-space:pre-wrap"></div>
+
+      <div class="config-section" style="margin-top:16px">
+        <h3>Rutas de archivos</h3>
+        <div class="form-group">
+          <label>Archivo KFC (.xlsx):</label>
+          <input type="text" id="cfg-path-kfc" class="opts-input" style="font-size:12px" />
+          <button class="btn-ghost" onclick="guardarPathKfc()" style="margin-top:4px;width:100%">Guardar</button>
+        </div>
+        <div class="form-group" style="margin-top:10px">
+          <label>Archivo otros clientes (.xlsx):</label>
+          <input type="text" id="cfg-path-otros" class="opts-input" style="font-size:12px" />
+          <button class="btn-ghost" onclick="guardarPathOtros()" style="margin-top:4px;width:100%">Guardar</button>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn-ghost" style="flex:1;font-size:12px" onclick="listarCarpeta('/Previfuego/2026')">&#x1F4C2; Ver 2026/</button>
+          <button class="btn-ghost" style="flex:1;font-size:12px" onclick="listarCarpeta('/Previfuego/PRESUPUESTOS')">&#x1F4C2; Ver PRESUPUESTOS/</button>
+        </div>
+        <div id="cfg-debug" style="margin-top:10px;font-size:12px;color:#555;background:#f5f5f5;border-radius:8px;padding:10px;word-break:break-all;white-space:pre-wrap;min-height:40px"></div>
       </div>
     </div>
 
