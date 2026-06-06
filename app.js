@@ -269,8 +269,11 @@ function dbxDownload(path) {
     }).then(function(r) {
       if (r.status === 400 || r.status === 409) {
         return r.text().then(function(txt) {
-          if (txt.indexOf('not_found') !== -1) return null; // archivo no existe aún
-          throw new Error('Dropbox ' + r.status + ' al descargar ' + path + ': ' + txt.slice(0, 200));
+          if (txt.indexOf('not_found') !== -1 || txt.indexOf('conflict') !== -1 || r.status === 409) {
+            // 409 = path conflict = archivo no existe o nombre incorrecto
+            throw new Error('Archivo no encontrado: ' + path + '\nVerifica el nombre exacto en Config → Ver carpeta');
+          }
+          throw new Error('Dropbox ' + r.status + ': ' + txt.slice(0, 200));
         });
       }
       if (!r.ok) throw new Error('Dropbox ' + r.status + ' al descargar ' + path);
