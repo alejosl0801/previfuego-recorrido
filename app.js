@@ -267,6 +267,12 @@ function dbxDownload(path) {
         'Dropbox-API-Arg': JSON.stringify({ path: path })
       }
     }).then(function(r) {
+      if (r.status === 400 || r.status === 409) {
+        return r.text().then(function(txt) {
+          if (txt.indexOf('not_found') !== -1) return null; // archivo no existe aún
+          throw new Error('Dropbox ' + r.status + ' al descargar ' + path + ': ' + txt.slice(0, 200));
+        });
+      }
       if (!r.ok) throw new Error('Dropbox ' + r.status + ' al descargar ' + path);
       return r.arrayBuffer();
     });
@@ -292,6 +298,7 @@ function dbxUpload(path, content) {
 
 function dbxDownloadJSON(path) {
   return dbxDownload(path).then(function(buf) {
+    if (buf === null) return {}; // archivo no existe aún — tratar como vacío
     return JSON.parse(new TextDecoder().decode(buf));
   });
 }
