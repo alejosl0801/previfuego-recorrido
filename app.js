@@ -217,16 +217,26 @@ function listarCarpeta(carpeta) {
       body: JSON.stringify({ path: carpeta, recursive: false })
     });
   })
-  .then(function(r) { return r.json(); })
+  .then(function(r) {
+    return r.text().then(function(txt) {
+      try { return JSON.parse(txt); }
+      catch(e) { throw new Error('Dropbox dijo: ' + txt.slice(0, 300)); }
+    });
+  })
   .then(function(d) {
-    if (d.error_summary) { if (debug) debug.textContent = '❌ ' + d.error_summary; return; }
+    if (d.error_summary) {
+      if (debug) debug.textContent = '❌ ' + d.error_summary + '\n\nVerifica los permisos en dropbox.com/developers/apps → Permissions:\n  ✓ files.metadata.read\n  ✓ files.content.read\n  ✓ files.content.write\n\nSi los acabas de activar: Desconecta y vuelve a Conectar con Dropbox.';
+      return;
+    }
     var entries = (d.entries || []).filter(function(e) { return e['.tag'] === 'file'; });
     var txt = '📂 ' + carpeta + '\n';
-    if (!entries.length) { txt += '  (sin archivos)\n'; }
+    if (!entries.length) { txt += '  (sin archivos — puede ser carpeta vacía o ruta incorrecta)\n'; }
     entries.forEach(function(e) { txt += '  📄 ' + e.name + '\n'; });
     if (debug) debug.textContent = txt;
   })
-  .catch(function(e) { if (debug) debug.textContent = '❌ ' + String(e); });
+  .catch(function(e) {
+    if (debug) debug.textContent = '❌ ' + String(e) + '\n\nPosible causa: permisos insuficientes.\nVe a dropbox.com/developers/apps → tu app → Permissions → activa files.metadata.read → Submit → reconecta.';
+  });
 }
 
 function guardarPathKfc() {
