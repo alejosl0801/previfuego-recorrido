@@ -21,10 +21,8 @@
   <div id="s0" class="screen active">
     <div class="logo-wrap">
       <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <!-- Shield -->
         <path d="M40 6L10 18v20c0 18 13 32 30 36 17-4 30-18 30-36V18L40 6z"
               fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.7)" stroke-width="2.5"/>
-        <!-- Flame -->
         <path d="M40 52c-7 0-12-5-12-11 0-4 2-7 5-9-1 3 0 6 2 7 0-5 3-9 6-12 0 5 3 8 5 10 1-2 1-4 0-6 4 3 6 7 6 10 0 6-5 11-12 11z"
               fill="rgba(255,255,255,0.9)"/>
       </svg>
@@ -89,13 +87,14 @@
       <span class="header-date" id="admin-fecha"></span>
     </header>
     <div class="tabs">
-      <button class="tab active" onclick="switchTab('crear')" id="tab-btn-crear">Crear Recorrido</button>
-      <button class="tab" onclick="switchTab('config')" id="tab-btn-config">&#x2699;&#xFE0F; Config</button>
+      <button class="tab active" onclick="switchTab('clientes')" id="tab-btn-clientes">Clientes</button>
+      <button class="tab" onclick="switchTab('voz')" id="tab-btn-voz">&#x1F3A4; Voz</button>
       <button class="tab" onclick="switchTab('seguimiento')" id="tab-btn-seguimiento">Seguimiento</button>
+      <button class="tab" onclick="switchTab('config')" id="tab-btn-config">&#x2699;&#xFE0F;</button>
     </div>
 
-    <!-- Tab Crear -->
-    <div id="tab-crear" class="tab-content active">
+    <!-- Tab Clientes del Mes -->
+    <div id="tab-clientes" class="tab-content active">
       <div class="form-group">
         <label for="admin-mes">Mes de contratos:</label>
         <select id="admin-mes" onchange="cargarClientes()">
@@ -113,39 +112,27 @@
           <option value="DICIEMBRE">Diciembre</option>
         </select>
       </div>
-      <div id="clientes-lista"></div>
-      <div class="admin-publish-wrap">
-        <button class="btn-primary btn-full" onclick="publicarRecorrido()">&#x1F4E4; Publicar Recorrido</button>
-      </div>
+      <div id="clientes-mes-stats" class="clientes-mes-stats"></div>
+      <div id="clientes-mes-lista" class="clientes-mes-lista"></div>
     </div>
 
-    <!-- Tab Config -->
-    <div id="tab-config" class="tab-content">
-      <div class="config-section">
-        <h3>Conexi&#xF3;n Dropbox</h3>
-        <p class="config-hint">Permanente — solo se conecta una vez.</p>
-        <div id="cfg-status" style="margin-top:8px;text-align:center;font-size:15px;padding:10px 0"></div>
-        <button id="btn-conectar-dropbox" class="btn-primary btn-full" onclick="iniciarOAuth()">&#x1F517; Conectar con Dropbox</button>
-        <button id="btn-desconectar-dropbox" class="btn-ghost btn-full" onclick="desconectarDropbox()" style="display:none;margin-top:10px">Desconectar</button>
+    <!-- Tab Voz -->
+    <div id="tab-voz" class="tab-content">
+      <div class="voz-section">
+        <p class="voz-hint">Habla para crear el recorrido de hoy.<br><small>Ejemplo: "Pon los KFC pendientes de Guayaquil"</small></p>
+        <button id="btn-mic" class="btn-mic" onclick="iniciarVoz()">&#x1F3A4;</button>
+        <div id="voz-transcript" class="voz-transcript"></div>
+        <div id="voz-status" class="voz-status"></div>
       </div>
-
-      <div class="config-section" style="margin-top:16px">
-        <h3>Rutas de archivos</h3>
-        <div class="form-group">
-          <label>Archivo KFC (.xlsx):</label>
-          <input type="text" id="cfg-path-kfc" class="opts-input" style="font-size:12px" />
-          <button class="btn-ghost" onclick="guardarPathKfc()" style="margin-top:4px;width:100%">Guardar</button>
+      <div id="ruta-preview" class="ruta-preview" style="display:none">
+        <div class="ruta-preview-header">
+          <span id="ruta-preview-title">Ruta sugerida</span>
+          <button class="btn-ghost" onclick="limpiarPreview()" style="font-size:0.8rem;padding:6px 12px;min-height:36px">&#x2715; Cancelar</button>
         </div>
-        <div class="form-group" style="margin-top:10px">
-          <label>Archivo otros clientes (.xlsx):</label>
-          <input type="text" id="cfg-path-otros" class="opts-input" style="font-size:12px" />
-          <button class="btn-ghost" onclick="guardarPathOtros()" style="margin-top:4px;width:100%">Guardar</button>
+        <div id="ruta-preview-lista" class="ruta-preview-lista"></div>
+        <div class="admin-publish-wrap">
+          <button class="btn-primary btn-full" onclick="publicarRutaPreview()">&#x1F4E4; Publicar Recorrido</button>
         </div>
-        <div style="margin-top:12px;display:flex;gap:8px">
-          <button class="btn-ghost" style="flex:1;font-size:12px" onclick="listarCarpeta('/Previfuego/2026')">&#x1F4C2; Ver 2026/</button>
-          <button class="btn-ghost" style="flex:1;font-size:12px" onclick="listarCarpeta('/Previfuego/PRESUPUESTOS')">&#x1F4C2; Ver PRESUPUESTOS/</button>
-        </div>
-        <div id="cfg-debug" style="margin-top:10px;font-size:12px;color:#555;background:#f5f5f5;border-radius:8px;padding:10px;word-break:break-all;white-space:pre-wrap;min-height:40px"></div>
       </div>
     </div>
 
@@ -166,6 +153,46 @@
         </table>
       </div>
       <p class="auto-refresh-note">Se actualiza cada 30 segundos</p>
+    </div>
+
+    <!-- Tab Config -->
+    <div id="tab-config" class="tab-content">
+      <div class="config-section">
+        <h3>Conexi&#xF3;n Dropbox</h3>
+        <p class="config-hint">Permanente — solo se conecta una vez.</p>
+        <div id="cfg-status" style="margin-top:8px;text-align:center;font-size:15px;padding:10px 0"></div>
+        <button id="btn-conectar-dropbox" class="btn-primary btn-full" onclick="iniciarOAuth()">&#x1F517; Conectar con Dropbox</button>
+        <button id="btn-desconectar-dropbox" class="btn-ghost btn-full" onclick="desconectarDropbox()" style="display:none;margin-top:10px">Desconectar</button>
+      </div>
+
+      <div class="config-section" style="margin-top:16px">
+        <h3>Clave Gemini AI</h3>
+        <p class="config-hint">Se guarda en Dropbox y nunca en el c&#xF3;digo.</p>
+        <div id="cfg-gemini-status" style="margin-bottom:8px;font-size:13px;color:#555"></div>
+        <div class="form-group" style="padding:0">
+          <input type="password" id="cfg-gemini-key" class="opts-input" placeholder="Pega tu clave de API Gemini aqu&#xED;" style="font-size:13px" />
+          <button class="btn-primary btn-full" onclick="guardarGeminiKey()" style="margin-top:8px">Guardar clave Gemini</button>
+        </div>
+      </div>
+
+      <div class="config-section" style="margin-top:16px">
+        <h3>Rutas de archivos</h3>
+        <div class="form-group" style="padding:0">
+          <label>Archivo KFC (.xlsx):</label>
+          <input type="text" id="cfg-path-kfc" class="opts-input" style="font-size:12px" />
+          <button class="btn-ghost" onclick="guardarPathKfc()" style="margin-top:4px;width:100%">Guardar</button>
+        </div>
+        <div class="form-group" style="padding:0;margin-top:10px">
+          <label>Archivo otros clientes (.xlsx):</label>
+          <input type="text" id="cfg-path-otros" class="opts-input" style="font-size:12px" />
+          <button class="btn-ghost" onclick="guardarPathOtros()" style="margin-top:4px;width:100%">Guardar</button>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn-ghost" style="flex:1;font-size:12px" onclick="listarCarpeta('/Previfuego/2026')">&#x1F4C2; Ver 2026/</button>
+          <button class="btn-ghost" style="flex:1;font-size:12px" onclick="listarCarpeta('/Previfuego/PRESUPUESTOS')">&#x1F4C2; Ver PRESUPUESTOS/</button>
+        </div>
+        <div id="cfg-debug" style="margin-top:10px;font-size:12px;color:#555;background:#f5f5f5;border-radius:8px;padding:10px;word-break:break-all;white-space:pre-wrap;min-height:40px"></div>
+      </div>
     </div>
   </div>
 
