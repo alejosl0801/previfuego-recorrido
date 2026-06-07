@@ -111,10 +111,10 @@ function iniciarOAuth() {
 function handleOAuthCallback() {
   var params = new URLSearchParams(window.location.search);
   var code = params.get('code');
-  if (!code) return;
+  if (!code) return false;
   history.replaceState({}, '', window.location.pathname);
   var verifier = localStorage.getItem('pf_dbx_verifier');
-  if (!verifier) return;
+  if (!verifier) return false;
   mostrarCargando(true);
   fetch('https://api.dropbox.com/oauth2/token', {
     method: 'POST',
@@ -137,6 +137,7 @@ function handleOAuthCallback() {
     actualizarEstadoConexion();
   })
   .catch(function(err) { mostrarCargando(false); pfModal('Error OAuth', String(err)); });
+  return true;
 }
 
 function actualizarEstadoConexion() {
@@ -489,7 +490,8 @@ function cargarClientes() {
                           .filter(function(c) { return c.nombre && (!mes || !c.mes || c.mes === mes || c.mes === ''); });
     CLIENTES_DISPONIBLES = kfc.concat(otros);
     localStorage.setItem('pf_clientes_cache', JSON.stringify(CLIENTES_DISPONIBLES));
-    VISITAS_MES = (results[2] || {})[_claveMesActual()] || {};
+    var claveMes = _claveMesActual();
+    VISITAS_MES = (results[2] || {})[claveMes] || {};
     renderClientesMes();
   })
   .catch(function(err) {
@@ -641,13 +643,14 @@ function procesarInstruccionVoz(texto) {
   .then(function(d) {
     if (d.error) throw new Error(d.error.message || 'Error Gemini API');
     var raw = ((d.candidates || [])[0] || {});
-    var text = (raw.content && raw.content.parts && raw.content.parts[0]) ? raw.content.parts[0].text.trim() : '';
-    var match = text.match(/\[[\d,\s]*\]/);
+    var part0 = (raw.content && raw.content.parts && raw.content.parts[0]) ? raw.content.parts[0] : null;
+    var text = part0 ? ((part0.text || '').trim()) : '';
+    var match = text.match(/\[[\d,\s,-]*\]/);
     if (!match) throw new Error('Respuesta inesperada de Gemini: ' + text.slice(0, 100));
     var indices = JSON.parse(match[0]);
     RUTA_PREVIEW = indices
       .filter(function(i) { return typeof i === 'number' && i >= 0 && i < CLIENTES_DISPONIBLES.length; })
-      .map(function(i) { return CLIENTES_DISPONIBLES[i]; });
+      .map(function(i) { return Object.assign({}, CLIENTES_DISPONIBLES[i]); });
     if (!RUTA_PREVIEW.length) {
       if (statusEl) statusEl.textContent = '⚠️ Gemini no encontr\xF3 clientes para esa instrucci\xF3n.';
       return;
@@ -782,7 +785,7 @@ function renderTablaSeguimiento(puntos) {
   }
   counters.innerHTML = cHtml;
   var sorted = puntos.slice().sort(function(a, b) {
-    if (a.done !== b.done) return a.done ? -1 : 1;
+    if (a.done !== b.done) return a.done ? 1 : -1;
     return (a.nombre || '').localeCompare(b.nombre || '');
   });
   var tHtml = '';
@@ -951,7 +954,7 @@ function _ejecutarSubirFichas() {
   .catch(function() { return {}; })
   .then(function(recorridos) {
     var hoy = recorridos[fechaHoy()];
-    if (!hoy) { _subirFichasPending = false; return; }
+    if (!hoy) return;
     hoy.puntos = hoy.puntos.map(function(p) {
       if (p.tecnico !== tecnico) return p;
       var match = snapshot.filter(function(s) { return s.nombre === p.nombre; })[0];
@@ -961,9 +964,8 @@ function _ejecutarSubirFichas() {
     recorridos[fechaHoy()] = hoy;
     return dbxUpload(DBX_RECORRIDOS, JSON.stringify(recorridos, null, 2));
   })
-  .then(function() { _subirFichasPending = false; })
+  .finally(function() { _subirFichasPending = false; })
   .catch(function(err) {
-    _subirFichasPending = false;
     console.error('[PF] subirFichas error:', err);
     showToast('⚠️ No se pudo sincronizar. Se reintentar\xE1.');
     setTimeout(_ejecutarSubirFichas, 5000);
@@ -974,9 +976,11 @@ function _ejecutarSubirFichas() {
    INIT
 =================================================== */
 document.addEventListener('DOMContentLoaded', function() {
-  handleOAuthCallback();
-  var savedUser = localStorage.getItem('pf_usuario');
-  if (savedUser && USUARIOS[savedUser]) login(savedUser);
+  var oauthInProgress = handleOAuthCallback();
+  if (!oauthInProgress) {
+    var savedUser = localStorage.getItem('pf_usuario');
+    if (savedUser && USUARIOS[savedUser]) login(savedUser);
+  }
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/previfuego-recorrido/sw.js').catch(function() {});
   }
