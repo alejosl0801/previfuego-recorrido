@@ -486,14 +486,26 @@ function cargarClientes() {
   ])
   .then(function(results) {
     mostrarCargando(false);
-    var kfc   = results[0].map(function(r) { return normalizarCliente(r, true); })
-                          .filter(function(c) { return c.nombre && (!mes || !c.mes || c.mes === mes || c.mes === ''); });
-    var otros = results[1].map(function(r) { return normalizarCliente(r, false); })
-                          .filter(function(c) { return c.nombre && (!mes || !c.mes || c.mes === mes || c.mes === ''); });
+    var rawKfc   = results[0];
+    var rawOtros = results[1];
+    var kfc   = rawKfc.map(function(r) { return normalizarCliente(r, true); })
+                      .filter(function(c) { return c.nombre && (!mes || !c.mes || c.mes === mes || c.mes === ''); });
+    var otros = rawOtros.map(function(r) { return normalizarCliente(r, false); })
+                        .filter(function(c) { return c.nombre && (!mes || !c.mes || c.mes === mes || c.mes === ''); });
     CLIENTES_DISPONIBLES = kfc.concat(otros);
     try { localStorage.setItem('pf_clientes_cache', JSON.stringify(CLIENTES_DISPONIBLES)); } catch(e) {}
     var claveMes = _claveMesActual();
     VISITAS_MES = (results[2] || {})[claveMes] || {};
+    if (!CLIENTES_DISPONIBLES.length) {
+      var cont = document.getElementById('clientes-mes-lista');
+      var debugMsg = 'KFC: ' + rawKfc.length + ' filas — Otros: ' + rawOtros.length + ' filas'
+        + '\nFiltro mes: "' + mes + '"'
+        + (rawKfc.length ? '\nEjemplo columnas KFC: ' + Object.keys(rawKfc[0]).slice(0,6).join(', ') : '')
+        + '\nRuta KFC: ' + DBX_KFC_PATH
+        + '\nRuta Otros: ' + DBX_OTROS_PATH;
+      if (cont) cont.innerHTML = '<div class="no-clientes"><strong>Sin clientes para este mes.</strong><br><small style="white-space:pre-wrap;font-size:11px;color:#555">' + esc(debugMsg) + '</small></div>';
+      return;
+    }
     renderClientesMes();
   })
   .catch(function(err) {
