@@ -1,4 +1,4 @@
-const CACHE_VERSION = '1.1';
+const CACHE_VERSION = '1.2';
 const CACHE_NAME = 'pfrecorrido-v' + CACHE_VERSION;
 const ASSETS = [
   '/previfuego-recorrido/',
