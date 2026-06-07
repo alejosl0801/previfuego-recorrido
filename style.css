@@ -875,6 +875,220 @@ body {
   line-height: 1.5;
 }
 
+/* ===== CLIENTES DEL MES ===== */
+.clientes-mes-stats {
+  padding: 12px 16px 4px;
+}
+.mes-stats {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.mes-stat-ok {
+  background: #e6f4ea;
+  color: #2e7d32;
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.mes-stat-pend {
+  background: #fff8e1;
+  color: #f57c00;
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.clientes-mes-lista {
+  padding: 8px 16px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cliente-mes-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 14px 14px 14px 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.10);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-left: 4px solid #ddd;
+  transition: border-color .2s;
+}
+.cliente-mes-card.visitado {
+  border-left-color: #4caf50;
+  opacity: .75;
+}
+.cliente-mes-info {
+  flex: 1;
+  min-width: 0;
+}
+.cliente-mes-info strong {
+  display: block;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cliente-mes-info small {
+  font-size: 0.78rem;
+  color: #777;
+  display: block;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.btn-visitado {
+  flex-shrink: 0;
+  background: #f0f0f0;
+  color: #333;
+  border: none;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 36px;
+  transition: background .2s, color .2s;
+}
+.btn-visitado:active { opacity: .7; }
+.btn-visitado-done {
+  background: #4caf50;
+  color: #fff;
+}
+
+/* ===== VOZ + GEMINI ===== */
+.voz-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 28px 24px 16px;
+  gap: 16px;
+}
+.voz-hint {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #555;
+  line-height: 1.5;
+}
+.btn-mic {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: #9e1212;
+  color: #fff;
+  font-size: 2.4rem;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(158,18,18,.35);
+  transition: background .2s, transform .1s;
+}
+.btn-mic:active { transform: scale(.93); }
+.btn-mic.grabando {
+  background: #388e3c;
+  animation: pulse-mic 1s ease-in-out infinite;
+}
+@keyframes pulse-mic {
+  0%   { box-shadow: 0 0 0 0 rgba(56,142,60,.5); }
+  70%  { box-shadow: 0 0 0 14px rgba(56,142,60,0); }
+  100% { box-shadow: 0 0 0 0 rgba(56,142,60,0); }
+}
+.voz-transcript {
+  font-size: 0.9rem;
+  color: #333;
+  font-style: italic;
+  text-align: center;
+  min-height: 20px;
+  padding: 0 8px;
+}
+.voz-status {
+  font-size: 0.85rem;
+  color: #666;
+  text-align: center;
+  min-height: 18px;
+}
+
+/* ===== RUTA PREVIEW ===== */
+.ruta-preview {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ruta-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 1rem;
+  padding-bottom: 4px;
+}
+.ruta-preview-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.ruta-preview-item {
+  background: #fff;
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.ruta-preview-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #9e1212;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.ruta-preview-info {
+  flex: 1;
+  min-width: 0;
+}
+.ruta-preview-info strong {
+  display: block;
+  font-size: 0.93rem;
+}
+.ruta-preview-info small {
+  font-size: 0.78rem;
+  color: #777;
+  display: block;
+  margin-top: 2px;
+}
+.ruta-preview-info select {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  background: #f9f9f9;
+}
+.admin-publish-wrap {
+  position: sticky;
+  bottom: 0;
+  background: rgba(245,245,245,.97);
+  padding: 12px 0 8px;
+  z-index: 10;
+}
+
 /* ===== RESPONSIVE ===== */
 @media (min-width: 480px) {
   .login-grid {
@@ -890,7 +1104,7 @@ body {
     max-width: 640px;
     margin: 0 auto;
   }
-  #clientes-lista {
+  #clientes-mes-lista {
     max-width: 640px;
     margin: 0 auto;
   }
