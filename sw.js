@@ -1,4 +1,4 @@
-const CACHE_VERSION = '1.2';
+const CACHE_VERSION = '1.3';
 const CACHE_NAME = 'pfrecorrido-v' + CACHE_VERSION;
 const ASSETS = [
   '/previfuego-recorrido/',
@@ -24,7 +24,7 @@ self.addEventListener('fetch', e => {
   if (url.includes('dropboxapi.com') ||
       url.includes('dropbox.com') ||
       url.includes('script.google.com') ||
-      url.includes('sheetjs.com')) return;
+      url.includes('generativelanguage.googleapis.com')) return;
   e.respondWith(
     caches.match(e.request, { ignoreSearch: true })
       .then(r => r || fetch(e.request))

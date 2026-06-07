@@ -22,6 +22,7 @@ var VISITAS_MES = {};
 var RUTA_PREVIEW = [];
 var _seguimientoInterval = null;
 var _toastTimer = null;
+var _currentRec = null;
 
 var USUARIOS = {
   alejandro: { nombre: 'Alejandro', emoji: '👔', esAdmin: true },
@@ -298,7 +299,8 @@ function dbxUpload(path, content) {
 function dbxDownloadJSON(path) {
   return dbxDownload(path).then(function(buf) {
     if (buf === null) return {};
-    return JSON.parse(new TextDecoder().decode(buf));
+    try { return JSON.parse(new TextDecoder().decode(buf)); }
+    catch(e) { console.error('[PF] JSON corrupto en ' + path, e); return {}; }
   });
 }
 
@@ -489,7 +491,7 @@ function cargarClientes() {
     var otros = results[1].map(function(r) { return normalizarCliente(r, false); })
                           .filter(function(c) { return c.nombre && (!mes || !c.mes || c.mes === mes || c.mes === ''); });
     CLIENTES_DISPONIBLES = kfc.concat(otros);
-    localStorage.setItem('pf_clientes_cache', JSON.stringify(CLIENTES_DISPONIBLES));
+    try { localStorage.setItem('pf_clientes_cache', JSON.stringify(CLIENTES_DISPONIBLES)); } catch(e) {}
     var claveMes = _claveMesActual();
     VISITAS_MES = (results[2] || {})[claveMes] || {};
     renderClientesMes();
@@ -592,10 +594,18 @@ function iniciarVoz() {
   var btn      = document.getElementById('btn-mic');
   var statusEl = document.getElementById('voz-status');
   var transcEl = document.getElementById('voz-transcript');
+  if (_currentRec) {
+    _currentRec.abort();
+    _currentRec = null;
+    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4;'; }
+    if (statusEl) statusEl.textContent = '';
+    return;
+  }
   if (btn) { btn.classList.add('grabando'); btn.innerHTML = '&#x23F9;'; }
   if (statusEl) statusEl.textContent = 'Escuchando... habla ahora';
   if (transcEl) transcEl.textContent = '';
   var rec = new SpeechRecognition();
+  _currentRec = rec;
   rec.lang = 'es-EC';
   rec.continuous = false;
   rec.interimResults = false;
@@ -604,13 +614,16 @@ function iniciarVoz() {
     if (transcEl) transcEl.textContent = '"' + texto + '"';
     if (statusEl) statusEl.textContent = 'Procesando con Gemini AI...';
     if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4;'; }
+    _currentRec = null;
     procesarInstruccionVoz(texto);
   };
   rec.onerror = function(e) {
+    _currentRec = null;
     if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4;'; }
     if (statusEl) statusEl.textContent = '⚠️ Error de micr\xF3fono: ' + e.error;
   };
   rec.onend = function() {
+    _currentRec = null;
     if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4;'; }
   };
   rec.start();
@@ -649,7 +662,7 @@ function procesarInstruccionVoz(texto) {
     if (!match) throw new Error('Respuesta inesperada de Gemini: ' + text.slice(0, 100));
     var indices = JSON.parse(match[0]);
     RUTA_PREVIEW = indices
-      .filter(function(i) { return typeof i === 'number' && i >= 0 && i < CLIENTES_DISPONIBLES.length; })
+      .filter(function(i) { return Number.isInteger(i) && i >= 0 && i < CLIENTES_DISPONIBLES.length; })
       .map(function(i) { return Object.assign({}, CLIENTES_DISPONIBLES[i]); });
     if (!RUTA_PREVIEW.length) {
       if (statusEl) statusEl.textContent = '⚠️ Gemini no encontr\xF3 clientes para esa instrucci\xF3n.';
@@ -712,7 +725,6 @@ function publicarRutaPreview() {
   pfConfirm('Publicar recorrido', 'Se publicar\xE1n ' + puntos.length + ' punto(s) para hoy ' + fechaHoy() + '. \xBFConfirmar?', function() {
     mostrarCargando(true);
     dbxDownloadJSON(DBX_RECORRIDOS)
-    .catch(function() { return {}; })
     .then(function(recorridos) {
       var existing = recorridos[fechaHoy()];
       var existingPuntos = (existing && existing.puntos) ? existing.puntos : [];
@@ -750,7 +762,7 @@ function pfRenderSeguimiento() {
     var nota = document.querySelector('.auto-refresh-note');
     if (nota) {
       var ahora = new Date();
-      nota.textContent = 'Actualizado: ' + ahora.getHours() + ':' + String(ahora.getMinutes()).padStart(2,'0') + ':' + String(ahora.getSeconds()).padStart(2,'0');
+      nota.textContent = 'Actualizado: ' + String(ahora.getHours()).padStart(2,'0') + ':' + String(ahora.getMinutes()).padStart(2,'0') + ':' + String(ahora.getSeconds()).padStart(2,'0');
     }
   })
   .catch(function(err) {
@@ -924,7 +936,7 @@ function marcarListo(idx) {
   if (idx < 0 || idx >= PUNTOS.length || PUNTOS[idx].done) return;
   PUNTOS[idx].done = true;
   var ahora = new Date();
-  PUNTOS[idx].horaCompletado = ahora.getHours() + ':' + String(ahora.getMinutes()).padStart(2, '0');
+  PUNTOS[idx].horaCompletado = String(ahora.getHours()).padStart(2,'0') + ':' + String(ahora.getMinutes()).padStart(2,'0');
   var estado = {};
   try { var r = localStorage.getItem('pf_estado_' + fechaHoy()); if (r) estado = JSON.parse(r); } catch(e) {}
   estado[PUNTOS[idx].nombre || idx] = { done: true, hora: PUNTOS[idx].horaCompletado };

@@ -70,7 +70,7 @@
       </div>
     </div>
     <div class="search-wrap">
-      <input type="search" id="s1-buscar" placeholder="Buscar cliente..." oninput="filtrarPuntos()" autocomplete="off" />
+      <input type="search" id="s1-buscar" placeholder="Buscar cliente..." oninput="filtrarPuntos()" autocomplete="off" aria-label="Buscar cliente" />
     </div>
     <div id="lista-puntos" class="puntos-list"></div>
     <div id="s1-vacio" class="empty-state" style="display:none">
@@ -90,7 +90,7 @@
       <button class="tab active" onclick="switchTab('clientes')" id="tab-btn-clientes">Clientes</button>
       <button class="tab" onclick="switchTab('voz')" id="tab-btn-voz">&#x1F3A4; Voz</button>
       <button class="tab" onclick="switchTab('seguimiento')" id="tab-btn-seguimiento">Seguimiento</button>
-      <button class="tab" onclick="switchTab('config')" id="tab-btn-config">&#x2699;&#xFE0F;</button>
+      <button class="tab" onclick="switchTab('config')" id="tab-btn-config" aria-label="Configuración">&#x2699;&#xFE0F;</button>
     </div>
 
     <!-- Tab Clientes del Mes -->
@@ -203,7 +203,7 @@
   </div>
 
   <!-- ===== MODAL ===== -->
-  <div id="modal-overlay" class="hidden" role="dialog" aria-modal="true">
+  <div id="modal-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div class="modal-box">
       <div class="modal-title" id="modal-title">Aviso</div>
       <div class="modal-msg" id="modal-msg"></div>
