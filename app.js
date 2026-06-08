@@ -371,11 +371,9 @@ function deduplicarClientes(lista) {
       mapa[key] = Object.assign({}, c, { tipos: [] });
       orden.push(key);
     }
-    if (c.local || c.extintores) {
-      mapa[key].tipos.push({ tipo: c.local || c.marca || '', ext: c.extintores });
-    }
+    mapa[key].tipos.push({ tipo: c.local || '', marca: c.marca || '', cap: c.extintores });
     if (!mapa[key].direccion && c.direccion) mapa[key].direccion = c.direccion;
-    mapa[key].extintores = mapa[key].tipos.reduce(function(s, t) { return s + (t.ext || 0); }, 0);
+    mapa[key].extintores = mapa[key].tipos.length;
   });
   return orden.map(function(k) { return mapa[k]; });
 }
@@ -639,7 +637,8 @@ function renderClienteMesCard(c, idx, visitado) {
   if (c.tipos && c.tipos.length) {
     tiposHtml = '<div class="cliente-tipos">'
       + c.tipos.map(function(t) {
-          return '<span class="cliente-tipo-tag">' + esc(t.tipo || '—') + ': ' + (t.ext || 0) + '</span>';
+          var label = [t.tipo, t.marca].filter(Boolean).join(' ');
+          return '<span class="cliente-tipo-tag">' + esc(label || '—') + (t.cap ? ' · ' + t.cap : '') + '</span>';
         }).join('')
       + '</div>';
   }
