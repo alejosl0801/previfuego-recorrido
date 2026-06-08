@@ -493,7 +493,11 @@ function cargarClientes() {
     var otros = rawOtros.map(function(r) { return normalizarCliente(r, false); })
                         .filter(function(c) { return c.nombre && (!mes || !c.mes || c.mes === mes || c.mes === ''); });
     CLIENTES_DISPONIBLES = kfc.concat(otros);
-    try { localStorage.setItem('pf_clientes_cache', JSON.stringify(CLIENTES_DISPONIBLES)); } catch(e) {}
+    if (CLIENTES_DISPONIBLES.length > 0) {
+      try { localStorage.setItem('pf_clientes_cache', JSON.stringify(CLIENTES_DISPONIBLES)); } catch(e) {}
+    } else {
+      localStorage.removeItem('pf_clientes_cache');
+    }
     var claveMes = _claveMesActual();
     VISITAS_MES = (results[2] || {})[claveMes] || {};
     if (!CLIENTES_DISPONIBLES.length) {
@@ -510,12 +514,18 @@ function cargarClientes() {
   })
   .catch(function(err) {
     mostrarCargando(false);
-    var cache = localStorage.getItem('pf_clientes_cache');
-    if (cache) {
-      try { CLIENTES_DISPONIBLES = JSON.parse(cache); showToast('Sin conexi\xF3n — usando cach\xE9'); renderClientesMes(); return; } catch(e) {}
-    }
+    console.error('[PF] cargarClientes error:', err);
     var cont = document.getElementById('clientes-mes-lista');
-    if (cont) cont.innerHTML = '<div class="no-clientes"><strong>Error al cargar desde Dropbox</strong><br><small>' + esc(String(err)) + '</small></div>';
+    var cache = localStorage.getItem('pf_clientes_cache');
+    var cacheData = null;
+    try { if (cache) cacheData = JSON.parse(cache); } catch(e) {}
+    if (cacheData && cacheData.length > 0) {
+      CLIENTES_DISPONIBLES = cacheData;
+      showToast('Sin conexi\xF3n — usando cach\xE9 (' + cacheData.length + ' clientes)');
+      renderClientesMes();
+      return;
+    }
+    if (cont) cont.innerHTML = '<div class="no-clientes"><strong>❌ Error al cargar desde Dropbox</strong><br><small style="white-space:pre-wrap;font-size:11px;color:#c00">' + esc(String(err)) + '</small><br><br><small>Ruta KFC: ' + esc(DBX_KFC_PATH) + '<br>Ruta Otros: ' + esc(DBX_OTROS_PATH) + '</small></div>';
   });
 }
 
