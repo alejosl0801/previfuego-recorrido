@@ -337,15 +337,19 @@ function normalizarCliente(row, esKfc) {
 
 function deduplicarClientes(lista) {
   var mapa = {};
+  var orden = [];
   lista.forEach(function(c) {
-    var key = c.nombre + '||' + c.direccion;
+    if (!c.nombre) return;
+    var key = c.nombre.toLowerCase().trim();
     if (!mapa[key]) {
       mapa[key] = Object.assign({}, c);
+      orden.push(key);
     } else {
       mapa[key].extintores += c.extintores;
+      if (!mapa[key].direccion && c.direccion) mapa[key].direccion = c.direccion;
     }
   });
-  return Object.keys(mapa).map(function(k) { return mapa[k]; });
+  return orden.map(function(k) { return mapa[k]; });
 }
 
 /* ===================================================
