@@ -322,8 +322,7 @@ function normalizarCliente(row, esKfc) {
   var ext    = row['EXTINTORES'] || row['Extintores'] || row['CAPACIDAD'] || row['CANTIDAD'] ||
                row['Cantidad'] || row['EXT'] || row['N_EXT'] || row['TOTAL'] || 0;
   var mes    = row['MES_SERVICIO'] || row['MES'] || row['Mes'] || row['mes'] || '';
-  var local  = row['NOMBRE_LOCAL'] || row['LOCAL'] || row['Local'] || row['LOCAL_KFC'] ||
-               row['Sucursal'] || row['SUCURSAL'] || '';
+  var local  = row['LOCAL'] || row['Local'] || row['LOCAL_KFC'] || row['Sucursal'] || row['SUCURSAL'] || row['TIPO'] || '';
   var marca  = row['MARCA'] || row['Marca'] || '';
   return {
     nombre:     String(nombre).trim(),
@@ -334,6 +333,19 @@ function normalizarCliente(row, esKfc) {
     marca:      String(marca).trim(),
     esKfc:      !!esKfc
   };
+}
+
+function deduplicarClientes(lista) {
+  var mapa = {};
+  lista.forEach(function(c) {
+    var key = c.nombre + '||' + c.direccion;
+    if (!mapa[key]) {
+      mapa[key] = Object.assign({}, c);
+    } else {
+      mapa[key].extintores += c.extintores;
+    }
+  });
+  return Object.keys(mapa).map(function(k) { return mapa[k]; });
 }
 
 /* ===================================================
@@ -491,9 +503,9 @@ function cargarClientes() {
     mostrarCargando(false);
     var rawKfc   = results[0];
     var rawOtros = results[1];
-    var kfc   = rawKfc.map(function(r) { return normalizarCliente(r, true); })
+    var kfc   = deduplicarClientes(rawKfc.map(function(r) { return normalizarCliente(r, true); }))
                       .filter(function(c) { return c.nombre && (!mes || !c.mes || c.mes === mes || c.mes === ''); });
-    var otros = rawOtros.map(function(r) { return normalizarCliente(r, false); })
+    var otros = deduplicarClientes(rawOtros.map(function(r) { return normalizarCliente(r, false); }))
                         .filter(function(c) { return c.nombre && (!mes || !c.mes || c.mes === mes || c.mes === ''); });
     CLIENTES_DISPONIBLES = kfc.concat(otros);
     if (CLIENTES_DISPONIBLES.length > 0) {
