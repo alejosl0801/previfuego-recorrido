@@ -342,12 +342,14 @@ function deduplicarClientes(lista) {
     if (!c.nombre) return;
     var key = c.nombre.toLowerCase().trim();
     if (!mapa[key]) {
-      mapa[key] = Object.assign({}, c);
+      mapa[key] = Object.assign({}, c, { tipos: [] });
       orden.push(key);
-    } else {
-      mapa[key].extintores += c.extintores;
-      if (!mapa[key].direccion && c.direccion) mapa[key].direccion = c.direccion;
     }
+    if (c.local || c.extintores) {
+      mapa[key].tipos.push({ tipo: c.local || c.marca || '', ext: c.extintores });
+    }
+    if (!mapa[key].direccion && c.direccion) mapa[key].direccion = c.direccion;
+    mapa[key].extintores = mapa[key].tipos.reduce(function(s, t) { return s + (t.ext || 0); }, 0);
   });
   return orden.map(function(k) { return mapa[k]; });
 }
@@ -586,6 +588,10 @@ function renderClientesMes() {
     stats.innerHTML = '<div class="mes-stats">'
       + '<span class="mes-stat-ok">&#x2713; ' + visitados.length + ' visitados</span>'
       + '<span class="mes-stat-pend">&#x23F3; ' + pendientes.length + ' pendientes</span>'
+      + '</div>'
+      + '<div class="mes-archivos">'
+      + '&#x1F4C2; KFC: <code>' + esc(DBX_KFC_PATH.split('/').pop()) + '</code> &nbsp;|&nbsp; '
+      + 'Otros: <code>' + esc(DBX_OTROS_PATH.split('/').pop()) + '</code>'
       + '</div>';
   }
   var html = '';
@@ -602,13 +608,21 @@ function renderClientesMes() {
 
 function renderClienteMesCard(c, idx, visitado) {
   var badge  = c.esKfc ? '<span class="badge-kfc">KFC</span>' : '';
-  var local  = c.local ? ' \xB7 ' + esc(c.local) : '';
-  var fechaV = visitado && VISITAS_MES[c.nombre] ? ' \xB7 ' + VISITAS_MES[c.nombre].fecha : '';
+  var fechaV = visitado && VISITAS_MES[c.nombre] ? ' · ' + VISITAS_MES[c.nombre].fecha : '';
+  var tiposHtml = '';
+  if (c.tipos && c.tipos.length) {
+    tiposHtml = '<div class="cliente-tipos">'
+      + c.tipos.map(function(t) {
+          return '<span class="cliente-tipo-tag">' + esc(t.tipo || '—') + ': ' + (t.ext || 0) + '</span>';
+        }).join('')
+      + '</div>';
+  }
   return '<div class="cliente-mes-card' + (visitado ? ' visitado' : '') + '">'
     + '<div class="cliente-mes-info">'
-    +   '<div class="cliente-nombre">' + badge + esc(c.nombre) + local + '</div>'
-    +   '<div class="cliente-dir">' + esc(c.direccion) + '</div>'
-    +   '<div class="cliente-ext">&#x1F9EF; ' + (c.extintores || '?') + ' extintor(es)</div>'
+    +   '<div class="cliente-nombre">' + badge + ' ' + esc(c.nombre) + '</div>'
+    +   (c.direccion ? '<div class="cliente-dir">' + esc(c.direccion) + '</div>' : '')
+    +   tiposHtml
+    +   '<div class="cliente-ext">&#x1F9EF; Total: ' + (c.extintores || '?') + ' extintor(es)</div>'
     + '</div>'
     + '<button class="btn-visitado' + (visitado ? ' btn-visitado-done' : '') + '" onclick="marcarVisitado(' + idx + ')">'
     +   (visitado ? '&#x2713;' + fechaV : 'Marcar')
