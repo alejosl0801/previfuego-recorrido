@@ -314,21 +314,24 @@ function parseExcel(buf) {
 }
 
 function normalizarCliente(row, esKfc) {
-  var nombre = row['CLIENTE'] || row['Cliente'] || row['NOMBRE'] || row['Nombre'] ||
-               row['RAZON SOCIAL'] || row['Raz\xF3n Social'] || row['RAZON_SOCIAL'] || '';
-  var dir    = row['DIRECCION'] || row['Direcci\xF3n'] || row['DIRECCI\xD3N'] || row['DIR'] ||
-               row['Direccion'] || row['DIREC'] || row['direccion'] || '';
+  var nombre = row['NOMBRE_LOCAL'] || row['CLIENTE'] || row['Cliente'] || row['NOMBRE'] || row['Nombre'] ||
+               row['RAZON SOCIAL'] || row['Raz\xF3n Social'] || row['RAZON_SOCIAL'] || row['RAZÓN SOCIAL'] || '';
+  var dir    = row['UBICACI\xD3N'] || row['UBICACION'] || row['DIRECCION'] || row['Direcci\xF3n'] ||
+               row['DIRECCI\xD3N'] || row['DIR'] || row['Direccion'] || row['DIREC'] || row['direccion'] || '';
   var ciudad = row['CIUDAD'] || row['Ciudad'] || row['ciudad'] || '';
-  var ext    = row['EXTINTORES'] || row['Extintores'] || row['CANTIDAD'] || row['Cantidad'] ||
-               row['EXT'] || row['N_EXT'] || row['TOTAL'] || 0;
-  var mes    = row['MES'] || row['Mes'] || row['mes'] || '';
-  var local  = row['LOCAL'] || row['Local'] || row['LOCAL_KFC'] || row['Sucursal'] || row['SUCURSAL'] || '';
+  var ext    = row['EXTINTORES'] || row['Extintores'] || row['CAPACIDAD'] || row['CANTIDAD'] ||
+               row['Cantidad'] || row['EXT'] || row['N_EXT'] || row['TOTAL'] || 0;
+  var mes    = row['MES_SERVICIO'] || row['MES'] || row['Mes'] || row['mes'] || '';
+  var local  = row['NOMBRE_LOCAL'] || row['LOCAL'] || row['Local'] || row['LOCAL_KFC'] ||
+               row['Sucursal'] || row['SUCURSAL'] || '';
+  var marca  = row['MARCA'] || row['Marca'] || '';
   return {
     nombre:     String(nombre).trim(),
     direccion:  String(dir).trim() + (ciudad ? ' — ' + ciudad : ''),
     extintores: parseInt(ext) || 0,
     mes:        String(mes).trim().toUpperCase(),
     local:      String(local).trim(),
+    marca:      String(marca).trim(),
     esKfc:      !!esKfc
   };
 }
@@ -501,10 +504,12 @@ function cargarClientes() {
     var claveMes = _claveMesActual();
     VISITAS_MES = (results[2] || {})[claveMes] || {};
     if (!CLIENTES_DISPONIBLES.length) {
+      var mesesEnKfc = rawKfc.length ? [...new Set(rawKfc.slice(0,50).map(function(r){ return r['MES_SERVICIO']||r['MES']||''; }).filter(Boolean))].slice(0,8).join(', ') : '';
       var cont = document.getElementById('clientes-mes-lista');
       var debugMsg = 'KFC: ' + rawKfc.length + ' filas — Otros: ' + rawOtros.length + ' filas'
         + '\nFiltro mes: "' + mes + '"'
-        + (rawKfc.length ? '\nEjemplo columnas KFC: ' + Object.keys(rawKfc[0]).slice(0,6).join(', ') : '')
+        + (rawKfc.length ? '\nColumnas KFC: ' + Object.keys(rawKfc[0]).slice(0,8).join(', ') : '')
+        + (mesesEnKfc ? '\nValores MES en KFC: ' + mesesEnKfc : '')
         + '\nRuta KFC: ' + DBX_KFC_PATH
         + '\nRuta Otros: ' + DBX_OTROS_PATH;
       if (cont) cont.innerHTML = '<div class="no-clientes"><strong>Sin clientes para este mes.</strong><br><small style="white-space:pre-wrap;font-size:11px;color:#555">' + esc(debugMsg) + '</small></div>';
