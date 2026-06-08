@@ -217,6 +217,32 @@ function guardarPathOtros() {
   showToast('✅ Path clientes guardado');
 }
 
+function inspeccionarExcel(path) {
+  var debug = document.getElementById('cfg-debug');
+  if (!debug) return;
+  debug.textContent = 'Descargando ' + path + '...';
+  dbxDownload(path)
+  .then(function(buf) {
+    if (!buf) { debug.textContent = '❌ Archivo no encontrado: ' + path; return; }
+    var wb = XLSX.read(buf, { type: 'array' });
+    var txt = '📋 Hojas: ' + wb.SheetNames.join(', ') + '\n\n';
+    wb.SheetNames.forEach(function(sheetName) {
+      var ws = wb.Sheets[sheetName];
+      var rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      txt += '📄 Hoja: "' + sheetName + '" — ' + rows.length + ' filas\n';
+      if (rows.length) {
+        txt += 'Columnas: ' + Object.keys(rows[0]).join(' | ') + '\n';
+        txt += 'Fila 1: ' + Object.values(rows[0]).slice(0,8).join(' | ') + '\n';
+        if (rows[1]) txt += 'Fila 2: ' + Object.values(rows[1]).slice(0,8).join(' | ') + '\n';
+        if (rows[2]) txt += 'Fila 3: ' + Object.values(rows[2]).slice(0,8).join(' | ') + '\n';
+      }
+      txt += '\n';
+    });
+    debug.textContent = txt;
+  })
+  .catch(function(e) { debug.textContent = '❌ Error: ' + String(e); });
+}
+
 /* ===================================================
    GEMINI KEY — stored only in localStorage + Dropbox
 =================================================== */
