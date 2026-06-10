@@ -1371,38 +1371,70 @@ function cargarClientes() {
   var mes = mesEl ? mesEl.value : '';
   if (mes) localStorage.setItem('pf_mes_seleccionado', mes);
 
-  // Lock: prevent concurrent loads (double-tap, rapid month switching)
+  // Lock: prevent concurrent loads. Auto-release after 45s in case of hang.
   if (_cargandoClientes) return;
   _cargandoClientes = true;
+  var _lockTimeout = setTimeout(function() { _cargandoClientes = false; }, 45000);
 
-  // Clear search filter on month change — prevents "stuck filter" showing 0 results
+  // Clear search filter on month change so stuck filter doesn't show 0 results
   if (mes !== _mesUltimoCargado && _mesUltimoCargado !== '') {
     _clientesFiltro = '';
     var buscarEl = document.getElementById('clientes-buscar');
     if (buscarEl) buscarEl.value = '';
   }
 
-  var teniaDatos = CLIENTES_DISPONIBLES && CLIENTES_DISPONIBLES.length > 0;
   var sk = document.getElementById('skeleton-lista');
-  if (teniaDatos) {
+
+  // STALE-WHILE-REVALIDATE: show cached data immediately while fresh data loads.
+  // This eliminates "flash of empty" on every page load/refresh.
+  var cacheRaw = localStorage.getItem('pf_clientes_cache');
+  if (cacheRaw && !CLIENTES_DISPONIBLES.length) {
+    try {
+      var cached = JSON.parse(cacheRaw);
+      if (cached && cached.length) {
+        CLIENTES_DISPONIBLES = cached;
+        renderClientesMes();
+        _mostrarOverlayClientes(true); // show "Actualizando..." while fresh data loads
+      }
+    } catch(e) {}
+  } else if (CLIENTES_DISPONIBLES.length) {
     _mostrarOverlayClientes(true);
   } else {
     if (sk) sk.style.display = 'flex';
     mostrarCargando(true);
   }
 
+  // Track which downloads actually returned data vs. failed (null = 409/network error)
+  var kfcBufOk = false;
+  var otrosBufOk = false;
+
   Promise.all([
-    dbxDownload(DBX_KFC_PATH).then(function(buf) { return buf ? parseExcel(buf) : []; }),
-    dbxDownload(DBX_OTROS_PATH).then(function(buf) { return buf ? parseExcelOtros(buf, mes) : []; }),
+    dbxDownload(DBX_KFC_PATH).then(function(buf) {
+      if (buf) { kfcBufOk = true; return parseExcel(buf); }
+      return [];
+    }),
+    dbxDownload(DBX_OTROS_PATH).then(function(buf) {
+      if (buf) { otrosBufOk = true; return parseExcelOtros(buf, mes); }
+      return [];
+    }),
     dbxDownloadJSON(DBX_VISITAS)
   ])
   .then(function(results) {
+    clearTimeout(_lockTimeout);
     _cargandoClientes = false;
     mostrarCargando(false);
     _mostrarOverlayClientes(false);
     if (sk) sk.style.display = 'none';
     var rawKfc   = results[0];
     var rawOtros = results[1];
+
+    // If BOTH downloads failed (network/path error), keep whatever we have and warn
+    if (!kfcBufOk && !otrosBufOk) {
+      showToast('⚠️ No se pudo descargar desde Dropbox — mostrando datos en cach\xE9');
+      if (CLIENTES_DISPONIBLES.length) renderClientesMes();
+      return;
+    }
+
     var normKfc = rawKfc.map(function(r) { return normalizarCliente(r, true); });
     var kfcFiltrado = normKfc.filter(function(c) {
       if (!c.nombre) return false;
@@ -1416,29 +1448,35 @@ function cargarClientes() {
 
     _mesUltimoCargado = mes;
 
+    var claveMes = _claveMesActual();
+    VISITAS_MES = (results[2] || {})[claveMes] || {};
+
     if (nuevosClientes.length > 0) {
       CLIENTES_DISPONIBLES = nuevosClientes;
       try { localStorage.setItem('pf_clientes_cache', JSON.stringify(CLIENTES_DISPONIBLES)); } catch(e) {}
     } else {
-      // No clients for this month — always clear so user sees the real state
-      CLIENTES_DISPONIBLES = [];
-      localStorage.removeItem('pf_clientes_cache');
-    }
-    var claveMes = _claveMesActual();
-    VISITAS_MES = (results[2] || {})[claveMes] || {};
-
-    if (!CLIENTES_DISPONIBLES.length) {
+      // Downloads succeeded but 0 rows matched this month filter.
+      // If we already have data showing, keep it — don't replace with empty.
+      // This prevents the "disappearing clients" when month filter doesn't match Excel data.
+      if (CLIENTES_DISPONIBLES.length > 0) {
+        var mesesEnKfc2   = rawKfc.length   ? Array.from(new Set(rawKfc.slice(0,100).map(function(r){ return normalizarMes(r['MES_SERVICIO']||r['MES']||''); }).filter(Boolean))).slice(0,5).join(', ') : 'N/A';
+        var mesesEnOtros2 = rawOtros.length ? Array.from(new Set(rawOtros.slice(0,100).map(function(r){ var m=r['MES']||r['Mes']||r['MES_CONTRATO']||r['PERIODO']||''; return normalizarMes(m); }).filter(Boolean))).slice(0,5).join(', ') : 'N/A';
+        showToast('⚠️ ' + mes + ' sin datos en Excel (KFC: ' + mesesEnKfc2 + ', Otros: ' + mesesEnOtros2 + '). Mostrando datos anteriores.');
+        renderClientesMes();
+        return;
+      }
+      // Nothing cached either — show the diagnostic message
       var mesesEnKfc   = rawKfc.length   ? Array.from(new Set(rawKfc.slice(0,100).map(function(r){ return normalizarMes(r['MES_SERVICIO']||r['MES']||''); }).filter(Boolean))).slice(0,8).join(', ') : '';
       var mesesEnOtros = rawOtros.length ? Array.from(new Set(rawOtros.slice(0,100).map(function(r){ var m=r['MES']||r['Mes']||r['MES_CONTRATO']||r['PERIODO']||''; return normalizarMes(m); }).filter(Boolean))).slice(0,8).join(', ') : '';
       var cDebug = document.getElementById('clientes-mes-lista');
-      var debugMsg = '📋 KFC: ' + rawKfc.length + ' filas | Otros: ' + rawOtros.length + ' filas'
-        + '\nFiltro mes: "' + mes + '"'
+      var debugMsg = 'KFC: ' + rawKfc.length + ' filas | Otros: ' + rawOtros.length + ' filas'
+        + '\nMes filtrado: "' + mes + '"'
         + (mesesEnKfc   ? '\nMeses en KFC: '   + mesesEnKfc   : '')
         + (mesesEnOtros ? '\nMeses en Otros: ' + mesesEnOtros : '')
-        + '\n\nSi el mes correcto está en la lista de arriba,\nselecciónalo en el selector de mes.';
+        + '\n\nSelecciona el mes que aparece arriba.';
       if (cDebug) cDebug.innerHTML = '<div class="no-clientes"><strong>📭 Sin clientes para ' + esc(mes) + '</strong>'
         + '<br><small style="white-space:pre-wrap;font-size:11px;color:#777;margin-top:8px;display:block">' + esc(debugMsg) + '</small>'
-        + '<br><button class="btn-ghost btn-sm" onclick="cargarTodosSinFiltro()" style="margin-top:10px">🔍 Ver todos los meses</button>'
+        + '<br><button class="btn-ghost btn-sm" onclick="cargarTodosSinFiltro()" style="margin-top:10px">Ir al mes actual</button>'
         + '</div>';
       return;
     }
@@ -1446,6 +1484,7 @@ function cargarClientes() {
     try { sugerenciaProactiva(); } catch(e) {}
   })
   .catch(function(err) {
+    clearTimeout(_lockTimeout);
     _cargandoClientes = false;
     mostrarCargando(false);
     _mostrarOverlayClientes(false);
