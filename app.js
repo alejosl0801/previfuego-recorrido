@@ -845,8 +845,9 @@ function dbxDownload(path) {
         if (r.status === 401) throw new Error('Tu sesi\xF3n de Dropbox expir\xF3, reconecta en ⚙️ Config');
         if (r.status === 400 || r.status === 409) {
           return r.text().then(function(txt) {
-            if (txt.indexOf('not_found') !== -1 || txt.indexOf('conflict') !== -1) return null;
-            throw new Error('Dropbox ' + r.status + ' al descargar ' + path + ': ' + txt.slice(0, 120));
+            // Any 400/409 from Dropbox download = file inaccessible — log but don't retry
+            console.warn('[PF] Dropbox ' + r.status + ' (' + path + '):', txt.slice(0, 150));
+            return null;
           });
         }
         if (!r.ok) throw new Error('Dropbox ' + r.status + ' al descargar ' + path);
@@ -869,6 +870,11 @@ function dbxUpload(path, content) {
         body: typeof content === 'string' ? content : JSON.stringify(content)
       }).then(function(r) {
         if (r.status === 401) throw new Error('Tu sesi\xF3n de Dropbox expir\xF3, reconecta en ⚙️ Config');
+        if (r.status === 400 || r.status === 409) {
+          return r.text().then(function(txt) {
+            throw Object.assign(new Error('Dropbox upload ' + r.status + ': ' + txt.slice(0, 120)), { noRetry: true });
+          });
+        }
         if (!r.ok) throw new Error('Dropbox upload error ' + r.status);
         return r.json();
       });
@@ -886,7 +892,7 @@ function _retryBackoff(fn, maxIntentos) {
         intento++;
         var msg = String(err && err.message || err);
         // Don't retry auth/expired errors — surface immediately
-        if (intento >= maxIntentos || /expir|reconecta|invalid_grant/i.test(msg)) { reject(err); return; }
+        if (intento >= maxIntentos || err.noRetry || /expir|reconecta|invalid_grant/i.test(msg)) { reject(err); return; }
         setTimeout(run, Math.pow(2, intento) * 1000);
       });
     }
