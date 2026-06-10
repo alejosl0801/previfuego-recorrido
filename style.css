@@ -1214,6 +1214,12 @@ html.dark .seg-toolbar { background: #1a1a1a; }
   font-size: 0.72rem;
   font-weight: 600;
 }
+.tipo-cap {
+  font-weight: 400;
+  opacity: 0.75;
+  font-size: 0.68rem;
+}
+html.dark .cliente-tipo-tag { background: #1e2a5e; color: #93b4ff; }
 .cliente-ext {
   font-size: 0.78rem;
   color: #555;
