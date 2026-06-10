@@ -967,18 +967,33 @@ function parseExcelOtros(buf, mesSeleccionado) {
 }
 
 function normalizarMes(val) {
+  // Handle Date objects directly (SheetJS returns date cells as Date objects)
+  if (val instanceof Date && !isNaN(val)) {
+    return MESES_NUM[String(val.getMonth() + 1)] || '';
+  }
+  // Handle Excel serial numbers (numeric dates)
+  if (typeof val === 'number' && val > 1000) {
+    try {
+      var d = new Date(Math.round((val - 25569) * 86400 * 1000));
+      if (!isNaN(d)) return MESES_NUM[String(d.getMonth() + 1)] || '';
+    } catch(e) {}
+  }
   var s = String(val).trim();
   if (!s || s === 'undefined' || s === 'null') return '';
   if (MESES_NUM[s]) return MESES_NUM[s];
   var up = s.toUpperCase();
-  // Handle "ENE", "FEB", abbreviations
-  var ABREV = {'ENE':'ENERO','FEB':'FEBRERO','MAR':'MARZO','ABR':'ABRIL','MAY':'MAYO','JUN':'JUNIO',
-    'JUL':'JULIO','AGO':'AGOSTO','SEP':'SEPTIEMBRE','SEPT':'SEPTIEMBRE','OCT':'OCTUBRE',
-    'NOV':'NOVIEMBRE','DIC':'DICIEMBRE'};
+  var ABREV = {
+    'ENE':'ENERO','FEB':'FEBRERO','MAR':'MARZO','ABR':'ABRIL','MAY':'MAYO',
+    'JUN':'JUNIO','JUL':'JULIO','AGO':'AGOSTO','SEP':'SEPTIEMBRE',
+    'SEPT':'SEPTIEMBRE','OCT':'OCTUBRE','NOV':'NOVIEMBRE','DIC':'DICIEMBRE',
+    'JAN':'ENERO','APR':'ABRIL','AUG':'AGOSTO','DEC':'DICIEMBRE'
+  };
   if (ABREV[up]) return ABREV[up];
-  // Handle "JUN-26", "JUNIO 2026", "JUNIO/2026" etc — extract first word
-  var word = up.split(/[\s\-\/\.\_]/)[0].replace(/[^A-Z]/g,'');
-  if (ABREV[word]) return ABREV[word];
+  // Scan ALL words in the string (handles "Sat Mar 01 2026..." from Date.toString())
+  var words = up.split(/[\s\-\/\.\,\_]+/).map(function(w){ return w.replace(/[^A-Z]/g,''); });
+  for (var j = 0; j < words.length; j++) {
+    if (ABREV[words[j]]) return ABREV[words[j]];
+  }
   // Handle full names with trailing year or spaces
   var FULL = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
   for (var i = 0; i < FULL.length; i++) {
@@ -1011,7 +1026,16 @@ function normalizarCliente(row, esKfc) {
   var ciudad = get('CIUDAD','Ciudad','ciudad','CANTON','PROVINCIA');
   var ext = get('EXTINTORES','Extintores','CAPACIDAD','CANTIDAD','Cantidad',
                 'EXT','N_EXT','TOTAL','Total','NUMERO','N\xFAmero','CANT');
-  var mes = get('MES_SERVICIO','MES','Mes','mes','MES_CONTRATO','PERIODO','Periodo');
+  // Get mes preserving original value (may be Date object from SheetJS)
+  var mesRaw = (function() {
+    var keys = ['MES_SERVICIO','MES','Mes','mes','MES_CONTRATO','PERIODO','Periodo'];
+    for (var i = 0; i < keys.length; i++) {
+      var v = row[keys[i]];
+      if (v !== undefined && v !== null && v !== '') return v;
+    }
+    return '';
+  })();
+  var mes = mesRaw;
   var local = get('LOCAL','Local','LOCAL_KFC','Sucursal','SUCURSAL','TIPO','Tipo','ZONA','Zona');
   var marca = get('MARCA','Marca','TIPO_EXT','TIPO EXTINTOR');
   return {
