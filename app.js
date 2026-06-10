@@ -194,6 +194,7 @@ function handleOAuthCallback() {
     if (d.expires_in) localStorage.setItem('pf_dbx_token_exp', String(Date.now() + d.expires_in * 1000));
     showToast('✅ Dropbox conectado correctamente');
     actualizarEstadoConexion();
+    _inicializarArchivosDropbox();
     // Resume session: without this the user lands stuck on the login screen after the OAuth redirect
     var savedUser = localStorage.getItem('pf_usuario');
     if (savedUser && USUARIOS[savedUser]) login(savedUser);
@@ -406,6 +407,25 @@ function guardarGroqKey() {
   } else {
     showToast('✅ Clave Groq guardada');
   }
+}
+
+/* Create required Dropbox files on first use so 409 not_found never fires again */
+function _inicializarArchivosDropbox() {
+  if (!getRefreshToken()) return;
+  var archivos = [
+    { path: DBX_RECORRIDOS, default: '{}' },
+    { path: DBX_VISITAS,    default: '{}' },
+    { path: DBX_VALERIA,    default: '{"historial_rutas":[],"patrones_cliente":{},"conversaciones":[]}' },
+    { path: DBX_CONFIG,     default: '{}' }
+  ];
+  archivos.forEach(function(a) {
+    dbxDownload(a.path).then(function(buf) {
+      if (buf === null) {
+        // File does not exist — create it
+        dbxUpload(a.path, a.default).catch(function() {});
+      }
+    }).catch(function() {});
+  });
 }
 
 function sincronizarConfig() {
@@ -1234,6 +1254,7 @@ function login(usuario) {
       var mesGuardado = localStorage.getItem('pf_mes_seleccionado');
       mesSelect.value = (mesGuardado && meses.indexOf(mesGuardado) !== -1) ? mesGuardado : meses[new Date().getMonth()];
     }
+    _inicializarArchivosDropbox();
     sincronizarConfig();
     sincronizarValeria();
     actualizarEstadoConexion();
