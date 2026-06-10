@@ -1061,12 +1061,20 @@ function deduplicarClientes(lista) {
     if (!c.nombre) return;
     var key = c.nombre.toLowerCase().trim();
     if (!mapa[key]) {
-      mapa[key] = Object.assign({}, c, { tipos: [], extintores: 0 });
+      mapa[key] = Object.assign({}, c, { tipos: [], extintores: 0, capacidadTotal: 0 });
       orden.push(key);
     }
     mapa[key].tipos.push({ tipo: c.local || '', marca: c.marca || '', cap: c.extintores });
     if (!mapa[key].direccion && c.direccion) mapa[key].direccion = c.direccion;
-    mapa[key].extintores += c.extintores;
+    if (c.esKfc) {
+      // KFC: cada fila = 1 extintor; CAPACIDAD es el peso en lbs, no la cantidad
+      mapa[key].extintores += 1;
+      mapa[key].capacidadTotal += (c.extintores || 0);
+    } else {
+      // Otros: colD es la cantidad real de extintores
+      mapa[key].extintores += (c.extintores || 1);
+      mapa[key].capacidadTotal += (c.extintores || 0);
+    }
   });
   return orden.map(function(k) { return mapa[k]; });
 }
@@ -1537,8 +1545,11 @@ function renderClienteMesCard(c, idx, visitado) {
   if (c.tipos && c.tipos.length) {
     tiposHtml = '<div class="cliente-tipos">'
       + c.tipos.map(function(t) {
-          var label = [t.tipo, t.marca].filter(Boolean).join(' ');
-          return '<span class="cliente-tipo-tag">' + esc(label || '—') + (t.cap ? ' \xB7 ' + t.cap : '') + '</span>';
+          // Tipo: "CO2", Marca: "KFC/GUS/IL CAPPO", Cap: peso en lbs
+          var partes = [t.tipo, t.marca].filter(function(x){ return x && x.trim(); });
+          var label = partes.join(' ');
+          var capStr = t.cap ? ' <span class="tipo-cap">' + t.cap + 'lb</span>' : '';
+          return '<span class="cliente-tipo-tag">' + esc(label || '—') + capStr + '</span>';
         }).join('')
       + '</div>';
   }
@@ -1575,7 +1586,7 @@ function renderClienteMesCard(c, idx, visitado) {
     +   '<div class="cliente-nombre">' + badge + ' ' + nombreHtml + alerta30 + '</div>'
     +   (dirHtml ? '<div class="cliente-dir">' + dirHtml + '</div>' : '')
     +   tiposHtml
-    +   '<div class="cliente-ext">🧯 Total: ' + (c.extintores || '?') + ' extintor(es)</div>'
+    +   '<div class="cliente-ext">🧯 ' + (c.extintores || '?') + ' extintor(es)' + (c.esKfc && c.capacidadTotal ? ' · ' + c.capacidadTotal + 'lb total' : '') + '</div>'
     +   ultVisStr
     +   historialStr
     + '</div>'
