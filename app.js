@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = '2.7';
+var APP_VERSION = '3.2';
 
 var GROQ_KEY_DEFAULT = '';
 
@@ -194,6 +194,9 @@ function handleOAuthCallback() {
     if (d.expires_in) localStorage.setItem('pf_dbx_token_exp', String(Date.now() + d.expires_in * 1000));
     showToast('✅ Dropbox conectado correctamente');
     actualizarEstadoConexion();
+    // Resume session: without this the user lands stuck on the login screen after the OAuth redirect
+    var savedUser = localStorage.getItem('pf_usuario');
+    if (savedUser && USUARIOS[savedUser]) login(savedUser);
   })
   .catch(function(err) { mostrarCargando(false); pfModal('Error OAuth', String(err)); });
   return true;
@@ -221,9 +224,7 @@ function actualizarEstadoConexion() {
 
   var groqStatus = document.getElementById('cfg-groq-status');
   if (groqStatus) {
-    if (localStorage.getItem('pf_groq_key')) {
-      groqStatus.textContent = '✅ Groq AI configurado (clave personalizada)';
-    } else if (GROQ_KEY_DEFAULT) {
+    if (getGroqKey()) {
       groqStatus.textContent = '✅ Groq AI configurado (llama-3.3-70b)';
     } else {
       groqStatus.textContent = '⚠️ Sin clave Groq — ingresa una para activar Valeria';
@@ -388,8 +389,8 @@ function guardarGroqKey() {
     localStorage.removeItem('pf_groq_key');
     input.value = '';
     var gs0 = document.getElementById('cfg-groq-status');
-    if (gs0) gs0.textContent = '✅ Groq AI configurado (llama-3.3-70b)';
-    showToast('✅ Usando clave Groq por defecto');
+    if (gs0) gs0.textContent = '⚠️ Sin clave Groq — ingresa una para activar Valeria';
+    showToast('Clave Groq eliminada');
     return;
   }
   localStorage.setItem('pf_groq_key', key);
@@ -424,7 +425,9 @@ function sincronizarConfig() {
 =================================================== */
 function _llamarGroq(mensajes, maxTokens, temperatura) {
   var key = getGroqKey();
-  if (!key) throw new Error('Sin clave Groq');
+  // Must reject (not throw): callers chain .then/.catch and a sync throw
+  // breaks publicarRutaPreview, renderTablaSeguimiento and leaves "Pensando..." stuck
+  if (!key) return Promise.reject(new Error('Sin clave Groq — ingr\xE9sala en ⚙️ Config'));
   var timeoutP = new Promise(function(_, reject) {
     setTimeout(function() { reject(new Error('Tiempo de espera agotado (20s). Intenta de nuevo.')); }, 20000);
   });
@@ -2331,9 +2334,11 @@ function recargarRecorrido() { cargarRecorrido(); }
 
 var _subirFichasTimer   = null;
 var _subirFichasPending = false;
+var _subirFichasReintentos = 0;
 
 function subirFichas() {
   if (_subirFichasTimer) clearTimeout(_subirFichasTimer);
+  _subirFichasReintentos = 0;
   _subirFichasTimer = setTimeout(function() { _ejecutarSubirFichas(); }, 800);
 }
 
@@ -2358,11 +2363,17 @@ function _ejecutarSubirFichas() {
     recorridos[fechaHoy()] = hoy;
     return dbxUpload(DBX_RECORRIDOS, JSON.stringify(recorridos, null, 2));
   })
+  .then(function() { _subirFichasReintentos = 0; })
   .finally(function() { _subirFichasPending = false; })
   .catch(function(err) {
     console.error('[PF] subirFichas error:', err);
-    showToast('⚠️ No se pudo sincronizar. Se reintentar\xE1.');
-    setTimeout(_ejecutarSubirFichas, 5000);
+    _subirFichasReintentos++;
+    if (_subirFichasReintentos <= 3) {
+      showToast('⚠️ No se pudo sincronizar. Reintentando (' + _subirFichasReintentos + '/3)...');
+      setTimeout(_ejecutarSubirFichas, 5000 * _subirFichasReintentos);
+    } else {
+      showToast('❌ Sin conexi\xF3n — tu avance qued\xF3 guardado en el tel\xE9fono. Pulsa ↻ cuando vuelva el internet.');
+    }
   });
 }
 
