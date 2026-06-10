@@ -1576,3 +1576,16 @@ html.dark .mes-progress { background: #2a2a30; }
   padding: 0 5px; margin-left: 5px; background: #e53e3e; color: #fff;
   font-size: 0.68rem; font-weight: 700; border-radius: 999px; text-align: center;
 }
+
+/* Groq migration — Valeria proactive suggestion + obs classification */
+.valeria-sugerencia-chip {
+  background: #f3e8ff; border: 1px solid #d8b4fe; color: #6b21a8;
+  border-radius: 12px; padding: 10px 12px; margin: 0 0 10px;
+  font-size: 0.82rem; line-height: 1.35; display: flex; gap: 8px;
+  align-items: flex-start; justify-content: space-between;
+}
+.obs-clasif-badge {
+  display: inline-block; margin-top: 3px; padding: 1px 6px;
+  font-size: 0.66rem; font-weight: 700; border-radius: 999px;
+  background: #f1f5f9; color: #334155;
+}

@@ -1,6 +1,8 @@
 'use strict';
 
-var APP_VERSION = '2.5';
+var APP_VERSION = '2.7';
+
+var GROQ_KEY_DEFAULT = '';
 
 /* ===================================================
    CONSTANTS — DROPBOX
@@ -36,6 +38,7 @@ var _undoIdx = null;
 var _undoData = null;
 var _guardarVisitasTimer = null;
 var _segPuntosCache = [];
+var _obsClasifCache = {};
 var _fontSizeDelta = parseInt(localStorage.getItem('pf_font_delta') || '0');
 var _darkMode = localStorage.getItem('pf_dark') === '1';
 var _ultimaInstruccionVoz = '';
@@ -215,11 +218,11 @@ function actualizarEstadoConexion() {
   if (inKfc)   inKfc.value   = DBX_KFC_PATH;
   if (inOtros) inOtros.value = DBX_OTROS_PATH;
 
-  var geminiStatus = document.getElementById('cfg-gemini-status');
-  if (geminiStatus) {
-    geminiStatus.textContent = localStorage.getItem('pf_gemini_key')
-      ? '✅ Clave Gemini configurada'
-      : '⚠️ Sin clave Gemini — la funci\xF3n de voz no estar\xE1 disponible';
+  var groqStatus = document.getElementById('cfg-groq-status');
+  if (groqStatus) {
+    groqStatus.textContent = localStorage.getItem('pf_groq_key')
+      ? '✅ Groq AI configurado (clave personalizada)'
+      : '✅ Groq AI configurado (llama-3.3-70b)';
   }
 
   var lastSync = document.getElementById('cfg-last-sync');
@@ -366,29 +369,36 @@ function inspeccionarExcel(path) {
 }
 
 /* ===================================================
-   GEMINI KEY — stored only in localStorage + Dropbox
+   GROQ KEY — hardcoded default, optional override
 =================================================== */
-function getGeminiKey() {
-  return localStorage.getItem('pf_gemini_key') || '';
+function getGroqKey() {
+  return localStorage.getItem('pf_groq_key') || GROQ_KEY_DEFAULT;
 }
 
-function guardarGeminiKey() {
-  var input = document.getElementById('cfg-gemini-key');
+function guardarGroqKey() {
+  var input = document.getElementById('cfg-groq-key');
   if (!input) return;
   var key = input.value.trim();
-  if (!key) { showToast('Ingresa una clave v\xE1lida'); return; }
-  localStorage.setItem('pf_gemini_key', key);
+  if (!key) {
+    localStorage.removeItem('pf_groq_key');
+    input.value = '';
+    var gs0 = document.getElementById('cfg-groq-status');
+    if (gs0) gs0.textContent = '✅ Groq AI configurado (llama-3.3-70b)';
+    showToast('✅ Usando clave Groq por defecto');
+    return;
+  }
+  localStorage.setItem('pf_groq_key', key);
   input.value = '';
-  var geminiStatus = document.getElementById('cfg-gemini-status');
-  if (geminiStatus) geminiStatus.textContent = '✅ Clave Gemini configurada';
+  var groqStatus = document.getElementById('cfg-groq-status');
+  if (groqStatus) groqStatus.textContent = '✅ Groq AI configurado (clave personalizada)';
   if (getRefreshToken()) {
     dbxDownloadJSON(DBX_CONFIG)
     .catch(function() { return {}; })
-    .then(function(cfg) { cfg.gemini_key = key; return dbxUpload(DBX_CONFIG, JSON.stringify(cfg, null, 2)); })
-    .then(function() { showToast('✅ Clave Gemini guardada en Dropbox'); })
+    .then(function(cfg) { cfg.groq_key = key; return dbxUpload(DBX_CONFIG, JSON.stringify(cfg, null, 2)); })
+    .then(function() { showToast('✅ Clave Groq guardada en Dropbox'); })
     .catch(function() { showToast('✅ Clave guardada localmente'); });
   } else {
-    showToast('✅ Clave Gemini guardada');
+    showToast('✅ Clave Groq guardada');
   }
 }
 
@@ -396,12 +406,143 @@ function sincronizarConfig() {
   if (!getRefreshToken()) return;
   dbxDownloadJSON(DBX_CONFIG)
   .then(function(cfg) {
-    if (cfg.gemini_key) {
-      localStorage.setItem('pf_gemini_key', cfg.gemini_key);
+    if (cfg.groq_key) {
+      localStorage.setItem('pf_groq_key', cfg.groq_key);
     }
     localStorage.setItem('pf_last_sync', new Date().toLocaleString('es-EC'));
   })
   .catch(function() {});
+}
+
+/* ===================================================
+   GROQ API — shared call helper
+=================================================== */
+function _llamarGroq(mensajes, maxTokens, temperatura) {
+  var key = getGroqKey();
+  if (!key) throw new Error('Sin clave Groq');
+  var timeoutP = new Promise(function(_, reject) {
+    setTimeout(function() { reject(new Error('Tiempo de espera agotado (20s). Intenta de nuevo.')); }, 20000);
+  });
+  return Promise.race([
+    fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: mensajes,
+        temperature: temperatura || 0.1,
+        max_tokens: maxTokens || 1024
+      })
+    }).then(function(r) {
+      if (!r.ok) return r.text().then(function(t) { throw new Error('Groq HTTP ' + r.status + ': ' + t.slice(0, 200)); });
+      return r.json();
+    }),
+    timeoutP
+  ]);
+}
+
+/* D1 — Auto-resumen diario de la ruta publicada */
+function _resumenDiarioGroq(puntos) {
+  if (!puntos || !puntos.length) return;
+  var lista = puntos.map(function(p) {
+    return '- ' + p.nombre + (p.esKfc ? ' (KFC)' : '') + ' → ' + (p.tecnico || 'sin asignar');
+  }).join('\n');
+  var DIAS_SEMANA = ['domingo','lunes','martes','mi\xE9rcoles','jueves','viernes','s\xE1bado'];
+  var diaSemana = DIAS_SEMANA[new Date().getDay()];
+  _llamarGroq([
+    { role: 'system', content: 'Eres Valeria, asistente de Previfuego. Resume la ruta del d\xEDa en UNA sola l\xEDnea breve en espa\xF1ol. Ejemplo: "Ruta del lunes: 8 clientes KFC en Guayaquil Norte, t\xE9cnico Ra\xFAl". No agregues nada m\xE1s.' },
+    { role: 'user', content: 'D\xEDa: ' + diaSemana + '\nPuntos:\n' + lista }
+  ], 256, 0.3)
+  .then(function(d) {
+    var choice = (d.choices || [])[0] || {};
+    var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
+    if (!text) return;
+    if (!VALERIA_MEMORIA.resumenes_diarios) VALERIA_MEMORIA.resumenes_diarios = [];
+    VALERIA_MEMORIA.resumenes_diarios.unshift({ fecha: fechaHoy(), resumen: text });
+    if (VALERIA_MEMORIA.resumenes_diarios.length > 30) VALERIA_MEMORIA.resumenes_diarios = VALERIA_MEMORIA.resumenes_diarios.slice(0, 30);
+    if (getRefreshToken()) {
+      dbxUpload(DBX_VALERIA, JSON.stringify(VALERIA_MEMORIA, null, 2)).catch(function() {});
+    }
+  })
+  .catch(function(e) { console.error('[PF] resumenDiario error:', e); });
+}
+
+/* D2 — Sugerencia proactiva al cargar admin (rate-limited 4h) */
+function sugerenciaProactiva() {
+  if (!CLIENTES_DISPONIBLES.length) return;
+  if (!VALERIA_MEMORIA.historial_rutas || !VALERIA_MEMORIA.historial_rutas.length) return;
+  var ultima = parseInt(localStorage.getItem('pf_ultima_sugerencia') || '0');
+  if (Date.now() - ultima < 4 * 60 * 60 * 1000) return;
+  localStorage.setItem('pf_ultima_sugerencia', String(Date.now()));
+
+  var pendientes = CLIENTES_DISPONIBLES.filter(function(c) {
+    return !(VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado);
+  }).slice(0, 80).map(function(c) {
+    return '- ' + c.nombre + (c.esKfc ? ' (KFC)' : '') + (c.direccion ? ' - ' + c.direccion : '');
+  }).join('\n');
+  var historialCtx = (VALERIA_MEMORIA.historial_rutas || []).slice(0, 10).map(function(h) {
+    return h.fecha + ': ' + (h.clientes || []).join(', ');
+  }).join('\n');
+
+  _llamarGroq([
+    { role: 'system', content: 'Eres Valeria, asistente de Previfuego. Bas\xE1ndote en el historial de rutas y los clientes pendientes, sugiere en 1-2 frases qu\xE9 clientes deber\xEDan visitarse hoy. S\xE9 concreto y breve.' },
+    { role: 'user', content: '=== HISTORIAL ===\n' + (historialCtx || '(sin historial)') + '\n\n=== PENDIENTES ===\n' + (pendientes || '(ninguno)') }
+  ], 512, 0.3)
+  .then(function(d) {
+    var choice = (d.choices || [])[0] || {};
+    var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
+    if (text) _mostrarSugerenciaChip(text);
+  })
+  .catch(function(e) { console.error('[PF] sugerenciaProactiva error:', e); });
+}
+
+function _mostrarSugerenciaChip(texto) {
+  var cont = document.getElementById('valeria-sugerencia');
+  if (!cont) return;
+  cont.innerHTML = '<div class="valeria-sugerencia-chip">💡 ' + esc(texto)
+    + ' <button onclick="this.parentNode.parentNode.innerHTML=\'\'" style="background:none;border:none;cursor:pointer;color:#999">✕</button></div>';
+}
+
+/* D3 — Clasificar observaciones de t\xE9cnicos */
+function clasificarObservacion(texto) {
+  if (!texto || texto.length <= 20) return Promise.resolve('');
+  return _llamarGroq([
+    { role: 'system', content: 'Clasifica la siguiente observaci\xF3n de un t\xE9cnico de extintores. Responde \xDANICAMENTE con una de estas tres etiquetas exactas: "⚠️ Problema detectado", "🔧 Requiere seguimiento", "✅ Normal".' },
+    { role: 'user', content: texto }
+  ], 32, 0)
+  .then(function(d) {
+    var choice = (d.choices || [])[0] || {};
+    var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
+    if (text.indexOf('Problema') !== -1) return '⚠️ Problema detectado';
+    if (text.indexOf('seguimiento') !== -1) return '🔧 Requiere seguimiento';
+    return '✅ Normal';
+  })
+  .catch(function() { return ''; });
+}
+
+/* D4 — Resumen IA del seguimiento del d\xEDa */
+function resumenSeguimientoIA() {
+  if (!_segPuntosCache || !_segPuntosCache.length) {
+    pfModal('Sin datos', 'No hay recorrido publicado hoy para resumir.');
+    return;
+  }
+  showToast('⏳ Generando resumen IA...');
+  var lista = _segPuntosCache.map(function(p) {
+    return '- ' + p.nombre + ' [' + (p.done ? 'LISTO' : (p.enCamino ? 'EN CAMINO' : 'PENDIENTE')) + '] '
+      + (p.tecnico || 'sin asignar') + (p.observacion ? ' | Obs: ' + p.observacion : '');
+  }).join('\n');
+  _llamarGroq([
+    { role: 'system', content: 'Eres Valeria, asistente de Previfuego. Genera un breve reporte de estado en espa\xF1ol del avance del recorrido del d\xEDa: cu\xE1ntos completados, pendientes, por t\xE9cnico, y resalta observaciones importantes. S\xE9 conciso. Firma como "Valeria 🤖".' },
+    { role: 'user', content: 'Fecha: ' + fechaHoy() + '\n\n' + lista }
+  ], 1024, 0.3)
+  .then(function(d) {
+    var choice = (d.choices || [])[0] || {};
+    var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
+    pfModal('📊 Resumen IA del d\xEDa', text || 'Sin respuesta.');
+  })
+  .catch(function(err) {
+    pfModal('Error', 'No se pudo generar el resumen: ' + String(err));
+  });
 }
 
 /* ===================================================
@@ -463,6 +604,10 @@ function actualizarMemoriaValeria(puntos, instruccion) {
 }
 
 function _esConsultaValeria(texto) {
+  // App-improvement requests must go to consultarValeria, NOT route creation.
+  var esMejoras = /\b(mejor|mejora|suger|recomiend|implementa|funcionalidad|feature)\b/i.test(texto);
+  if (esMejoras) return true;
+
   // Route-creation keywords take priority — even if the message contains "?"
   var crearRutaPatrones = /\b(pon|agrega|agregar|incluye|incluir|mete|meter|crea|crear|dame|haz|hacer|selecciona|seleccionar|a\xF1ade|a\xF1adir)\b/i;
   if (crearRutaPatrones.test(texto)) return false;
@@ -480,12 +625,6 @@ function _esConsultaValeria(texto) {
 }
 
 function consultarValeria(texto) {
-  var key = getGeminiKey();
-  if (!key) {
-    agregarBurbuja('valeria', '⚠️ Necesito la clave Gemini para responder. Conf\xEDgurala en ⚙️ Config.');
-    return;
-  }
-
   agregarBurbuja('valeria', '⏳ Pensando...', 'thinking');
 
   var hoy = new Date();
@@ -498,7 +637,7 @@ function consultarValeria(texto) {
     return d >= hace30;
   }).slice(0, 15);
 
-  // Limit to first 150 clients to avoid exceeding Gemini's token limit (413)
+  // Limit to first 150 clients to keep the prompt compact
   var MAX_CLIENTES_CTX = 150;
   var clientesCtx = CLIENTES_DISPONIBLES.slice(0, MAX_CLIENTES_CTX).map(function(c, i) {
     var vis = VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado ? 'VISITADO' : 'PENDIENTE';
@@ -521,56 +660,44 @@ function consultarValeria(texto) {
     return h.fecha + ': "' + (h.instruccion || '') + '" → ' + (h.clientes || []).join(', ') + tecCtx;
   }).join('\n');
 
-  var esMejoras = /mejor[ao]|implementa|funcionalidad|feature|agrega|a\xf1ade|sugiere|recomienda|cambio|app|sistema|necesitamos/i.test(texto);
-  var prompt = 'Eres Valeria, asistente de IA para Previfuego (empresa de mantenimiento de extintores en Ecuador).\n'
-    + 'Fecha actual: ' + fechaHoy() + '\n\n'
-    + '=== HISTORIAL \xDALTIMOS 30 D\xCDAS ===\n' + (historialCtx || '(sin historial)') + '\n\n'
-    + '=== CLIENTES DEL MES (con estado de visita y patrones) ===\n' + (clientesCtx || '(sin clientes)') + '\n\n'
-    + '=== PREGUNTA DEL ADMINISTRADOR ===\n' + texto + '\n\n'
-    + 'Responde en espa\xF1ol, de forma concisa y \xFAtil. Si te preguntan sobre fechas o historial, busca en el historial. '
-    + 'Si te piden crear una ruta, responde con exactamente: CREAR_RUTA: seguido de los \xEDndices JSON. '
+  var esMejoras = /mejor[ao]|implementa|funcionalidad|feature|sugiere|recomienda|cambio|app|sistema|necesitamos/i.test(texto);
+  var DIAS_SEMANA = ['domingo','lunes','martes','mi\xE9rcoles','jueves','viernes','s\xE1bado'];
+  var diaSemana = DIAS_SEMANA[new Date().getDay()];
+
+  var systemMsg = 'Eres Valeria, asistente inteligente de Previfuego (empresa de mantenimiento de extintores en Ecuador). '
+    + 'Tienes acceso al historial de rutas y datos de clientes. '
+    + 'Hoy es ' + diaSemana + ' ' + fechaHoy() + '. '
+    + 'Responde en espa\xF1ol de forma concisa, \xFAtil y proactiva. '
+    + 'Si te preguntan por clientes pendientes, agr\xFApalos por zona o ciudad. '
+    + 'Si te piden crear una ruta, incluye el tiempo estimado (15min \xD7 n clientes) y responde con exactamente '
+    + 'CREAR_RUTA: seguido del array JSON de \xEDndices. '
     + (esMejoras
-      ? 'Si te piden sugerencias de mejoras para la app, an\xE1liza el historial de uso, los patrones de clientes, '
-        + 'y genera una lista numerada de mejoras CONCRETAS y ESPEC\xCDFICAS basadas en los datos reales que tienes. '
-        + 'Termina tu respuesta con este bloque exacto para que el administrador lo pueda copiar a Claude:\n\n'
+      ? 'Si te piden sugerencias de mejoras para la app, analiza el historial de uso y los patrones de clientes, '
+        + 'y genera una lista numerada de mejoras CONCRETAS y ESPEC\xCDFICAS basadas en los datos reales. '
+        + 'Termina tu respuesta con este bloque exacto para que el administrador lo pueda copiar a Claude:\n'
         + '--- INSTRUCCIÓN PARA CLAUDE ---\n'
         + '[aquí escribe en imperativo las mejoras a implementar, siendo muy específico con cada feature]\n'
         + '--- FIN INSTRUCCIÓN ---\n'
-      : 'Si es una pregunta informativa, responde directamente con texto claro.');
+      : '')
+    + 'Siempre firma tus respuestas como "Valeria 🤖".';
 
-  var timeoutP = new Promise(function(_, reject) {
-    setTimeout(function() { reject(new Error('Tiempo de espera agotado (15s). Intenta de nuevo.')); }, 15000);
-  });
+  var userMsg = '=== HISTORIAL \xDALTIMOS 30 D\xCDAS ===\n' + (historialCtx || '(sin historial)') + '\n\n'
+    + '=== CLIENTES DEL MES (con estado de visita y patrones) ===\n' + (clientesCtx || '(sin clientes)') + '\n\n'
+    + '=== PREGUNTA DEL ADMINISTRADOR ===\n' + texto;
 
-  Promise.race([
-    fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 2048 }
-      })
-    }),
-    timeoutP
-  ])
-  .then(function(r) {
-    if (!r.ok) return r.text().then(function(t) { throw new Error('Gemini HTTP ' + r.status + ': ' + t.slice(0, 200)); });
-    return r.json();
-  })
+  _llamarGroq([
+    { role: 'system', content: systemMsg },
+    { role: 'user', content: userMsg }
+  ], 4096, 0.2)
   .then(function(d) {
     eliminarBurbujaThinking();
-    if (d.error) throw new Error(d.error.message || 'Error Gemini API');
-    var raw = ((d.candidates || [])[0] || {});
-    if (raw.finishReason === 'SAFETY') {
-      agregarBurbuja('valeria', '⚠️ Gemini bloque\xF3 la respuesta por filtros de seguridad. Reformula la instrucci\xF3n.');
-      return;
-    }
-    if (raw.finishReason === 'MAX_TOKENS') {
+    if (d.error) throw new Error(d.error.message || 'Error Groq API');
+    var choice = (d.choices || [])[0] || {};
+    if (choice.finish_reason === 'length') {
       agregarBurbuja('valeria', '⚠️ Respuesta incompleta (l\xEDmite de tokens). Intenta con una instrucci\xF3n m\xE1s corta.');
       return;
     }
-    var part0 = (raw.content && raw.content.parts && raw.content.parts[0]) ? raw.content.parts[0] : null;
-    var text = part0 ? ((part0.text || '').trim()) : '';
+    var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
 
     if (text.trim().indexOf('CREAR_RUTA:') === 0) {
       var jsonPart = text.slice('CREAR_RUTA:'.length).trim();
@@ -1203,6 +1330,7 @@ function cargarClientes() {
       return;
     }
     renderClientesMes();
+    try { sugerenciaProactiva(); } catch(e) {}
   })
   .catch(function(err) {
     mostrarCargando(false);
@@ -1447,17 +1575,12 @@ function _resaltar(texto, filtro) {
 }
 
 /* ===================================================
-   ADMIN — VOZ + GEMINI (used by Valeria)
+   ADMIN — VOZ + GROQ (used by Valeria)
 =================================================== */
 function iniciarVoz() {
   var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     pfModal('No disponible', 'Tu navegador no soporta reconocimiento de voz. Usa Chrome en Android o iOS.');
-    return;
-  }
-  var key = getGeminiKey();
-  if (!key) {
-    pfModal('Clave Gemini requerida', 'Ve a ⚙️ Config e ingresa tu clave de API Gemini primero.');
     return;
   }
   if (!CLIENTES_DISPONIBLES.length) {
@@ -1507,9 +1630,7 @@ function iniciarVoz() {
 }
 
 function procesarInstruccionVoz(texto) {
-  var key = getGeminiKey();
-  if (!key) { agregarBurbuja('valeria', '⚠️ Sin clave Gemini. Conf\xEDgurala en Config.'); return; }
-  agregarBurbuja('valeria', '⏳ Procesando con Gemini AI...', 'thinking');
+  agregarBurbuja('valeria', '⏳ Procesando con Groq AI...', 'thinking');
   _ultimaInstruccionVoz = texto;
 
   var clientesCtx = CLIENTES_DISPONIBLES.map(function(c, i) {
@@ -1524,54 +1645,33 @@ function procesarInstruccionVoz(texto) {
     return h.fecha + ': ' + (h.clientes || []).join(', ');
   }).join('\n');
 
-  var prompt = 'Eres Valeria, asistente de rutas para Previfuego (empresa de mantenimiento de extintores).\n'
-    + 'Fecha actual: ' + fechaHoy() + '\n\n'
+  var systemMsg = 'Eres Valeria, asistente de rutas para Previfuego. '
+    + 'Responde \xDANICAMENTE con un array JSON de \xEDndices num\xE9ricos. Ejemplo: [0, 3, 7]. '
+    + 'No incluyas ning\xFAn texto adicional.';
+
+  var userMsg = 'Fecha actual: ' + fechaHoy() + '\n\n'
     + '=== HISTORIAL RECIENTE ===\n' + (historialCtx || '(sin historial)') + '\n\n'
-    + '=== CLIENTES DISPONIBLES ===\n'
-    + clientesCtx + '\n\n'
+    + '=== CLIENTES DISPONIBLES ===\n' + clientesCtx + '\n\n'
     + 'Instrucci\xF3n del administrador: "' + texto + '"\n\n'
-    + 'Selecciona los clientes para el recorrido seg\xFAn la instrucci\xF3n.\n'
-    + 'Responde \xDANICAMENTE con un array JSON de \xEDndices num\xE9ricos. Ejemplo: [0, 3, 7]\n'
-    + 'No incluyas texto adicional, solo el array JSON.';
+    + 'Selecciona los clientes para el recorrido seg\xFAn la instrucci\xF3n y responde solo con el array JSON de \xEDndices.';
 
-  var timeoutP = new Promise(function(_, reject) {
-    setTimeout(function() { reject(new Error('Tiempo de espera agotado (15s). Intenta de nuevo.')); }, 15000);
-  });
-
-  Promise.race([
-    fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 1024 }
-      })
-    }),
-    timeoutP
-  ])
-  .then(function(r) {
-    if (!r.ok) return r.text().then(function(t) { throw new Error('Gemini HTTP ' + r.status + ': ' + t.slice(0, 200)); });
-    return r.json();
-  })
+  _llamarGroq([
+    { role: 'system', content: systemMsg },
+    { role: 'user', content: userMsg }
+  ], 2048, 0.1)
   .then(function(d) {
     eliminarBurbujaThinking();
-    if (d.error) throw new Error(d.error.message || 'Error Gemini API');
-    var raw = ((d.candidates || [])[0] || {});
-    if (raw.finishReason === 'SAFETY') {
-      agregarBurbuja('valeria', '⚠️ Gemini bloque\xF3 la respuesta por filtros de seguridad. Reformula la instrucci\xF3n.');
-      return;
-    }
-    var part0 = (raw.content && raw.content.parts && raw.content.parts[0]) ? raw.content.parts[0] : null;
-    var text = part0 ? ((part0.text || '').trim()) : '';
-    // Robust array parse: match full array, or a truncated one (MAX_TOKENS) and salvage it
+    if (d.error) throw new Error(d.error.message || 'Error Groq API');
+    var choice = (d.choices || [])[0] || {};
+    var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
+    // Robust array parse: match full array, or a truncated one and salvage it
     var match = text.match(/\[[\d,\s-]*\]/);
     var arrStr;
     if (match) {
       arrStr = match[0];
     } else {
       var partial = text.match(/\[[\d,\s-]*/);
-      if (!partial) throw new Error('Respuesta inesperada de Gemini: ' + text.slice(0, 100));
-      // Salvage truncated array: drop trailing comma/whitespace and close it
+      if (!partial) throw new Error('Respuesta inesperada de Groq: ' + text.slice(0, 100));
       arrStr = partial[0].replace(/[,\s]+$/, '') + ']';
     }
     var indices = JSON.parse(arrStr);
@@ -1579,7 +1679,7 @@ function procesarInstruccionVoz(texto) {
       .filter(function(i) { return Number.isInteger(i) && i >= 0 && i < CLIENTES_DISPONIBLES.length; })
       .map(function(i) { return Object.assign({}, CLIENTES_DISPONIBLES[i]); });
     if (!RUTA_PREVIEW.length) {
-      agregarBurbuja('valeria', '⚠️ Gemini no encontr\xF3 clientes para esa instrucci\xF3n.');
+      agregarBurbuja('valeria', '⚠️ No encontr\xE9 clientes para esa instrucci\xF3n.');
       return;
     }
     agregarBurbuja('valeria', '✅ ' + RUTA_PREVIEW.length + ' cliente(s) seleccionados. Asigna t\xE9cnicos en la vista previa y pulsa Publicar.');
@@ -1591,7 +1691,7 @@ function procesarInstruccionVoz(texto) {
   .catch(function(err) {
     eliminarBurbujaThinking();
     agregarBurbuja('valeria', '❌ Error: ' + String(err));
-    console.error('[PF] Gemini error:', err);
+    console.error('[PF] Groq error:', err);
   });
 }
 
@@ -1703,6 +1803,7 @@ function publicarRutaPreview() {
     .then(function() {
       mostrarCargando(false);
       actualizarMemoriaValeria(puntos, _ultimaInstruccionVoz);
+      _resumenDiarioGroq(puntos);
       limpiarPreview();
       agregarBurbuja('valeria', '✅ Recorrido publicado para ' + fechaPublicar + ' con ' + puntos.length + ' punto(s). 🚀');
       _initAdminRutaStatus();
@@ -1825,7 +1926,18 @@ function renderTablaSeguimiento(puntos) {
     } else {
       estadoBadge = '<span class="badge-pending">Pendiente</span>';
     }
-    var obsHtml = p.observacion ? '<div style="font-size:0.72rem;color:#666;font-style:italic">' + esc(p.observacion) + '</div>' : '—';
+    var obsHtml = '—';
+    if (p.observacion) {
+      var claveObs = (p.nombre || '') + '|' + p.observacion;
+      var badgeObs = _obsClasifCache[claveObs] ? '<div class="obs-clasif-badge">' + esc(_obsClasifCache[claveObs]) + '</div>' : '';
+      obsHtml = '<div style="font-size:0.72rem;color:#666;font-style:italic">' + esc(p.observacion) + '</div>' + badgeObs;
+      if (p.observacion.length > 20 && !(claveObs in _obsClasifCache)) {
+        _obsClasifCache[claveObs] = '';
+        clasificarObservacion(p.observacion).then(function(res) {
+          if (res) { _obsClasifCache[claveObs] = res; aplicarFiltroSeguimiento(); }
+        }).catch(function() {});
+      }
+    }
     tHtml += '<tr style="border-left:' + colorBorderRow + '">'
       + '<td>' + esc(p.nombre || '') + (p.esKfc ? ' <span class="badge-kfc-sm">KFC</span>' : '') + (p.urgente ? ' <span style="color:#e53e3e;font-weight:700">🔴</span>' : '') + (p.nota ? '<div style="font-size:0.7rem;color:#888">' + esc(p.nota) + '</div>' : '') + '</td>'
       + '<td><span class="tecnico-tag">' + esc(p.tecnico || '—') + '</span></td>'
