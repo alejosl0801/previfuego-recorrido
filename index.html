@@ -98,7 +98,7 @@
       <span class="header-date" id="admin-fecha"></span>
     </header>
     <div class="tabs">
-      <button class="tab active" onclick="switchTab('clientes')" id="tab-btn-clientes">Clientes</button>
+      <button class="tab active" onclick="switchTab('clientes')" id="tab-btn-clientes">Clientes<span id="tab-badge-clientes" class="tab-badge" style="display:none"></span></button>
       <button class="tab" onclick="switchTab('valeria')" id="tab-btn-valeria">&#x1F916; Valeria</button>
       <button class="tab" onclick="switchTab('seguimiento')" id="tab-btn-seguimiento">Seguimiento</button>
       <button class="tab" onclick="switchTab('config')" id="tab-btn-config" aria-label="Configuraci&#xF3;n">&#x2699;&#xFE0F;</button>
@@ -186,6 +186,7 @@
           <option value="Juan">Juan</option>
         </select>
         <select id="seg-intervalo" onchange="cambiarIntervaloSeguimiento()" class="seg-filtro-select">
+          <option value="10">10s</option>
           <option value="15">15s</option>
           <option value="30" selected>30s</option>
           <option value="60">60s</option>
@@ -276,7 +277,7 @@
 
       <div class="config-section" style="margin-top:16px;margin-bottom:24px">
         <h3>Informaci&#xF3;n</h3>
-        <p style="font-size:0.82rem;color:#777">Versi&#xF3;n: <strong>2.0</strong></p>
+        <p style="font-size:0.82rem;color:#777">Versi&#xF3;n: <strong id="cfg-version">2.5</strong></p>
         <p style="font-size:0.82rem;color:#777;margin-top:4px" id="cfg-last-sync">&#xDA;ltima sync: —</p>
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn-ghost btn-sm" onclick="toggleDarkMode()">&#x1F319; Modo oscuro</button>

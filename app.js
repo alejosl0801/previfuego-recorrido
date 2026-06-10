@@ -1,5 +1,7 @@
 'use strict';
 
+var APP_VERSION = '2.5';
+
 /* ===================================================
    CONSTANTS — DROPBOX
 =================================================== */
@@ -673,40 +675,64 @@ function usarChip(texto) {
    DROPBOX FILE HELPERS
 =================================================== */
 function dbxDownload(path) {
-  return getValidToken().then(function(token) {
-    return fetch('https://content.dropboxapi.com/2/files/download', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Dropbox-API-Arg': JSON.stringify({ path: path })
-      }
-    }).then(function(r) {
-      if (r.status === 400 || r.status === 409) {
-        return r.text().then(function(txt) {
-          if (txt.indexOf('not_found') !== -1 || txt.indexOf('conflict') !== -1) return null;
-          throw new Error('Dropbox ' + r.status + ' al descargar ' + path + ': ' + txt.slice(0, 120));
-        });
-      }
-      if (!r.ok) throw new Error('Dropbox ' + r.status + ' al descargar ' + path);
-      return r.arrayBuffer();
+  return _retryBackoff(function() {
+    return getValidToken().then(function(token) {
+      return fetch('https://content.dropboxapi.com/2/files/download', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Dropbox-API-Arg': JSON.stringify({ path: path })
+        }
+      }).then(function(r) {
+        if (r.status === 401) throw new Error('Tu sesi\xF3n de Dropbox expir\xF3, reconecta en ⚙️ Config');
+        if (r.status === 400 || r.status === 409) {
+          return r.text().then(function(txt) {
+            if (txt.indexOf('not_found') !== -1 || txt.indexOf('conflict') !== -1) return null;
+            throw new Error('Dropbox ' + r.status + ' al descargar ' + path + ': ' + txt.slice(0, 120));
+          });
+        }
+        if (!r.ok) throw new Error('Dropbox ' + r.status + ' al descargar ' + path);
+        return r.arrayBuffer();
+      });
     });
-  });
+  }, 3);
 }
 
 function dbxUpload(path, content) {
-  return getValidToken().then(function(token) {
-    return fetch('https://content.dropboxapi.com/2/files/upload', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Dropbox-API-Arg': JSON.stringify({ path: path, mode: 'overwrite', autorename: false }),
-        'Content-Type': 'application/octet-stream'
-      },
-      body: typeof content === 'string' ? content : JSON.stringify(content)
-    }).then(function(r) {
-      if (!r.ok) throw new Error('Dropbox upload error ' + r.status);
-      return r.json();
+  return _retryBackoff(function() {
+    return getValidToken().then(function(token) {
+      return fetch('https://content.dropboxapi.com/2/files/upload', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Dropbox-API-Arg': JSON.stringify({ path: path, mode: 'overwrite', autorename: false }),
+          'Content-Type': 'application/octet-stream'
+        },
+        body: typeof content === 'string' ? content : JSON.stringify(content)
+      }).then(function(r) {
+        if (r.status === 401) throw new Error('Tu sesi\xF3n de Dropbox expir\xF3, reconecta en ⚙️ Config');
+        if (!r.ok) throw new Error('Dropbox upload error ' + r.status);
+        return r.json();
+      });
     });
+  }, 3);
+}
+
+/* Retry a promise-returning fn with exponential backoff: 2s, 4s, 8s */
+function _retryBackoff(fn, maxIntentos) {
+  maxIntentos = maxIntentos || 3;
+  return new Promise(function(resolve, reject) {
+    var intento = 0;
+    function run() {
+      fn().then(resolve).catch(function(err) {
+        intento++;
+        var msg = String(err && err.message || err);
+        // Don't retry auth/expired errors — surface immediately
+        if (intento >= maxIntentos || /expir|reconecta|invalid_grant/i.test(msg)) { reject(err); return; }
+        setTimeout(run, Math.pow(2, intento) * 1000);
+      });
+    }
+    run();
   });
 }
 
@@ -741,9 +767,22 @@ function parseExcel(buf) {
 function parseExcelOtros(buf, mesSeleccionado) {
   var wb = XLSX.read(buf, { type: 'array' });
   var sheetTarget = null;
+  // Map abbreviated month names to full names
+  var MESES_ABREV = {
+    'ENE':'ENERO','FEB':'FEBRERO','MAR':'MARZO','ABR':'ABRIL','MAY':'MAYO','JUN':'JUNIO',
+    'JUL':'JULIO','AGO':'AGOSTO','SEP':'SEPTIEMBRE','SEPT':'SEPTIEMBRE','OCT':'OCTUBRE',
+    'NOV':'NOVIEMBRE','DIC':'DICIEMBRE'
+  };
   wb.SheetNames.forEach(function(name) {
     var upper = name.trim().toUpperCase();
-    if (upper === mesSeleccionado || normalizarMes(name.trim()) === mesSeleccionado) {
+    // Normalize by stripping digits/spaces/special chars to get the base word
+    var base = upper.replace(/[^A-ZÁÉÍÓÚÑ]/g, '');
+    var fullName = MESES_ABREV[base] || base;
+    // Also try normalizarMes
+    var normalized = normalizarMes(name.trim());
+    if (upper === mesSeleccionado || normalized === mesSeleccionado ||
+        fullName === mesSeleccionado || upper.indexOf(mesSeleccionado) !== -1 ||
+        mesSeleccionado.indexOf(base) !== -1) {
       sheetTarget = name;
     }
   });
@@ -776,8 +815,23 @@ function parseExcelOtros(buf, mesSeleccionado) {
 
 function normalizarMes(val) {
   var s = String(val).trim();
+  if (!s || s === 'undefined' || s === 'null') return '';
   if (MESES_NUM[s]) return MESES_NUM[s];
-  return s.toUpperCase();
+  var up = s.toUpperCase();
+  // Handle "ENE", "FEB", abbreviations
+  var ABREV = {'ENE':'ENERO','FEB':'FEBRERO','MAR':'MARZO','ABR':'ABRIL','MAY':'MAYO','JUN':'JUNIO',
+    'JUL':'JULIO','AGO':'AGOSTO','SEP':'SEPTIEMBRE','SEPT':'SEPTIEMBRE','OCT':'OCTUBRE',
+    'NOV':'NOVIEMBRE','DIC':'DICIEMBRE'};
+  if (ABREV[up]) return ABREV[up];
+  // Handle "JUN-26", "JUNIO 2026", "JUNIO/2026" etc — extract first word
+  var word = up.split(/[\s\-\/\.\_]/)[0].replace(/[^A-Z]/g,'');
+  if (ABREV[word]) return ABREV[word];
+  // Handle full names with trailing year or spaces
+  var FULL = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  for (var i = 0; i < FULL.length; i++) {
+    if (up.indexOf(FULL[i]) !== -1) return FULL[i];
+  }
+  return up;
 }
 
 function normalizarCliente(row, esKfc) {
@@ -953,7 +1007,8 @@ function login(usuario) {
     var mesSelect = document.getElementById('admin-mes');
     if (mesSelect) {
       var meses = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
-      mesSelect.value = meses[new Date().getMonth()];
+      var mesGuardado = localStorage.getItem('pf_mes_seleccionado');
+      mesSelect.value = (mesGuardado && meses.indexOf(mesGuardado) !== -1) ? mesGuardado : meses[new Date().getMonth()];
     }
     sincronizarConfig();
     sincronizarValeria();
@@ -1027,6 +1082,35 @@ function _claveMesActual() {
   return mes + '_' + new Date().getFullYear();
 }
 
+function _mostrarOverlayClientes(show) {
+  var cont = document.getElementById('clientes-mes-lista');
+  if (!cont) return;
+  var ov = document.getElementById('clientes-loading-overlay');
+  if (show) {
+    cont.style.position = 'relative';
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'clientes-loading-overlay';
+      ov.className = 'clientes-loading-overlay';
+      ov.innerHTML = '<div class="spinner-sm"></div><span>Actualizando...</span>';
+      cont.appendChild(ov);
+    }
+    ov.style.display = 'flex';
+  } else if (ov) {
+    ov.style.display = 'none';
+  }
+}
+
+/* Error log — keep last 10 errors in localStorage */
+function _logError(contexto, err) {
+  try {
+    var log = JSON.parse(localStorage.getItem('pf_error_log') || '[]');
+    log.unshift({ ts: new Date().toLocaleString('es-EC'), ctx: contexto, msg: String(err && err.message || err) });
+    if (log.length > 10) log = log.slice(0, 10);
+    localStorage.setItem('pf_error_log', JSON.stringify(log));
+  } catch(e) {}
+}
+
 function cargarClientes() {
   if (!getRefreshToken()) {
     var cont = document.getElementById('clientes-mes-lista');
@@ -1035,12 +1119,20 @@ function cargarClientes() {
   }
   var mesEl = document.getElementById('admin-mes');
   var mes = mesEl ? mesEl.value : '';
+  if (mes) localStorage.setItem('pf_mes_seleccionado', mes);
 
-  // Show skeleton
+  var teniaDatos = CLIENTES_DISPONIBLES && CLIENTES_DISPONIBLES.length > 0;
+
+  // Bug fix: when reloading (e.g. month change) keep current clients visible and
+  // show a non-destructive overlay instead of clearing. Skeleton only on empty load.
   var sk = document.getElementById('skeleton-lista');
-  if (sk) sk.style.display = 'flex';
+  if (teniaDatos) {
+    _mostrarOverlayClientes(true);
+  } else {
+    if (sk) sk.style.display = 'flex';
+    mostrarCargando(true);
+  }
 
-  mostrarCargando(true);
   Promise.all([
     dbxDownload(DBX_KFC_PATH).then(function(buf) { return buf ? parseExcel(buf) : []; }),
     dbxDownload(DBX_OTROS_PATH).then(function(buf) { return buf ? parseExcelOtros(buf, mes) : []; }),
@@ -1048,6 +1140,7 @@ function cargarClientes() {
   ])
   .then(function(results) {
     mostrarCargando(false);
+    _mostrarOverlayClientes(false);
     if (sk) sk.style.display = 'none';
     var rawKfc   = results[0];
     var rawOtros = results[1];
@@ -1087,7 +1180,9 @@ function cargarClientes() {
   })
   .catch(function(err) {
     mostrarCargando(false);
+    _mostrarOverlayClientes(false);
     if (sk) sk.style.display = 'none';
+    _logError('cargarClientes', err);
     console.error('[PF] cargarClientes error:', err);
     var cont = document.getElementById('clientes-mes-lista');
     var cache = localStorage.getItem('pf_clientes_cache');
@@ -1163,10 +1258,12 @@ function exportarVisitados() {
   }
 }
 
+var _filtroClientesTimer = null;
 function filtrarClientesMes() {
   var input = document.getElementById('clientes-buscar');
   _clientesFiltro = input ? input.value.trim().toLowerCase() : '';
-  renderClientesMes();
+  if (_filtroClientesTimer) clearTimeout(_filtroClientesTimer);
+  _filtroClientesTimer = setTimeout(renderClientesMes, 300);
 }
 
 function scrollToTop() {
@@ -1199,8 +1296,15 @@ function renderClientesMes() {
   var totalVisit = kfcVisit + otroVisit;
   var totalPend  = lista.length - totalVisit;
 
+  var pctMes = lista.length > 0 ? Math.round(totalVisit / lista.length * 100) : 0;
+  var mesElLbl = document.getElementById('admin-mes');
+  var mesLbl = mesElLbl ? mesElLbl.value : '';
+
   if (stats) {
-    stats.innerHTML = '<div class="mes-stats">'
+    stats.innerHTML = '<div class="mes-cargado-chip">📅 Cargado: ' + esc(mesLbl) + ' ' + new Date().getFullYear() + '</div>'
+      + '<div class="mes-progress"><div class="mes-progress-bar" style="width:' + pctMes + '%"></div></div>'
+      + '<div class="mes-progress-label">' + pctMes + '% del mes completado</div>'
+      + '<div class="mes-stats">'
       + '<span class="mes-stat-ok">✓ ' + totalVisit + ' visitados</span>'
       + '<span class="mes-stat-pend">⏳ ' + totalPend + ' pendientes</span>'
       + '</div>'
@@ -1217,22 +1321,39 @@ function renderClientesMes() {
   var visitados  = lista.filter(function(c) { return VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado; });
   var pendientes = lista.filter(function(c) { return !(VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado); });
 
+  // Update pending count badge on Clientes tab button
+  var pendBadge = document.getElementById('tab-badge-clientes');
+  if (pendBadge) {
+    if (pendientes.length > 0) { pendBadge.textContent = pendientes.length; pendBadge.style.display = 'inline-block'; }
+    else { pendBadge.style.display = 'none'; }
+  }
+
   var html = '';
-  if (pendientes.length) {
+  if (_clientesQuickFilter !== 'visitados' && pendientes.length) {
     html += '<div class="clientes-grupo-header">⏳ Pendientes (' + pendientes.length + ')</div>';
     pendientes.forEach(function(c) {
       var globalIdx = CLIENTES_DISPONIBLES.indexOf(c);
       html += renderClienteMesCard(c, globalIdx, false);
     });
   }
-  if (visitados.length) {
+  if (_clientesQuickFilter !== 'pendientes' && visitados.length) {
     html += '<div class="clientes-grupo-header">✓ Visitados (' + visitados.length + ')</div>';
     visitados.forEach(function(c) {
       var globalIdx = CLIENTES_DISPONIBLES.indexOf(c);
       html += renderClienteMesCard(c, globalIdx, true);
     });
   }
+  if (!html) html = '<div class="no-clientes">Sin clientes para este filtro.</div>';
   cont.innerHTML = html;
+}
+
+var _clientesQuickFilter = 'todos';
+function setQuickFilter(f) {
+  _clientesQuickFilter = f;
+  document.querySelectorAll('.quick-filter-pill').forEach(function(b) {
+    b.classList.toggle('active', b.getAttribute('data-filter') === f);
+  });
+  renderClientesMes();
 }
 
 function renderClienteMesCard(c, idx, visitado) {
@@ -1269,18 +1390,34 @@ function renderClienteMesCard(c, idx, visitado) {
       + '</div>';
   }
 
-  return '<div class="cliente-mes-card' + (visitado ? ' visitado' : '') + '">'
+  var nombreHtml = _resaltar(c.nombre, _clientesFiltro);
+  var dirHtml = c.direccion ? _resaltar(c.direccion, _clientesFiltro) : '';
+  var tipoBorde = c.esKfc ? ' card-kfc' : ' card-otros';
+  var ultVisStr = visitado && VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].fecha
+    ? '<div class="cliente-ultvisita">🗓️ Última visita: ' + esc(VISITAS_MES[c.nombre].fecha) + '</div>' : '';
+
+  return '<div class="cliente-mes-card' + (visitado ? ' visitado' : '') + tipoBorde + '">'
     + '<div class="cliente-mes-info">'
-    +   '<div class="cliente-nombre">' + badge + ' ' + esc(c.nombre) + alerta30 + '</div>'
-    +   (c.direccion ? '<div class="cliente-dir">' + esc(c.direccion) + '</div>' : '')
+    +   '<div class="cliente-nombre">' + badge + ' ' + nombreHtml + alerta30 + '</div>'
+    +   (dirHtml ? '<div class="cliente-dir">' + dirHtml + '</div>' : '')
     +   tiposHtml
     +   '<div class="cliente-ext">🧯 Total: ' + (c.extintores || '?') + ' extintor(es)</div>'
+    +   ultVisStr
     +   historialStr
     + '</div>'
     + '<button class="btn-visitado' + (visitado ? ' btn-visitado-done' : '') + '" onclick="marcarVisitado(' + idx + ')">'
     +   (visitado ? '✓' + fechaV : 'Marcar')
     + '</button>'
     + '</div>';
+}
+
+function _resaltar(texto, filtro) {
+  var safe = esc(texto || '');
+  if (!filtro) return safe;
+  try {
+    var re = new RegExp('(' + filtro.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
+    return safe.replace(re, '<mark class="hl">$1</mark>');
+  } catch(e) { return safe; }
 }
 
 /* ===================================================
@@ -1981,6 +2118,13 @@ function _ejecutarSubirFichas() {
    INIT
 =================================================== */
 document.addEventListener('DOMContentLoaded', function() {
+  // Version footer (#98)
+  var verEl = document.getElementById('cfg-version');
+  if (verEl) verEl.textContent = APP_VERSION;
+
+  // Pre-warm Dropbox token (#79)
+  if (getRefreshToken()) { getValidToken().catch(function() {}); }
+
   // FAB scroll-to-top
   var tabClientes = document.getElementById('tab-clientes');
   if (tabClientes) {
