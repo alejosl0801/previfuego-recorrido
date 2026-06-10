@@ -1073,8 +1073,13 @@ function deduplicarClientes(lista) {
       mapa[key] = Object.assign({}, c, { tipos: [], extintores: 0, capacidadTotal: 0 });
       orden.push(key);
     }
-    mapa[key].tipos.push({ tipo: c.local || '', marca: c.marca || '', cap: c.extintores });
+    // Only add tag if it has a real extintor type (skip brand-only rows from headers/totals)
+    if (c.local && c.local.trim()) {
+      mapa[key].tipos.push({ tipo: c.local, marca: c.marca || '', cap: c.extintores });
+    }
     if (!mapa[key].direccion && c.direccion) mapa[key].direccion = c.direccion;
+    // Track the actual brand (MARCA column = restaurant brand: KFC, AMERICAN DELI, GUS, etc.)
+    if (!mapa[key].marcaPrincipal && c.marca) mapa[key].marcaPrincipal = c.marca;
     if (c.esKfc) {
       // KFC: cada fila = 1 extintor; CAPACIDAD es el peso en lbs, no la cantidad
       mapa[key].extintores += 1;
@@ -1085,7 +1090,18 @@ function deduplicarClientes(lista) {
       mapa[key].capacidadTotal += (c.extintores || 0);
     }
   });
-  return orden.map(function(k) { return mapa[k]; });
+  return orden.map(function(k) {
+    var obj = mapa[k];
+    // Dedup tipos: same tipo+marca+cap can appear multiple times from duplicate Excel rows
+    var tiposVisto = {};
+    obj.tipos = obj.tipos.filter(function(t) {
+      var tk = (t.tipo + '|' + t.marca + '|' + t.cap);
+      if (tiposVisto[tk]) return false;
+      tiposVisto[tk] = true;
+      return true;
+    });
+    return obj;
+  });
 }
 
 /* ===================================================
@@ -1556,14 +1572,19 @@ function renderClientesMes() {
 }
 
 function renderClienteMesCard(c, idx, visitado) {
-  var badge  = c.esKfc ? '<span class="badge-kfc">KFC</span>' : '';
+  // Show actual brand badge: KFC, AMERICAN DELI, GUS, IL CAPPO, etc.
+  var badgeMarca = (c.marcaPrincipal || (c.esKfc ? 'KFC' : '')).toUpperCase();
+  var badgeCls = badgeMarca === 'KFC' ? 'badge-kfc' : 'badge-kfc badge-brand-otro';
+  var badge = c.esKfc ? '<span class="' + badgeCls + '">' + esc(badgeMarca) + '</span>' : '';
   var fechaV = visitado && VISITAS_MES[c.nombre] ? ' \xB7 ' + VISITAS_MES[c.nombre].fecha : '';
   var tiposHtml = '';
   if (c.tipos && c.tipos.length) {
+    var principalUp = (c.marcaPrincipal || '').toUpperCase();
     tiposHtml = '<div class="cliente-tipos">'
       + c.tipos.map(function(t) {
-          // Tipo: "CO2", Marca: "KFC/GUS/IL CAPPO", Cap: peso en lbs
-          var partes = [t.tipo, t.marca].filter(function(x){ return x && x.trim(); });
+          // Show tipo (CO2/PQS/TIPO K) + marca only when marca ≠ client's own brand (avoid redundancy)
+          var marcaTag = (t.marca && t.marca.toUpperCase() !== principalUp) ? t.marca : '';
+          var partes = [t.tipo, marcaTag].filter(function(x){ return x && x.trim(); });
           var label = partes.join(' ');
           var capStr = t.cap ? ' <span class="tipo-cap">' + t.cap + 'lb</span>' : '';
           return '<span class="cliente-tipo-tag">' + esc(label || '—') + capStr + '</span>';
