@@ -1538,4 +1538,41 @@ html.dark .btn-copiar-instruccion { background: #6d28d9; }
   .screen { display: block !important; }
   #sadmin { display: block !important; }
   #tab-seguimiento { display: block !important; }
+  #tab-clientes { display: block !important; }
+  .clientes-bulk-row, .clientes-search-wrap, .btn-visitado, .fab-top { display: none !important; }
+}
+
+/* ===== NEW: loading overlay (non-destructive month reload) ===== */
+.clientes-loading-overlay {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  gap: 10px; background: rgba(255,255,255,0.72); backdrop-filter: blur(1px);
+  z-index: 5; font-size: 0.9rem; color: #555; font-weight: 600; border-radius: 12px;
+}
+html.dark .clientes-loading-overlay { background: rgba(20,20,24,0.72); color: #ddd; }
+.spinner-sm {
+  width: 22px; height: 22px; border: 3px solid #ddd; border-top-color: #9e1212;
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== NEW: loaded-month chip ===== */
+.mes-cargado-chip {
+  display: inline-block; background: #fde8e8; color: #9e1212; font-weight: 700;
+  font-size: 0.78rem; padding: 4px 10px; border-radius: 999px; margin-bottom: 6px;
+}
+html.dark .mes-cargado-chip { background: #3a1212; color: #f5b5b5; }
+
+/* ===== NEW: month progress bar ===== */
+.mes-progress {
+  height: 8px; background: #eee; border-radius: 999px; overflow: hidden; margin: 6px 0 2px;
+}
+.mes-progress-bar { height: 100%; background: linear-gradient(90deg,#16a34a,#22c55e); border-radius: 999px; transition: width .4s ease; }
+.mes-progress-label { font-size: 0.74rem; color: #16a34a; font-weight: 700; margin-bottom: 4px; }
+html.dark .mes-progress { background: #2a2a30; }
+
+/* ===== NEW: pending-count badge on Clientes tab ===== */
+.tab-badge {
+  display: inline-block; min-width: 18px; height: 18px; line-height: 18px;
+  padding: 0 5px; margin-left: 5px; background: #e53e3e; color: #fff;
+  font-size: 0.68rem; font-weight: 700; border-radius: 999px; text-align: center;
 }
