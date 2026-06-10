@@ -333,30 +333,63 @@ function dbxDownloadJSON(path) {
 /* ===================================================
    EXCEL PARSING (SheetJS)
 =================================================== */
+var MESES_NUM = {'1':'ENERO','2':'FEBRERO','3':'MARZO','4':'ABRIL','5':'MAYO','6':'JUNIO',
+  '7':'JULIO','8':'AGOSTO','9':'SEPTIEMBRE','10':'OCTUBRE','11':'NOVIEMBRE','12':'DICIEMBRE',
+  '01':'ENERO','02':'FEBRERO','03':'MARZO','04':'ABRIL','05':'MAYO','06':'JUNIO',
+  '07':'JULIO','08':'AGOSTO','09':'SEPTIEMBRE','10':'OCTUBRE','11':'NOVIEMBRE','12':'DICIEMBRE'};
+
 function parseExcel(buf) {
   var wb = XLSX.read(buf, { type: 'array' });
-  var ws = wb.Sheets[wb.SheetNames[0]];
-  return XLSX.utils.sheet_to_json(ws, { defval: '' });
+  var allRows = [];
+  wb.SheetNames.forEach(function(sheetName) {
+    var ws = wb.Sheets[sheetName];
+    var rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    rows.forEach(function(r) { r.__sheet = sheetName; });
+    allRows = allRows.concat(rows);
+  });
+  return allRows;
+}
+
+function normalizarMes(val) {
+  var s = String(val).trim();
+  if (MESES_NUM[s]) return MESES_NUM[s];
+  return s.toUpperCase();
 }
 
 function normalizarCliente(row, esKfc) {
-  var nombre = row['NOMBRE_LOCAL'] || row['CLIENTE'] || row['Cliente'] || row['NOMBRE'] || row['Nombre'] ||
-               row['RAZON SOCIAL'] || row['Raz\xF3n Social'] || row['RAZON_SOCIAL'] || row['RAZÓN SOCIAL'] || '';
-  var dir    = row['UBICACI\xD3N'] || row['UBICACION'] || row['DIRECCION'] || row['Direcci\xF3n'] ||
-               row['DIRECCI\xD3N'] || row['DIR'] || row['Direccion'] || row['DIREC'] || row['direccion'] || '';
-  var ciudad = row['CIUDAD'] || row['Ciudad'] || row['ciudad'] || '';
-  var ext    = row['EXTINTORES'] || row['Extintores'] || row['CAPACIDAD'] || row['CANTIDAD'] ||
-               row['Cantidad'] || row['EXT'] || row['N_EXT'] || row['TOTAL'] || 0;
-  var mes    = row['MES_SERVICIO'] || row['MES'] || row['Mes'] || row['mes'] || '';
-  var local  = row['LOCAL'] || row['Local'] || row['LOCAL_KFC'] || row['Sucursal'] || row['SUCURSAL'] || row['TIPO'] || '';
-  var marca  = row['MARCA'] || row['Marca'] || '';
+  var cols = Object.keys(row);
+  function get() {
+    for (var i = 0; i < arguments.length; i++) {
+      var v = row[arguments[i]];
+      if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
+    }
+    return '';
+  }
+  var nombre = get('NOMBRE_LOCAL','CLIENTE','Cliente','NOMBRE','Nombre',
+                   'RAZON SOCIAL','Razón Social','RAZON_SOCIAL','RAZÓN SOCIAL',
+                   'EMPRESA','Empresa','ESTABLECIMIENTO','Establecimiento',
+                   'RAZON','Razon','DENOMINACION','Denominacion');
+  if (!nombre) {
+    var nameCols = cols.filter(function(c) {
+      return /nombre|cliente|razon|empresa|local|establec/i.test(c);
+    });
+    if (nameCols.length) nombre = String(row[nameCols[0]] || '').trim();
+  }
+  var dir = get('UBICACIÓN','UBICACION','DIRECCION','Dirección','DIRECCIÓN',
+                'DIR','Direccion','DIREC','direccion','DOMICILIO','Domicilio');
+  var ciudad = get('CIUDAD','Ciudad','ciudad','CANTON','PROVINCIA');
+  var ext = get('EXTINTORES','Extintores','CAPACIDAD','CANTIDAD','Cantidad',
+                'EXT','N_EXT','TOTAL','Total','NUMERO','Número','CANT');
+  var mes = get('MES_SERVICIO','MES','Mes','mes','MES_CONTRATO','PERIODO','Periodo');
+  var local = get('LOCAL','Local','LOCAL_KFC','Sucursal','SUCURSAL','TIPO','Tipo','ZONA','Zona');
+  var marca = get('MARCA','Marca','TIPO_EXT','TIPO EXTINTOR');
   return {
-    nombre:     String(nombre).trim(),
-    direccion:  String(dir).trim() + (ciudad ? ' — ' + ciudad : ''),
+    nombre:     nombre,
+    direccion:  dir + (ciudad ? (dir ? ' — ' : '') + ciudad : ''),
     extintores: parseInt(ext) || 0,
-    mes:        String(mes).trim().toUpperCase(),
-    local:      String(local).trim(),
-    marca:      String(marca).trim(),
+    mes:        normalizarMes(mes),
+    local:      local,
+    marca:      marca,
     esKfc:      !!esKfc
   };
 }
@@ -368,12 +401,12 @@ function deduplicarClientes(lista) {
     if (!c.nombre) return;
     var key = c.nombre.toLowerCase().trim();
     if (!mapa[key]) {
-      mapa[key] = Object.assign({}, c, { tipos: [] });
+      mapa[key] = Object.assign({}, c, { tipos: [], extintores: 0 });
       orden.push(key);
     }
     mapa[key].tipos.push({ tipo: c.local || '', marca: c.marca || '', cap: c.extintores });
     if (!mapa[key].direccion && c.direccion) mapa[key].direccion = c.direccion;
-    mapa[key].extintores = mapa[key].tipos.length;
+    mapa[key].extintores += c.extintores;
   });
   return orden.map(function(k) { return mapa[k]; });
 }
@@ -546,12 +579,15 @@ function cargarClientes() {
     var claveMes = _claveMesActual();
     VISITAS_MES = (results[2] || {})[claveMes] || {};
     if (!CLIENTES_DISPONIBLES.length) {
-      var mesesEnKfc = rawKfc.length ? [...new Set(rawKfc.slice(0,50).map(function(r){ return r['MES_SERVICIO']||r['MES']||''; }).filter(Boolean))].slice(0,8).join(', ') : '';
+      var mesesEnKfc   = rawKfc.length   ? Array.from(new Set(rawKfc.slice(0,100).map(function(r){ return normalizarMes(r['MES_SERVICIO']||r['MES']||''); }).filter(Boolean))).slice(0,8).join(', ') : '';
+      var mesesEnOtros = rawOtros.length ? Array.from(new Set(rawOtros.slice(0,100).map(function(r){ var m=r['MES']||r['Mes']||r['MES_CONTRATO']||r['PERIODO']||''; return normalizarMes(m); }).filter(Boolean))).slice(0,8).join(', ') : '';
       var cont = document.getElementById('clientes-mes-lista');
       var debugMsg = 'KFC: ' + rawKfc.length + ' filas — Otros: ' + rawOtros.length + ' filas'
         + '\nFiltro mes: "' + mes + '"'
-        + (rawKfc.length ? '\nColumnas KFC: ' + Object.keys(rawKfc[0]).slice(0,8).join(', ') : '')
-        + (mesesEnKfc ? '\nValores MES en KFC: ' + mesesEnKfc : '')
+        + (rawKfc.length   ? '\nColumnas KFC: '   + Object.keys(rawKfc[0]).join(', ')   : '')
+        + (rawOtros.length ? '\nColumnas OTROS: '  + Object.keys(rawOtros[0]).join(', ') : '')
+        + (mesesEnKfc   ? '\nMeses KFC: '   + mesesEnKfc   : '')
+        + (mesesEnOtros ? '\nMeses OTROS: ' + mesesEnOtros : '')
         + '\nRuta KFC: ' + DBX_KFC_PATH
         + '\nRuta Otros: ' + DBX_OTROS_PATH;
       if (cont) cont.innerHTML = '<div class="no-clientes"><strong>Sin clientes para este mes.</strong><br><small style="white-space:pre-wrap;font-size:11px;color:#555">' + esc(debugMsg) + '</small></div>';
