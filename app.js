@@ -704,9 +704,22 @@ function parseExcel(buf) {
 function parseExcelOtros(buf, mesSeleccionado) {
   var wb = XLSX.read(buf, { type: 'array' });
   var sheetTarget = null;
+  // Map abbreviated month names to full names
+  var MESES_ABREV = {
+    'ENE':'ENERO','FEB':'FEBRERO','MAR':'MARZO','ABR':'ABRIL','MAY':'MAYO','JUN':'JUNIO',
+    'JUL':'JULIO','AGO':'AGOSTO','SEP':'SEPTIEMBRE','SEPT':'SEPTIEMBRE','OCT':'OCTUBRE',
+    'NOV':'NOVIEMBRE','DIC':'DICIEMBRE'
+  };
   wb.SheetNames.forEach(function(name) {
     var upper = name.trim().toUpperCase();
-    if (upper === mesSeleccionado || normalizarMes(name.trim()) === mesSeleccionado) {
+    // Normalize by stripping digits/spaces/special chars to get the base word
+    var base = upper.replace(/[^A-ZÁÉÍÓÚÑ]/g, '');
+    var fullName = MESES_ABREV[base] || base;
+    // Also try normalizarMes
+    var normalized = normalizarMes(name.trim());
+    if (upper === mesSeleccionado || normalized === mesSeleccionado ||
+        fullName === mesSeleccionado || upper.indexOf(mesSeleccionado) !== -1 ||
+        mesSeleccionado.indexOf(base) !== -1) {
       sheetTarget = name;
     }
   });
@@ -739,8 +752,23 @@ function parseExcelOtros(buf, mesSeleccionado) {
 
 function normalizarMes(val) {
   var s = String(val).trim();
+  if (!s || s === 'undefined' || s === 'null') return '';
   if (MESES_NUM[s]) return MESES_NUM[s];
-  return s.toUpperCase();
+  var up = s.toUpperCase();
+  // Handle "ENE", "FEB", abbreviations
+  var ABREV = {'ENE':'ENERO','FEB':'FEBRERO','MAR':'MARZO','ABR':'ABRIL','MAY':'MAYO','JUN':'JUNIO',
+    'JUL':'JULIO','AGO':'AGOSTO','SEP':'SEPTIEMBRE','SEPT':'SEPTIEMBRE','OCT':'OCTUBRE',
+    'NOV':'NOVIEMBRE','DIC':'DICIEMBRE'};
+  if (ABREV[up]) return ABREV[up];
+  // Handle "JUN-26", "JUNIO 2026", "JUNIO/2026" etc — extract first word
+  var word = up.split(/[\s\-\/\.\_]/)[0].replace(/[^A-Z]/g,'');
+  if (ABREV[word]) return ABREV[word];
+  // Handle full names with trailing year or spaces
+  var FULL = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  for (var i = 0; i < FULL.length; i++) {
+    if (up.indexOf(FULL[i]) !== -1) return FULL[i];
+  }
+  return up;
 }
 
 function normalizarCliente(row, esKfc) {
