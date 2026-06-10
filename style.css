@@ -55,7 +55,8 @@ html.dark .modal-title { color: #f0f0f0; }
 html.dark .clientes-grupo-header { color: #aaa; border-bottom-color: #333; }
 html.dark .btn-ghost { color: #f87171; border-color: #f87171; }
 html.dark .btn-ghost:active { background: #2a1010; }
-html.dark #cfg-debug { background: #1a1a1a; color: #bbb; }
+html.dark #cfg-debug { background: #1a1a1a !important; color: #bbb !important; }
+html.dark .btn-inspect { background: #3a3208 !important; color: #fbbf24; }
 html.dark .mes-archivos code { background: #2a2a2a; }
 html.dark .progress-bar-wrap { background: #1e1e1e; border-bottom-color: #333; }
 html.dark .no-clientes { color: #888; }
