@@ -1251,9 +1251,11 @@ function login(usuario) {
     var mesSelect = document.getElementById('admin-mes');
     if (mesSelect) {
       var meses = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
-      var mesGuardado = localStorage.getItem('pf_mes_seleccionado');
-      mesSelect.value = (mesGuardado && meses.indexOf(mesGuardado) !== -1) ? mesGuardado : meses[new Date().getMonth()];
+      // Always default to the CURRENT calendar month — don't restore a stale saved month
+      // that may have no data, which was the root cause of the "0/0 clients" bug on login
+      mesSelect.value = meses[new Date().getMonth()];
     }
+    _mesUltimoCargado = '';
     _inicializarArchivosDropbox();
     sincronizarConfig();
     sincronizarValeria();
@@ -1356,6 +1358,9 @@ function _logError(contexto, err) {
   } catch(e) {}
 }
 
+var _cargandoClientes = false;
+var _mesUltimoCargado = '';
+
 function cargarClientes() {
   if (!getRefreshToken()) {
     var cont = document.getElementById('clientes-mes-lista');
@@ -1366,10 +1371,18 @@ function cargarClientes() {
   var mes = mesEl ? mesEl.value : '';
   if (mes) localStorage.setItem('pf_mes_seleccionado', mes);
 
-  var teniaDatos = CLIENTES_DISPONIBLES && CLIENTES_DISPONIBLES.length > 0;
+  // Lock: prevent concurrent loads (double-tap, rapid month switching)
+  if (_cargandoClientes) return;
+  _cargandoClientes = true;
 
-  // Bug fix: when reloading (e.g. month change) keep current clients visible and
-  // show a non-destructive overlay instead of clearing. Skeleton only on empty load.
+  // Clear search filter on month change — prevents "stuck filter" showing 0 results
+  if (mes !== _mesUltimoCargado && _mesUltimoCargado !== '') {
+    _clientesFiltro = '';
+    var buscarEl = document.getElementById('clientes-buscar');
+    if (buscarEl) buscarEl.value = '';
+  }
+
+  var teniaDatos = CLIENTES_DISPONIBLES && CLIENTES_DISPONIBLES.length > 0;
   var sk = document.getElementById('skeleton-lista');
   if (teniaDatos) {
     _mostrarOverlayClientes(true);
@@ -1384,6 +1397,7 @@ function cargarClientes() {
     dbxDownloadJSON(DBX_VISITAS)
   ])
   .then(function(results) {
+    _cargandoClientes = false;
     mostrarCargando(false);
     _mostrarOverlayClientes(false);
     if (sk) sk.style.display = 'none';
@@ -1399,40 +1413,40 @@ function cargarClientes() {
     var kfc   = deduplicarClientes(kfcFiltrado);
     var otros = deduplicarClientes(rawOtros.filter(function(c) { return !!c.nombre; }));
     var nuevosClientes = kfc.concat(otros);
+
+    _mesUltimoCargado = mes;
+
     if (nuevosClientes.length > 0) {
       CLIENTES_DISPONIBLES = nuevosClientes;
       try { localStorage.setItem('pf_clientes_cache', JSON.stringify(CLIENTES_DISPONIBLES)); } catch(e) {}
-    } else if (teniaDatos) {
-      // Keep existing data — don't wipe clients just because a month has 0 results
-      // (prevents accidental month-selector tap on mobile from clearing the list)
     } else {
+      // No clients for this month — always clear so user sees the real state
       CLIENTES_DISPONIBLES = [];
       localStorage.removeItem('pf_clientes_cache');
     }
     var claveMes = _claveMesActual();
     VISITAS_MES = (results[2] || {})[claveMes] || {};
-    if (!nuevosClientes.length && !teniaDatos) {
+
+    if (!CLIENTES_DISPONIBLES.length) {
       var mesesEnKfc   = rawKfc.length   ? Array.from(new Set(rawKfc.slice(0,100).map(function(r){ return normalizarMes(r['MES_SERVICIO']||r['MES']||''); }).filter(Boolean))).slice(0,8).join(', ') : '';
       var mesesEnOtros = rawOtros.length ? Array.from(new Set(rawOtros.slice(0,100).map(function(r){ var m=r['MES']||r['Mes']||r['MES_CONTRATO']||r['PERIODO']||''; return normalizarMes(m); }).filter(Boolean))).slice(0,8).join(', ') : '';
       var cDebug = document.getElementById('clientes-mes-lista');
-      var debugMsg = 'KFC: ' + rawKfc.length + ' filas — Otros: ' + rawOtros.length + ' filas'
+      var debugMsg = '📋 KFC: ' + rawKfc.length + ' filas | Otros: ' + rawOtros.length + ' filas'
         + '\nFiltro mes: "' + mes + '"'
-        + (rawKfc.length   ? '\nColumnas KFC: '   + Object.keys(rawKfc[0]).join(', ')   : '')
-        + (rawOtros.length ? '\nColumnas OTROS: '  + Object.keys(rawOtros[0]).join(', ') : '')
-        + (mesesEnKfc   ? '\nMeses KFC: '   + mesesEnKfc   : '')
-        + (mesesEnOtros ? '\nMeses OTROS: ' + mesesEnOtros : '')
-        + '\nRuta KFC: ' + DBX_KFC_PATH
-        + '\nRuta Otros: ' + DBX_OTROS_PATH;
-      if (cDebug) cDebug.innerHTML = '<div class="no-clientes"><strong>Sin clientes para este mes.</strong><br><small style="white-space:pre-wrap;font-size:11px;color:#555">' + esc(debugMsg) + '</small></div>';
+        + (mesesEnKfc   ? '\nMeses en KFC: '   + mesesEnKfc   : '')
+        + (mesesEnOtros ? '\nMeses en Otros: ' + mesesEnOtros : '')
+        + '\n\nSi el mes correcto está en la lista de arriba,\nselecciónalo en el selector de mes.';
+      if (cDebug) cDebug.innerHTML = '<div class="no-clientes"><strong>📭 Sin clientes para ' + esc(mes) + '</strong>'
+        + '<br><small style="white-space:pre-wrap;font-size:11px;color:#777;margin-top:8px;display:block">' + esc(debugMsg) + '</small>'
+        + '<br><button class="btn-ghost btn-sm" onclick="cargarTodosSinFiltro()" style="margin-top:10px">🔍 Ver todos los meses</button>'
+        + '</div>';
       return;
-    }
-    if (!nuevosClientes.length && teniaDatos) {
-      showToast('⚠️ ' + mes + ' sin datos en Excel — mostrando mes anterior');
     }
     renderClientesMes();
     try { sugerenciaProactiva(); } catch(e) {}
   })
   .catch(function(err) {
+    _cargandoClientes = false;
     mostrarCargando(false);
     _mostrarOverlayClientes(false);
     if (sk) sk.style.display = 'none';
@@ -1450,6 +1464,26 @@ function cargarClientes() {
     }
     if (cont) cont.innerHTML = '<div class="no-clientes"><strong>❌ Error al cargar desde Dropbox</strong><br><small style="white-space:pre-wrap;font-size:11px;color:#c00">' + esc(String(err)) + '</small><br><br><small>Ruta KFC: ' + esc(DBX_KFC_PATH) + '<br>Ruta Otros: ' + esc(DBX_OTROS_PATH) + '</small></div>';
   });
+}
+
+/* Load all months — escape hatch when the selected month has no data */
+function cargarTodosSinFiltro() {
+  var mesEl = document.getElementById('admin-mes');
+  // Detect which month actually has data by trying months in order
+  var MESES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  // Try current calendar month first, then previous
+  var actual = new Date().getMonth(); // 0-based
+  var orden = [];
+  for (var i = 0; i < 12; i++) {
+    orden.push(MESES[(actual - i + 12) % 12]);
+  }
+  var cont = document.getElementById('clientes-mes-lista');
+  if (cont) cont.innerHTML = '<div class="no-clientes">🔍 Buscando mes con datos...</div>';
+  // Just clear the lock and load without month filter by picking the actual current month
+  if (mesEl) mesEl.value = MESES[actual];
+  _cargandoClientes = false;
+  _mesUltimoCargado = '';
+  cargarClientes();
 }
 
 function _guardarVisitas() {
