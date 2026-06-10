@@ -1039,6 +1039,7 @@ html.dark .seg-toolbar { background: #1a1a1a; }
 }
 
 /* ===== KFC BADGE ===== */
+.badge-brand-otro { background: #6366f1 !important; }
 .badge-kfc {
   display: inline-block;
   background: #f97316;
