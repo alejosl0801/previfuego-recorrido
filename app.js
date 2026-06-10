@@ -350,6 +350,42 @@ function parseExcel(buf) {
   return allRows;
 }
 
+function parseExcelOtros(buf, mesSeleccionado) {
+  var wb = XLSX.read(buf, { type: 'array' });
+  var sheetTarget = null;
+  wb.SheetNames.forEach(function(name) {
+    var upper = name.trim().toUpperCase();
+    if (upper === mesSeleccionado || normalizarMes(name.trim()) === mesSeleccionado) {
+      sheetTarget = name;
+    }
+  });
+  var sheetsToRead = sheetTarget ? [sheetTarget] : wb.SheetNames;
+  var clientes = [];
+  sheetsToRead.forEach(function(sheetName) {
+    var ws = wb.Sheets[sheetName];
+    var raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+    var nombreActual = '';
+    raw.forEach(function(row) {
+      var colA = String(row[0] || '').trim();
+      var colC = String(row[2] || '').trim();
+      var colD = String(row[3] || '').trim();
+      if (colA) nombreActual = colA;
+      if (!nombreActual) return;
+      if (!colC && !colD) return;
+      clientes.push({
+        nombre:     nombreActual,
+        direccion:  '',
+        extintores: parseInt(colD) || 0,
+        mes:        sheetTarget ? mesSeleccionado : normalizarMes(sheetName),
+        local:      colC,
+        marca:      colC,
+        esKfc:      false
+      });
+    });
+  });
+  return clientes;
+}
+
 function normalizarMes(val) {
   var s = String(val).trim();
   if (MESES_NUM[s]) return MESES_NUM[s];
@@ -559,7 +595,7 @@ function cargarClientes() {
   mostrarCargando(true);
   Promise.all([
     dbxDownload(DBX_KFC_PATH).then(function(buf) { return buf ? parseExcel(buf) : []; }),
-    dbxDownload(DBX_OTROS_PATH).then(function(buf) { return buf ? parseExcel(buf) : []; }),
+    dbxDownload(DBX_OTROS_PATH).then(function(buf) { return buf ? parseExcelOtros(buf, mes) : []; }),
     dbxDownloadJSON(DBX_VISITAS)
   ])
   .then(function(results) {
@@ -568,8 +604,7 @@ function cargarClientes() {
     var rawOtros = results[1];
     var kfc   = deduplicarClientes(rawKfc.map(function(r) { return normalizarCliente(r, true); }))
                       .filter(function(c) { return c.nombre && (!mes || !c.mes || c.mes === mes || c.mes === ''); });
-    var otros = deduplicarClientes(rawOtros.map(function(r) { return normalizarCliente(r, false); }))
-                        .filter(function(c) { return c.nombre && (!mes || !c.mes || c.mes === mes || c.mes === ''); });
+    var otros = deduplicarClientes(rawOtros).filter(function(c) { return !!c.nombre; });
     CLIENTES_DISPONIBLES = kfc.concat(otros);
     if (CLIENTES_DISPONIBLES.length > 0) {
       try { localStorage.setItem('pf_clientes_cache', JSON.stringify(CLIENTES_DISPONIBLES)); } catch(e) {}
