@@ -396,7 +396,7 @@ function sincronizarConfig() {
   if (!getRefreshToken()) return;
   dbxDownloadJSON(DBX_CONFIG)
   .then(function(cfg) {
-    if (cfg.gemini_key && !localStorage.getItem('pf_gemini_key')) {
+    if (cfg.gemini_key) {
       localStorage.setItem('pf_gemini_key', cfg.gemini_key);
     }
     localStorage.setItem('pf_last_sync', new Date().toLocaleString('es-EC'));
@@ -463,11 +463,15 @@ function actualizarMemoriaValeria(puntos, instruccion) {
 }
 
 function _esConsultaValeria(texto) {
+  // Route-creation keywords take priority — even if the message contains "?"
+  var crearRutaPatrones = /\b(pon|agrega|agregar|incluye|incluir|mete|meter|crea|crear|dame|haz|hacer|selecciona|seleccionar|a\xF1ade|a\xF1adir)\b/i;
+  if (crearRutaPatrones.test(texto)) return false;
+
   var consultaPatrones = [
     /\bcu\xe1ndo\b/i, /\bqu\xe9 hicimos\b/i, /\bhistorial\b/i, /\brecordas\b/i,
     /\bfuimos a\b/i, /\ba d\xF3nde\b/i, /\bcu\xe1ntas veces\b/i, /\bqu\xe9 d\xEDa\b/i,
     /\bla \xFAltima vez\b/i, /\bme recuerdas\b/i, /\bmuestra\b/i, /\bcu\xe1l es\b/i,
-    /\?/, /\bcu\xe1nto\b/i, /\bcu\xe1ntos\b/i
+    /\bcu\xe1nto\b/i, /\bcu\xe1ntos\b/i
   ];
   for (var i = 0; i < consultaPatrones.length; i++) {
     if (consultaPatrones[i].test(texto)) return true;
@@ -492,15 +496,20 @@ function consultarValeria(texto) {
     if (partes.length !== 3) return false;
     var d = new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
     return d >= hace30;
-  }).slice(0, 30);
+  }).slice(0, 15);
 
-  var clientesCtx = CLIENTES_DISPONIBLES.map(function(c, i) {
+  // Limit to first 150 clients to avoid exceeding Gemini's token limit (413)
+  var MAX_CLIENTES_CTX = 150;
+  var clientesCtx = CLIENTES_DISPONIBLES.slice(0, MAX_CLIENTES_CTX).map(function(c, i) {
     var vis = VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado ? 'VISITADO' : 'PENDIENTE';
     var patron = VALERIA_MEMORIA.patrones_cliente && VALERIA_MEMORIA.patrones_cliente[c.nombre];
     var extra = patron ? ' [veces:' + (patron.veces_en_ruta || 0) + ',\xFAltima:' + (patron.ultimo_recorrido || '—') + ']' : '';
     return i + '. [' + (c.esKfc ? 'KFC' : 'OTRO') + '] ' + c.nombre
       + (c.local ? ' (' + c.local + ')' : '') + ' - ' + c.direccion + ' [' + vis + ']' + extra;
   }).join('\n');
+  if (CLIENTES_DISPONIBLES.length > MAX_CLIENTES_CTX) {
+    clientesCtx += '\n... y ' + (CLIENTES_DISPONIBLES.length - MAX_CLIENTES_CTX) + ' m\xE1s';
+  }
 
   var historialCtx = historialReciente.map(function(h) {
     var tecCtx = '';
@@ -529,23 +538,41 @@ function consultarValeria(texto) {
         + '--- FIN INSTRUCCIÓN ---\n'
       : 'Si es una pregunta informativa, responde directamente con texto claro.');
 
-  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 1024 }
-    })
+  var timeoutP = new Promise(function(_, reject) {
+    setTimeout(function() { reject(new Error('Tiempo de espera agotado (15s). Intenta de nuevo.')); }, 15000);
+  });
+
+  Promise.race([
+    fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 2048 }
+      })
+    }),
+    timeoutP
+  ])
+  .then(function(r) {
+    if (!r.ok) return r.text().then(function(t) { throw new Error('Gemini HTTP ' + r.status + ': ' + t.slice(0, 200)); });
+    return r.json();
   })
-  .then(function(r) { return r.json(); })
   .then(function(d) {
     eliminarBurbujaThinking();
     if (d.error) throw new Error(d.error.message || 'Error Gemini API');
     var raw = ((d.candidates || [])[0] || {});
+    if (raw.finishReason === 'SAFETY') {
+      agregarBurbuja('valeria', '⚠️ Gemini bloque\xF3 la respuesta por filtros de seguridad. Reformula la instrucci\xF3n.');
+      return;
+    }
+    if (raw.finishReason === 'MAX_TOKENS') {
+      agregarBurbuja('valeria', '⚠️ Respuesta incompleta (l\xEDmite de tokens). Intenta con una instrucci\xF3n m\xE1s corta.');
+      return;
+    }
     var part0 = (raw.content && raw.content.parts && raw.content.parts[0]) ? raw.content.parts[0] : null;
     var text = part0 ? ((part0.text || '').trim()) : '';
 
-    if (text.indexOf('CREAR_RUTA:') === 0) {
+    if (text.trim().indexOf('CREAR_RUTA:') === 0) {
       var jsonPart = text.slice('CREAR_RUTA:'.length).trim();
       var match = jsonPart.match(/\[[\d,\s,-]*\]/);
       if (match) {
@@ -588,7 +615,6 @@ function enviarMensajeValeria() {
   if (_esConsultaValeria(texto)) {
     consultarValeria(texto);
   } else {
-    agregarBurbuja('valeria', '⏳ Procesando instrucci\xF3n con Gemini AI...', 'thinking');
     procesarInstruccionVoz(texto);
   }
 }
@@ -1465,7 +1491,6 @@ function iniciarVoz() {
     if (_esConsultaValeria(texto)) {
       consultarValeria(texto);
     } else {
-      agregarBurbuja('valeria', '⏳ Procesando con Gemini AI...', 'thinking');
       procesarInstruccionVoz(texto);
     }
   };
@@ -1484,6 +1509,7 @@ function iniciarVoz() {
 function procesarInstruccionVoz(texto) {
   var key = getGeminiKey();
   if (!key) { agregarBurbuja('valeria', '⚠️ Sin clave Gemini. Conf\xEDgurala en Config.'); return; }
+  agregarBurbuja('valeria', '⏳ Procesando con Gemini AI...', 'thinking');
   _ultimaInstruccionVoz = texto;
 
   var clientesCtx = CLIENTES_DISPONIBLES.map(function(c, i) {
@@ -1508,24 +1534,47 @@ function procesarInstruccionVoz(texto) {
     + 'Responde \xDANICAMENTE con un array JSON de \xEDndices num\xE9ricos. Ejemplo: [0, 3, 7]\n'
     + 'No incluyas texto adicional, solo el array JSON.';
 
-  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 512 }
-    })
+  var timeoutP = new Promise(function(_, reject) {
+    setTimeout(function() { reject(new Error('Tiempo de espera agotado (15s). Intenta de nuevo.')); }, 15000);
+  });
+
+  Promise.race([
+    fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 1024 }
+      })
+    }),
+    timeoutP
+  ])
+  .then(function(r) {
+    if (!r.ok) return r.text().then(function(t) { throw new Error('Gemini HTTP ' + r.status + ': ' + t.slice(0, 200)); });
+    return r.json();
   })
-  .then(function(r) { return r.json(); })
   .then(function(d) {
     eliminarBurbujaThinking();
     if (d.error) throw new Error(d.error.message || 'Error Gemini API');
     var raw = ((d.candidates || [])[0] || {});
+    if (raw.finishReason === 'SAFETY') {
+      agregarBurbuja('valeria', '⚠️ Gemini bloque\xF3 la respuesta por filtros de seguridad. Reformula la instrucci\xF3n.');
+      return;
+    }
     var part0 = (raw.content && raw.content.parts && raw.content.parts[0]) ? raw.content.parts[0] : null;
     var text = part0 ? ((part0.text || '').trim()) : '';
-    var match = text.match(/\[[\d,\s,-]*\]/);
-    if (!match) throw new Error('Respuesta inesperada de Gemini: ' + text.slice(0, 100));
-    var indices = JSON.parse(match[0]);
+    // Robust array parse: match full array, or a truncated one (MAX_TOKENS) and salvage it
+    var match = text.match(/\[[\d,\s-]*\]/);
+    var arrStr;
+    if (match) {
+      arrStr = match[0];
+    } else {
+      var partial = text.match(/\[[\d,\s-]*/);
+      if (!partial) throw new Error('Respuesta inesperada de Gemini: ' + text.slice(0, 100));
+      // Salvage truncated array: drop trailing comma/whitespace and close it
+      arrStr = partial[0].replace(/[,\s]+$/, '') + ']';
+    }
+    var indices = JSON.parse(arrStr);
     RUTA_PREVIEW = indices
       .filter(function(i) { return Number.isInteger(i) && i >= 0 && i < CLIENTES_DISPONIBLES.length; })
       .map(function(i) { return Object.assign({}, CLIENTES_DISPONIBLES[i]); });
