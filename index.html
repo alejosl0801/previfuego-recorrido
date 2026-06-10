@@ -149,6 +149,7 @@
 
     <!-- Tab Valeria (AI Assistant with memory) -->
     <div id="tab-valeria" class="tab-content">
+      <div id="valeria-sugerencia"></div>
       <div id="valeria-chips" class="valeria-chips"></div>
       <div id="valeria-chat" class="valeria-chat"></div>
       <div class="valeria-input-row">
@@ -192,6 +193,7 @@
           <option value="60">60s</option>
         </select>
         <button class="btn-icon-admin" onclick="pfRenderSeguimiento()" title="Actualizar">&#8635;</button>
+        <button id="btn-resumen-ia" class="btn-icon-admin" onclick="resumenSeguimientoIA()" title="Resumen IA">&#x1F4CA;</button>
         <button class="btn-icon-admin" onclick="imprimirSeguimiento()" title="Imprimir">&#x1F5A8;</button>
       </div>
       <div class="seg-search-wrap">
@@ -230,13 +232,15 @@
       </div>
 
       <div class="config-section" style="margin-top:16px">
-        <h3>Clave Gemini AI</h3>
-        <p class="config-hint">Se guarda en Dropbox y nunca en el c&#xF3;digo.</p>
-        <div id="cfg-gemini-status" style="margin-bottom:8px;font-size:13px;color:#555"></div>
-        <div class="form-group" style="padding:0">
-          <input type="password" id="cfg-gemini-key" class="opts-input" placeholder="Pega tu clave de API Gemini aqu&#xED;" style="font-size:13px" />
-          <button class="btn-primary btn-full" onclick="guardarGeminiKey()" style="margin-top:8px">Guardar clave Gemini</button>
-        </div>
+        <h3>Groq AI</h3>
+        <div id="cfg-groq-status" style="margin-bottom:8px;font-size:13px;color:#1a7f37">&#x2705; Groq AI configurado (llama-3.3-70b)</div>
+        <details style="margin-top:4px">
+          <summary style="font-size:13px;color:#666;cursor:pointer">Usar clave Groq personalizada (opcional)</summary>
+          <div class="form-group" style="padding:8px 0 0">
+            <input type="password" id="cfg-groq-key" class="opts-input" placeholder="Clave Groq (opcional, ya configurada)" style="font-size:13px" />
+            <button class="btn-ghost btn-full" onclick="guardarGroqKey()" style="margin-top:8px">Guardar clave Groq</button>
+          </div>
+        </details>
       </div>
 
       <div class="config-section" style="margin-top:16px">
@@ -277,7 +281,7 @@
 
       <div class="config-section" style="margin-top:16px;margin-bottom:24px">
         <h3>Informaci&#xF3;n</h3>
-        <p style="font-size:0.82rem;color:#777">Versi&#xF3;n: <strong id="cfg-version">2.5</strong></p>
+        <p style="font-size:0.82rem;color:#777">Versi&#xF3;n: <strong id="cfg-version">2.7</strong></p>
         <p style="font-size:0.82rem;color:#777;margin-top:4px" id="cfg-last-sync">&#xDA;ltima sync: —</p>
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn-ghost btn-sm" onclick="toggleDarkMode()">&#x1F319; Modo oscuro</button>
