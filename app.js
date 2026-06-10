@@ -510,14 +510,22 @@ function consultarValeria(texto) {
     return h.fecha + ': "' + (h.instruccion || '') + '" → ' + (h.clientes || []).join(', ') + tecCtx;
   }).join('\n');
 
-  var prompt = 'Eres Valeria, asistente de IA para Previfuego (empresa de mantenimiento de extintores).\n'
+  var esMejoras = /mejor[ao]|implementa|funcionalidad|feature|agrega|a\xf1ade|sugiere|recomienda|cambio|app|sistema|necesitamos/i.test(texto);
+  var prompt = 'Eres Valeria, asistente de IA para Previfuego (empresa de mantenimiento de extintores en Ecuador).\n'
     + 'Fecha actual: ' + fechaHoy() + '\n\n'
     + '=== HISTORIAL \xDALTIMOS 30 D\xCDAS ===\n' + (historialCtx || '(sin historial)') + '\n\n'
     + '=== CLIENTES DEL MES (con estado de visita y patrones) ===\n' + (clientesCtx || '(sin clientes)') + '\n\n'
     + '=== PREGUNTA DEL ADMINISTRADOR ===\n' + texto + '\n\n'
     + 'Responde en espa\xF1ol, de forma concisa y \xFAtil. Si te preguntan sobre fechas o historial, busca en el historial. '
     + 'Si te piden crear una ruta, responde con exactamente: CREAR_RUTA: seguido de los \xEDndices JSON. '
-    + 'Si es una pregunta informativa, responde directamente con texto claro.';
+    + (esMejoras
+      ? 'Si te piden sugerencias de mejoras para la app, an\xE1liza el historial de uso, los patrones de clientes, '
+        + 'y genera una lista numerada de mejoras CONCRETAS y ESPEC\xCDFICAS basadas en los datos reales que tienes. '
+        + 'Termina tu respuesta con este bloque exacto para que el administrador lo pueda copiar a Claude:\n\n'
+        + '--- INSTRUCCIÓN PARA CLAUDE ---\n'
+        + '[aquí escribe en imperativo las mejoras a implementar, siendo muy específico con cada feature]\n'
+        + '--- FIN INSTRUCCIÓN ---\n'
+      : 'Si es una pregunta informativa, responde directamente con texto claro.');
 
   fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key, {
     method: 'POST',
@@ -604,14 +612,43 @@ function renderChat() {
   var chat = document.getElementById('valeria-chat');
   if (!chat) return;
   var html = '';
-  VALERIA_CHAT.forEach(function(b) {
+  VALERIA_CHAT.forEach(function(b, idx) {
     var esUsuario = b.quien === 'usuario';
+    var tieneInstruccion = !esUsuario && b.texto && b.texto.indexOf('--- INSTRUCCIÓN PARA CLAUDE ---') !== -1;
+    var textoHtml = esc(b.texto).replace(/\n/g, '<br>');
+    if (tieneInstruccion) {
+      textoHtml = textoHtml
+        .replace('--- INSTRUCCIÓN PARA CLAUDE ---', '<strong style="color:#7c3aed">--- INSTRUCCIÓN PARA CLAUDE ---</strong>')
+        .replace('--- FIN INSTRUCCIÓN ---', '<strong style="color:#7c3aed">--- FIN INSTRUCCIÓN ---</strong>');
+    }
     html += '<div class="chat-burbuja ' + (esUsuario ? 'chat-usuario' : 'chat-valeria') + (b.clase ? ' chat-' + b.clase : '') + '">'
-      + '<div class="chat-texto">' + esc(b.texto).replace(/\n/g, '<br>') + '</div>'
+      + '<div class="chat-texto">' + textoHtml + '</div>'
+      + (tieneInstruccion ? '<button class="btn-copiar-instruccion" onclick="copiarInstruccionClaude(' + idx + ')">📋 Copiar instrucción para Claude</button>' : '')
       + '</div>';
   });
   chat.innerHTML = html;
   chat.scrollTop = chat.scrollHeight;
+}
+
+function copiarInstruccionClaude(idx) {
+  var b = VALERIA_CHAT[idx];
+  if (!b) return;
+  var inicio = b.texto.indexOf('--- INSTRUCCIÓN PARA CLAUDE ---');
+  var fin = b.texto.indexOf('--- FIN INSTRUCCIÓN ---');
+  var instruccion = fin > inicio
+    ? b.texto.slice(inicio, fin + '--- FIN INSTRUCCIÓN ---'.length)
+    : b.texto.slice(inicio);
+  navigator.clipboard.writeText(instruccion).then(function() {
+    showToast('✅ Instrucción copiada al portapapeles');
+  }).catch(function() {
+    var ta = document.createElement('textarea');
+    ta.value = instruccion;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('✅ Instrucción copiada');
+  });
 }
 
 function _agregarChipHistorial(texto) {
@@ -1014,9 +1051,15 @@ function cargarClientes() {
     if (sk) sk.style.display = 'none';
     var rawKfc   = results[0];
     var rawOtros = results[1];
-    var kfc   = deduplicarClientes(rawKfc.map(function(r) { return normalizarCliente(r, true); }))
-                      .filter(function(c) { return c.nombre && (!mes || !c.mes || c.mes === mes || c.mes === ''); });
-    var otros = deduplicarClientes(rawOtros).filter(function(c) { return !!c.nombre; });
+    var normKfc = rawKfc.map(function(r) { return normalizarCliente(r, true); });
+    var kfcFiltrado = normKfc.filter(function(c) {
+      if (!c.nombre) return false;
+      if (!mes) return true;
+      if (!c.mes) return true;
+      return c.mes === mes;
+    });
+    var kfc   = deduplicarClientes(kfcFiltrado);
+    var otros = deduplicarClientes(rawOtros.filter(function(c) { return !!c.nombre; }));
     CLIENTES_DISPONIBLES = kfc.concat(otros);
     if (CLIENTES_DISPONIBLES.length > 0) {
       try { localStorage.setItem('pf_clientes_cache', JSON.stringify(CLIENTES_DISPONIBLES)); } catch(e) {}
