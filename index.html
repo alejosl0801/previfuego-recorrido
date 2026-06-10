@@ -17,6 +17,9 @@
 </head>
 <body>
 
+  <!-- ===== OFFLINE BANNER ===== -->
+  <div id="offline-banner" class="offline-banner hidden">&#x26A0;&#xFE0F; Sin conexi&#xF3;n a internet</div>
+
   <!-- ===== SCREEN S0: LOGIN ===== -->
   <div id="s0" class="screen active">
     <div class="logo-wrap">
@@ -54,7 +57,7 @@
     </div>
   </div>
 
-  <!-- ===== SCREEN S1: TÉCNICO ===== -->
+  <!-- ===== SCREEN S1: T&#xC9;CNICO ===== -->
   <div id="s1" class="screen">
     <header class="app-header">
       <button onclick="logout()" class="btn-back">&#8592; Salir</button>
@@ -77,67 +80,122 @@
       <p>No hay recorrido publicado para hoy.</p>
       <p>Consulta con Alejandro.</p>
     </div>
+    <div class="font-size-fab">
+      <button onclick="cambiarFuente(-1)" title="Reducir texto">A-</button>
+      <button onclick="cambiarFuente(1)" title="Aumentar texto">A+</button>
+    </div>
+    <div id="undo-bar" class="undo-bar hidden">
+      <span id="undo-msg"></span>
+      <button onclick="deshacerListo()" class="btn-undo">Deshacer</button>
+    </div>
   </div>
 
   <!-- ===== SCREEN SADMIN: ADMIN ===== -->
   <div id="sadmin" class="screen">
     <header class="app-header">
       <button onclick="logout()" class="btn-back">&#8592; Salir</button>
-      <span>Panel Admin</span>
+      <span>Panel Admin <span id="admin-ruta-status" class="admin-ruta-badge hidden"></span></span>
       <span class="header-date" id="admin-fecha"></span>
     </header>
     <div class="tabs">
       <button class="tab active" onclick="switchTab('clientes')" id="tab-btn-clientes">Clientes</button>
-      <button class="tab" onclick="switchTab('voz')" id="tab-btn-voz">&#x1F3A4; Voz</button>
+      <button class="tab" onclick="switchTab('valeria')" id="tab-btn-valeria">&#x1F916; Valeria</button>
       <button class="tab" onclick="switchTab('seguimiento')" id="tab-btn-seguimiento">Seguimiento</button>
-      <button class="tab" onclick="switchTab('config')" id="tab-btn-config" aria-label="Configuración">&#x2699;&#xFE0F;</button>
+      <button class="tab" onclick="switchTab('config')" id="tab-btn-config" aria-label="Configuraci&#xF3;n">&#x2699;&#xFE0F;</button>
     </div>
 
     <!-- Tab Clientes del Mes -->
     <div id="tab-clientes" class="tab-content active">
-      <div class="form-group">
-        <label for="admin-mes">Mes de contratos:</label>
-        <select id="admin-mes" onchange="cargarClientes()">
-          <option value="ENERO">Enero</option>
-          <option value="FEBRERO">Febrero</option>
-          <option value="MARZO">Marzo</option>
-          <option value="ABRIL">Abril</option>
-          <option value="MAYO">Mayo</option>
-          <option value="JUNIO" selected>Junio</option>
-          <option value="JULIO">Julio</option>
-          <option value="AGOSTO">Agosto</option>
-          <option value="SEPTIEMBRE">Septiembre</option>
-          <option value="OCTUBRE">Octubre</option>
-          <option value="NOVIEMBRE">Noviembre</option>
-          <option value="DICIEMBRE">Diciembre</option>
-        </select>
+      <div class="clientes-header-row">
+        <div style="flex:1">
+          <label for="admin-mes" style="font-size:0.78rem;color:#555;font-weight:600;display:block;margin-bottom:4px">Mes:</label>
+          <select id="admin-mes" onchange="cargarClientes()" style="width:100%;padding:9px 12px;border:1.5px solid #ddd;border-radius:10px;font-size:0.9rem;background:#fff;outline:none;-webkit-appearance:none;appearance:none">
+            <option value="ENERO">Enero</option>
+            <option value="FEBRERO">Febrero</option>
+            <option value="MARZO">Marzo</option>
+            <option value="ABRIL">Abril</option>
+            <option value="MAYO">Mayo</option>
+            <option value="JUNIO" selected>Junio</option>
+            <option value="JULIO">Julio</option>
+            <option value="AGOSTO">Agosto</option>
+            <option value="SEPTIEMBRE">Septiembre</option>
+            <option value="OCTUBRE">Octubre</option>
+            <option value="NOVIEMBRE">Noviembre</option>
+            <option value="DICIEMBRE">Diciembre</option>
+          </select>
+        </div>
+        <button class="btn-icon-admin" onclick="cargarClientes()" title="Actualizar clientes">&#8635;</button>
+      </div>
+      <div class="clientes-search-wrap">
+        <input type="search" id="clientes-buscar" placeholder="Buscar cliente o direcci&#xF3;n..." oninput="filtrarClientesMes()" autocomplete="off" />
       </div>
       <div id="clientes-mes-stats" class="clientes-mes-stats"></div>
-      <div id="clientes-mes-lista" class="clientes-mes-lista"></div>
+      <div class="clientes-bulk-row">
+        <button class="btn-ghost btn-sm" onclick="marcarTodosKfc()">&#x2713; KFC</button>
+        <button class="btn-ghost btn-sm" onclick="marcarTodosOtros()">&#x2713; Otros</button>
+        <button class="btn-ghost btn-sm" onclick="exportarVisitados()">&#x1F4CB; Copiar</button>
+      </div>
+      <div id="clientes-mes-lista" class="clientes-mes-lista">
+        <div id="skeleton-lista">
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+        </div>
+      </div>
+      <button id="fab-top" class="fab-top hidden" onclick="scrollToTop()" title="Ir arriba">&#8679;</button>
     </div>
 
-    <!-- Tab Voz -->
-    <div id="tab-voz" class="tab-content">
-      <div class="voz-section">
-        <p class="voz-hint">Habla para crear el recorrido de hoy.<br><small>Ejemplo: "Pon los KFC pendientes de Guayaquil"</small></p>
-        <button id="btn-mic" class="btn-mic" onclick="iniciarVoz()">&#x1F3A4;</button>
-        <div id="voz-transcript" class="voz-transcript"></div>
-        <div id="voz-status" class="voz-status"></div>
+    <!-- Tab Valeria (AI Assistant with memory) -->
+    <div id="tab-valeria" class="tab-content">
+      <div id="valeria-chips" class="valeria-chips"></div>
+      <div id="valeria-chat" class="valeria-chat"></div>
+      <div class="valeria-input-row">
+        <input type="text" id="valeria-input" class="valeria-text-input" placeholder="Escribe o habla... Ej: KFC pendientes de Guayaquil" onkeydown="valeriaTecla(event)" autocomplete="off" />
+        <button id="btn-mic" class="btn-mic-small" onclick="iniciarVoz()" title="Hablar">&#x1F3A4;</button>
+        <button class="btn-valeria-send" onclick="enviarMensajeValeria()" title="Enviar">&#x27A4;</button>
       </div>
       <div id="ruta-preview" class="ruta-preview" style="display:none">
         <div class="ruta-preview-header">
           <span id="ruta-preview-title">Ruta sugerida</span>
-          <button class="btn-ghost" onclick="limpiarPreview()" style="font-size:0.8rem;padding:6px 12px;min-height:36px">&#x2715; Cancelar</button>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn-ghost btn-sm" onclick="compartirRutaWhatsApp()">&#x1F4F1; WA</button>
+            <button class="btn-ghost btn-sm" onclick="limpiarPreview()">&#x2715;</button>
+          </div>
         </div>
         <div id="ruta-preview-lista" class="ruta-preview-lista"></div>
+        <div style="padding:0 0 8px">
+          <button class="btn-ghost btn-full" onclick="agregarPuntoManual()" style="font-size:0.85rem">&#x2B; Agregar punto manual</button>
+        </div>
         <div class="admin-publish-wrap">
-          <button class="btn-primary btn-full" onclick="publicarRutaPreview()">&#x1F4E4; Publicar Recorrido</button>
+          <label style="font-size:0.82rem;display:flex;align-items:center;gap:8px;color:#555;cursor:pointer">
+            <input type="checkbox" id="chk-manana"> Para ma&#xF1;ana
+          </label>
+          <button class="btn-primary btn-full" style="margin-top:8px" onclick="publicarRutaPreview()">&#x1F4E4; Publicar Recorrido</button>
         </div>
       </div>
     </div>
 
     <!-- Tab Seguimiento -->
     <div id="tab-seguimiento" class="tab-content">
+      <div class="seg-toolbar">
+        <select id="seg-filtro-tecnico" onchange="aplicarFiltroSeguimiento()" class="seg-filtro-select">
+          <option value="">Todos</option>
+          <option value="Ra&#xFA;l">Ra&#xFA;l</option>
+          <option value="Juan">Juan</option>
+        </select>
+        <select id="seg-intervalo" onchange="cambiarIntervaloSeguimiento()" class="seg-filtro-select">
+          <option value="15">15s</option>
+          <option value="30" selected>30s</option>
+          <option value="60">60s</option>
+        </select>
+        <button class="btn-icon-admin" onclick="pfRenderSeguimiento()" title="Actualizar">&#8635;</button>
+        <button class="btn-icon-admin" onclick="imprimirSeguimiento()" title="Imprimir">&#x1F5A8;</button>
+      </div>
+      <div class="seg-search-wrap">
+        <input type="search" id="seg-buscar" placeholder="Buscar..." oninput="filtrarSeguimiento()" autocomplete="off" />
+      </div>
       <div class="seguimiento-counters" id="seg-counters"></div>
       <div id="seg-tabla-wrap">
         <table class="seg-table">
@@ -147,6 +205,7 @@
               <th>T&#xE9;cnico</th>
               <th>Estado</th>
               <th>Hora</th>
+              <th>Obs.</th>
             </tr>
           </thead>
           <tbody id="seg-tbody"></tbody>
@@ -163,6 +222,10 @@
         <div id="cfg-status" style="margin-top:8px;text-align:center;font-size:15px;padding:10px 0"></div>
         <button id="btn-conectar-dropbox" class="btn-primary btn-full" onclick="iniciarOAuth()">&#x1F517; Conectar con Dropbox</button>
         <button id="btn-desconectar-dropbox" class="btn-ghost btn-full" onclick="desconectarDropbox()" style="display:none;margin-top:10px">Desconectar</button>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-ghost btn-sm" onclick="verificarConexion()">&#x1F4E1; Test</button>
+          <button class="btn-ghost btn-sm" onclick="limpiarCache()">&#x1F5D1; Limpiar cach&#xE9;</button>
+        </div>
       </div>
 
       <div class="config-section" style="margin-top:16px">
@@ -176,16 +239,29 @@
       </div>
 
       <div class="config-section" style="margin-top:16px">
+        <h3>Nombres de t&#xE9;cnicos</h3>
+        <div class="form-group" style="padding:0">
+          <label>T&#xE9;cnico 1 (Ra&#xFA;l):</label>
+          <input type="text" id="cfg-nombre-raul" class="opts-input" style="font-size:13px" placeholder="Ra&#xFA;l" />
+          <label style="margin-top:8px;display:block">T&#xE9;cnico 2 (Juan):</label>
+          <input type="text" id="cfg-nombre-juan" class="opts-input" style="font-size:13px;margin-top:4px" placeholder="Juan" />
+          <button class="btn-ghost" onclick="guardarNombresTecnicos()" style="margin-top:8px;width:100%">Guardar nombres</button>
+        </div>
+      </div>
+
+      <div class="config-section" style="margin-top:16px">
         <h3>Rutas de archivos</h3>
         <div class="form-group" style="padding:0">
           <label>Archivo KFC (.xlsx):</label>
           <input type="text" id="cfg-path-kfc" class="opts-input" style="font-size:12px" />
           <button class="btn-ghost" onclick="guardarPathKfc()" style="margin-top:4px;width:100%">Guardar</button>
+          <button class="btn-ghost" onclick="testDescargarArchivo(DBX_KFC_PATH)" style="margin-top:4px;width:100%;font-size:11px">&#x1F9EA; Test descarga KFC</button>
         </div>
         <div class="form-group" style="padding:0;margin-top:10px">
           <label>Archivo otros clientes (.xlsx):</label>
           <input type="text" id="cfg-path-otros" class="opts-input" style="font-size:12px" />
           <button class="btn-ghost" onclick="guardarPathOtros()" style="margin-top:4px;width:100%">Guardar</button>
+          <button class="btn-ghost" onclick="testDescargarArchivo(DBX_OTROS_PATH)" style="margin-top:4px;width:100%;font-size:11px">&#x1F9EA; Test descarga Otros</button>
         </div>
         <div style="margin-top:12px;display:flex;gap:8px">
           <button class="btn-ghost" style="flex:1;font-size:12px" onclick="listarCarpeta('/Previfuego/2026')">&#x1F4C2; Ver 2026/</button>
@@ -196,6 +272,17 @@
           <button class="btn-ghost" style="flex:1;font-size:12px;background:#fff3cd" onclick="inspeccionarExcel(DBX_OTROS_PATH)">&#x1F50D; Inspeccionar Otros</button>
         </div>
         <div id="cfg-debug" style="margin-top:10px;font-size:12px;color:#555;background:#f5f5f5;border-radius:8px;padding:10px;word-break:break-all;white-space:pre-wrap;min-height:40px"></div>
+      </div>
+
+      <div class="config-section" style="margin-top:16px;margin-bottom:24px">
+        <h3>Informaci&#xF3;n</h3>
+        <p style="font-size:0.82rem;color:#777">Versi&#xF3;n: <strong>2.0</strong></p>
+        <p style="font-size:0.82rem;color:#777;margin-top:4px" id="cfg-last-sync">&#xDA;ltima sync: —</p>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-ghost btn-sm" onclick="toggleDarkMode()">&#x1F319; Modo oscuro</button>
+          <button class="btn-ghost btn-sm" onclick="cambiarFuente(1)">A+ Texto</button>
+          <button class="btn-ghost btn-sm" onclick="cambiarFuente(-1)">A- Texto</button>
+        </div>
       </div>
     </div>
   </div>

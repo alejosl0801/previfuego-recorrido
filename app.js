@@ -8,6 +8,7 @@ var DBX_REDIRECT   = 'https://alejosl0801.github.io/previfuego-recorrido/';
 var DBX_RECORRIDOS = '/Previfuego/recorridos.json';
 var DBX_CONFIG     = '/Previfuego/config.json';
 var DBX_VISITAS    = '/Previfuego/visitas.json';
+var DBX_VALERIA    = '/Previfuego/valeria_memoria.json';
 
 var DBX_KFC_PATH   = localStorage.getItem('pf_path_kfc')   || '/Previfuego/2026/BASE_DATOS_KFC (8).xlsx';
 var DBX_OTROS_PATH = localStorage.getItem('pf_path_otros') || '/Previfuego/PRESUPUESTOS/PROYECCION INGRESOS MENSUAL 2026.xlsx';
@@ -20,15 +21,67 @@ var PUNTOS = [];
 var CLIENTES_DISPONIBLES = [];
 var VISITAS_MES = {};
 var RUTA_PREVIEW = [];
+var VALERIA_MEMORIA = {};
+var VALERIA_CHAT = [];
 var _seguimientoInterval = null;
+var _seguimientoIntervaloSeg = 30;
+var _toastQueue = [];
 var _toastTimer = null;
+var _toastShowing = false;
 var _currentRec = null;
+var _undoTimer = null;
+var _undoIdx = null;
+var _undoData = null;
+var _guardarVisitasTimer = null;
+var _segPuntosCache = [];
+var _fontSizeDelta = parseInt(localStorage.getItem('pf_font_delta') || '0');
+var _darkMode = localStorage.getItem('pf_dark') === '1';
+var _ultimaInstruccionVoz = '';
+var _chipHistorial = [];
+var _clientesFiltro = '';
 
 var USUARIOS = {
   alejandro: { nombre: 'Alejandro', emoji: '👔', esAdmin: true },
   raul:      { nombre: 'Ra\xFAl',   emoji: '👷' },
   juan:      { nombre: 'Juan',      emoji: '👷' }
 };
+
+/* ===================================================
+   DARK MODE + FONT SIZE — init immediately
+=================================================== */
+(function initAppearance() {
+  if (_darkMode) document.documentElement.classList.add('dark');
+  if (_fontSizeDelta !== 0) {
+    document.documentElement.style.fontSize = (16 + _fontSizeDelta) + 'px';
+  }
+})();
+
+function toggleDarkMode() {
+  _darkMode = !_darkMode;
+  localStorage.setItem('pf_dark', _darkMode ? '1' : '0');
+  document.documentElement.classList.toggle('dark', _darkMode);
+  showToast(_darkMode ? 'Modo oscuro activado' : 'Modo claro activado');
+}
+
+function cambiarFuente(delta) {
+  _fontSizeDelta = Math.max(-4, Math.min(8, _fontSizeDelta + delta));
+  localStorage.setItem('pf_font_delta', String(_fontSizeDelta));
+  document.documentElement.style.fontSize = (16 + _fontSizeDelta) + 'px';
+  showToast('Tama\xF1o: ' + (16 + _fontSizeDelta) + 'px');
+}
+
+/* ===================================================
+   OFFLINE BANNER
+=================================================== */
+window.addEventListener('offline', function() {
+  var b = document.getElementById('offline-banner');
+  if (b) b.classList.remove('hidden');
+});
+window.addEventListener('online', function() {
+  var b = document.getElementById('offline-banner');
+  if (b) b.classList.add('hidden');
+  showToast('✅ Conexi\xF3n restaurada');
+});
 
 /* ===================================================
    OAUTH PKCE — DROPBOX
@@ -49,7 +102,6 @@ function isTokenExpired() {
 function refreshAccessToken() {
   var rt = getRefreshToken();
   if (!rt) return Promise.reject(new Error('No conectado a Dropbox'));
-
   return fetch('https://api.dropbox.com/oauth2/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -167,6 +219,17 @@ function actualizarEstadoConexion() {
       ? '✅ Clave Gemini configurada'
       : '⚠️ Sin clave Gemini — la funci\xF3n de voz no estar\xE1 disponible';
   }
+
+  var lastSync = document.getElementById('cfg-last-sync');
+  if (lastSync) {
+    var ts = localStorage.getItem('pf_last_sync');
+    lastSync.textContent = ts ? '\xDAltima sync: ' + ts : '\xDAltima sync: —';
+  }
+
+  var rNaul = document.getElementById('cfg-nombre-raul');
+  var rJuan = document.getElementById('cfg-nombre-juan');
+  if (rNaul) rNaul.value = localStorage.getItem('pf_nombre_raul') || 'Ra\xFAl';
+  if (rJuan) rJuan.value = localStorage.getItem('pf_nombre_juan') || 'Juan';
 }
 
 function desconectarDropbox() {
@@ -175,6 +238,37 @@ function desconectarDropbox() {
   localStorage.removeItem('pf_dbx_token_exp');
   actualizarEstadoConexion();
   showToast('Dropbox desconectado');
+}
+
+function verificarConexion() {
+  var debug = document.getElementById('cfg-debug');
+  if (!getRefreshToken()) { if (debug) debug.textContent = '⚠️ Conecta Dropbox primero.'; return; }
+  if (debug) debug.textContent = 'Verificando conexi\xF3n...';
+  getValidToken()
+  .then(function(token) {
+    return fetch('https://api.dropboxapi.com/2/users/get_current_account', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (debug) debug.textContent = '✅ Conectado como: ' + (d.email || (d.name && d.name.display_name) || 'OK');
+    showToast('✅ Conexi\xF3n OK');
+  })
+  .catch(function(e) {
+    if (debug) debug.textContent = '❌ Error: ' + String(e);
+  });
+}
+
+function limpiarCache() {
+  pfConfirm('Limpiar cach\xE9', '\xBFEliminar cach\xE9 local de clientes y puntos?', function() {
+    localStorage.removeItem('pf_clientes_cache');
+    var hoy = fechaHoy();
+    localStorage.removeItem('pf_puntos_' + hoy);
+    localStorage.removeItem('pf_estado_' + hoy);
+    showToast('✅ Cach\xE9 eliminada');
+  });
 }
 
 function listarCarpeta(carpeta) {
@@ -215,6 +309,32 @@ function guardarPathOtros() {
   DBX_OTROS_PATH = val.value.trim();
   localStorage.setItem('pf_path_otros', DBX_OTROS_PATH);
   showToast('✅ Path clientes guardado');
+}
+
+function guardarNombresTecnicos() {
+  var rNaul = document.getElementById('cfg-nombre-raul');
+  var rJuan = document.getElementById('cfg-nombre-juan');
+  if (rNaul && rNaul.value.trim()) {
+    localStorage.setItem('pf_nombre_raul', rNaul.value.trim());
+    USUARIOS.raul.nombre = rNaul.value.trim();
+  }
+  if (rJuan && rJuan.value.trim()) {
+    localStorage.setItem('pf_nombre_juan', rJuan.value.trim());
+    USUARIOS.juan.nombre = rJuan.value.trim();
+  }
+  showToast('✅ Nombres guardados');
+}
+
+function testDescargarArchivo(path) {
+  var debug = document.getElementById('cfg-debug');
+  if (!debug) return;
+  debug.textContent = 'Descargando ' + path + '...';
+  dbxDownload(path)
+  .then(function(buf) {
+    if (!buf) { debug.textContent = '❌ Archivo no encontrado: ' + path; return; }
+    debug.textContent = '✅ Archivo OK: ' + path + ' (' + buf.byteLength + ' bytes)';
+  })
+  .catch(function(e) { debug.textContent = '❌ Error: ' + String(e); });
 }
 
 function inspeccionarExcel(path) {
@@ -277,8 +397,239 @@ function sincronizarConfig() {
     if (cfg.gemini_key && !localStorage.getItem('pf_gemini_key')) {
       localStorage.setItem('pf_gemini_key', cfg.gemini_key);
     }
+    localStorage.setItem('pf_last_sync', new Date().toLocaleString('es-EC'));
   })
   .catch(function() {});
+}
+
+/* ===================================================
+   VALERIA — AI ASSISTANT WITH MEMORY
+=================================================== */
+function sincronizarValeria() {
+  if (!getRefreshToken()) return;
+  dbxDownloadJSON(DBX_VALERIA)
+  .then(function(mem) {
+    VALERIA_MEMORIA = mem || {};
+    if (!VALERIA_MEMORIA.historial_rutas) VALERIA_MEMORIA.historial_rutas = [];
+    if (!VALERIA_MEMORIA.patrones_cliente) VALERIA_MEMORIA.patrones_cliente = {};
+    if (!VALERIA_MEMORIA.conversaciones) VALERIA_MEMORIA.conversaciones = [];
+  })
+  .catch(function() {
+    VALERIA_MEMORIA = { historial_rutas: [], patrones_cliente: {}, conversaciones: [] };
+  });
+}
+
+function actualizarMemoriaValeria(puntos, instruccion) {
+  if (!VALERIA_MEMORIA.historial_rutas) VALERIA_MEMORIA.historial_rutas = [];
+  if (!VALERIA_MEMORIA.patrones_cliente) VALERIA_MEMORIA.patrones_cliente = {};
+
+  var tecnicos = {};
+  puntos.forEach(function(p) {
+    var t = p.tecnico || 'Sin asignar';
+    if (!tecnicos[t]) tecnicos[t] = [];
+    tecnicos[t].push(p.nombre);
+  });
+
+  var entrada = {
+    fecha: fechaHoy(),
+    instruccion: instruccion || '',
+    clientes: puntos.map(function(p) { return p.nombre; }),
+    tecnicos: tecnicos
+  };
+
+  VALERIA_MEMORIA.historial_rutas.unshift(entrada);
+  if (VALERIA_MEMORIA.historial_rutas.length > 60) {
+    VALERIA_MEMORIA.historial_rutas = VALERIA_MEMORIA.historial_rutas.slice(0, 60);
+  }
+
+  puntos.forEach(function(p) {
+    var key = p.nombre;
+    if (!VALERIA_MEMORIA.patrones_cliente[key]) {
+      VALERIA_MEMORIA.patrones_cliente[key] = { ultimo_recorrido: '', veces_en_ruta: 0, tecnico_habitual: '' };
+    }
+    var pc = VALERIA_MEMORIA.patrones_cliente[key];
+    pc.ultimo_recorrido = fechaHoy();
+    pc.veces_en_ruta = (pc.veces_en_ruta || 0) + 1;
+    if (p.tecnico) pc.tecnico_habitual = p.tecnico;
+  });
+
+  if (getRefreshToken()) {
+    dbxUpload(DBX_VALERIA, JSON.stringify(VALERIA_MEMORIA, null, 2)).catch(function(e) {
+      console.error('[PF] actualizarMemoriaValeria error:', e);
+    });
+  }
+}
+
+function _esConsultaValeria(texto) {
+  var consultaPatrones = [
+    /\bcu\xe1ndo\b/i, /\bqu\xe9 hicimos\b/i, /\bhistorial\b/i, /\brecordas\b/i,
+    /\bfuimos a\b/i, /\ba d\xF3nde\b/i, /\bcu\xe1ntas veces\b/i, /\bqu\xe9 d\xEDa\b/i,
+    /\bla \xFAltima vez\b/i, /\bme recuerdas\b/i, /\bmuestra\b/i, /\bcu\xe1l es\b/i,
+    /\?/, /\bcu\xe1nto\b/i, /\bcu\xe1ntos\b/i
+  ];
+  for (var i = 0; i < consultaPatrones.length; i++) {
+    if (consultaPatrones[i].test(texto)) return true;
+  }
+  return false;
+}
+
+function consultarValeria(texto) {
+  var key = getGeminiKey();
+  if (!key) {
+    agregarBurbuja('valeria', '⚠️ Necesito la clave Gemini para responder. Conf\xEDgurala en ⚙️ Config.');
+    return;
+  }
+
+  agregarBurbuja('valeria', '⏳ Pensando...', 'thinking');
+
+  var hoy = new Date();
+  var hace30 = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  var historialReciente = (VALERIA_MEMORIA.historial_rutas || []).filter(function(h) {
+    var partes = (h.fecha || '').split('/');
+    if (partes.length !== 3) return false;
+    var d = new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
+    return d >= hace30;
+  }).slice(0, 30);
+
+  var clientesCtx = CLIENTES_DISPONIBLES.map(function(c, i) {
+    var vis = VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado ? 'VISITADO' : 'PENDIENTE';
+    var patron = VALERIA_MEMORIA.patrones_cliente && VALERIA_MEMORIA.patrones_cliente[c.nombre];
+    var extra = patron ? ' [veces:' + (patron.veces_en_ruta || 0) + ',\xFAltima:' + (patron.ultimo_recorrido || '—') + ']' : '';
+    return i + '. [' + (c.esKfc ? 'KFC' : 'OTRO') + '] ' + c.nombre
+      + (c.local ? ' (' + c.local + ')' : '') + ' - ' + c.direccion + ' [' + vis + ']' + extra;
+  }).join('\n');
+
+  var historialCtx = historialReciente.map(function(h) {
+    var tecCtx = '';
+    if (h.tecnicos) {
+      tecCtx = ' | T\xe9cnicos: ' + Object.keys(h.tecnicos).map(function(t) {
+        return t + '(' + (h.tecnicos[t] || []).join(',') + ')';
+      }).join('; ');
+    }
+    return h.fecha + ': "' + (h.instruccion || '') + '" → ' + (h.clientes || []).join(', ') + tecCtx;
+  }).join('\n');
+
+  var prompt = 'Eres Valeria, asistente de IA para Previfuego (empresa de mantenimiento de extintores).\n'
+    + 'Fecha actual: ' + fechaHoy() + '\n\n'
+    + '=== HISTORIAL \xDALTIMOS 30 D\xCDAS ===\n' + (historialCtx || '(sin historial)') + '\n\n'
+    + '=== CLIENTES DEL MES (con estado de visita y patrones) ===\n' + (clientesCtx || '(sin clientes)') + '\n\n'
+    + '=== PREGUNTA DEL ADMINISTRADOR ===\n' + texto + '\n\n'
+    + 'Responde en espa\xF1ol, de forma concisa y \xFAtil. Si te preguntan sobre fechas o historial, busca en el historial. '
+    + 'Si te piden crear una ruta, responde con exactamente: CREAR_RUTA: seguido de los \xEDndices JSON. '
+    + 'Si es una pregunta informativa, responde directamente con texto claro.';
+
+  fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 1024 }
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    eliminarBurbujaThinking();
+    if (d.error) throw new Error(d.error.message || 'Error Gemini API');
+    var raw = ((d.candidates || [])[0] || {});
+    var part0 = (raw.content && raw.content.parts && raw.content.parts[0]) ? raw.content.parts[0] : null;
+    var text = part0 ? ((part0.text || '').trim()) : '';
+
+    if (text.indexOf('CREAR_RUTA:') === 0) {
+      var jsonPart = text.slice('CREAR_RUTA:'.length).trim();
+      var match = jsonPart.match(/\[[\d,\s,-]*\]/);
+      if (match) {
+        var indices = JSON.parse(match[0]);
+        RUTA_PREVIEW = indices
+          .filter(function(i) { return Number.isInteger(i) && i >= 0 && i < CLIENTES_DISPONIBLES.length; })
+          .map(function(i) { return Object.assign({}, CLIENTES_DISPONIBLES[i]); });
+        if (RUTA_PREVIEW.length) {
+          agregarBurbuja('valeria', '✅ Selecci\xF3n lista: ' + RUTA_PREVIEW.length + ' cliente(s). Revisa la vista previa abajo.');
+          renderRutaPreview();
+          return;
+        }
+      }
+      agregarBurbuja('valeria', '⚠️ No encontr\xE9 clientes que coincidan con esa instrucci\xF3n.');
+    } else {
+      agregarBurbuja('valeria', text || '⚠️ Sin respuesta.');
+    }
+  })
+  .catch(function(err) {
+    eliminarBurbujaThinking();
+    agregarBurbuja('valeria', '❌ Error al consultar: ' + String(err));
+    console.error('[PF] consultarValeria error:', err);
+  });
+}
+
+function enviarMensajeValeria() {
+  var input = document.getElementById('valeria-input');
+  if (!input) return;
+  var texto = input.value.trim();
+  if (!texto) return;
+  input.value = '';
+  agregarBurbuja('usuario', texto);
+  _agregarChipHistorial(texto);
+
+  if (!CLIENTES_DISPONIBLES.length) {
+    agregarBurbuja('valeria', '⚠️ Primero carga los clientes desde el tab Clientes.');
+    return;
+  }
+
+  if (_esConsultaValeria(texto)) {
+    consultarValeria(texto);
+  } else {
+    agregarBurbuja('valeria', '⏳ Procesando instrucci\xF3n con Gemini AI...', 'thinking');
+    procesarInstruccionVoz(texto);
+  }
+}
+
+function valeriaTecla(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    enviarMensajeValeria();
+  }
+}
+
+function agregarBurbuja(quien, texto, clase) {
+  VALERIA_CHAT.push({ quien: quien, texto: texto, clase: clase || '' });
+  renderChat();
+}
+
+function eliminarBurbujaThinking() {
+  VALERIA_CHAT = VALERIA_CHAT.filter(function(b) { return b.clase !== 'thinking'; });
+  renderChat();
+}
+
+function renderChat() {
+  var chat = document.getElementById('valeria-chat');
+  if (!chat) return;
+  var html = '';
+  VALERIA_CHAT.forEach(function(b) {
+    var esUsuario = b.quien === 'usuario';
+    html += '<div class="chat-burbuja ' + (esUsuario ? 'chat-usuario' : 'chat-valeria') + (b.clase ? ' chat-' + b.clase : '') + '">'
+      + '<div class="chat-texto">' + esc(b.texto).replace(/\n/g, '<br>') + '</div>'
+      + '</div>';
+  });
+  chat.innerHTML = html;
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function _agregarChipHistorial(texto) {
+  _chipHistorial = _chipHistorial.filter(function(c) { return c !== texto; });
+  _chipHistorial.unshift(texto);
+  if (_chipHistorial.length > 5) _chipHistorial = _chipHistorial.slice(0, 5);
+  var cont = document.getElementById('valeria-chips');
+  if (!cont) return;
+  var html = '';
+  _chipHistorial.forEach(function(c) {
+    html += '<button class="valeria-chip" onclick="usarChip(this.getAttribute(\'data-val\'))" data-val="' + esc(c) + '">' + esc(c) + '</button>';
+  });
+  cont.innerHTML = html;
+}
+
+function usarChip(texto) {
+  var input = document.getElementById('valeria-input');
+  if (input) { input.value = texto; input.focus(); }
 }
 
 /* ===================================================
@@ -402,7 +753,7 @@ function normalizarCliente(row, esKfc) {
     return '';
   }
   var nombre = get('NOMBRE_LOCAL','CLIENTE','Cliente','NOMBRE','Nombre',
-                   'RAZON SOCIAL','Razón Social','RAZON_SOCIAL','RAZÓN SOCIAL',
+                   'RAZON SOCIAL','Raz\xF3n Social','RAZON_SOCIAL','RAZ\xD3N SOCIAL',
                    'EMPRESA','Empresa','ESTABLECIMIENTO','Establecimiento',
                    'RAZON','Razon','DENOMINACION','Denominacion');
   if (!nombre) {
@@ -411,11 +762,11 @@ function normalizarCliente(row, esKfc) {
     });
     if (nameCols.length) nombre = String(row[nameCols[0]] || '').trim();
   }
-  var dir = get('UBICACIÓN','UBICACION','DIRECCION','Dirección','DIRECCIÓN',
+  var dir = get('UBICACI\xD3N','UBICACION','DIRECCION','Direcci\xF3n','DIRECCI\xD3N',
                 'DIR','Direccion','DIREC','direccion','DOMICILIO','Domicilio');
   var ciudad = get('CIUDAD','Ciudad','ciudad','CANTON','PROVINCIA');
   var ext = get('EXTINTORES','Extintores','CAPACIDAD','CANTIDAD','Cantidad',
-                'EXT','N_EXT','TOTAL','Total','NUMERO','Número','CANT');
+                'EXT','N_EXT','TOTAL','Total','NUMERO','N\xFAmero','CANT');
   var mes = get('MES_SERVICIO','MES','Mes','mes','MES_CONTRATO','PERIODO','Periodo');
   var local = get('LOCAL','Local','LOCAL_KFC','Sucursal','SUCURSAL','TIPO','Tipo','ZONA','Zona');
   var marca = get('MARCA','Marca','TIPO_EXT','TIPO EXTINTOR');
@@ -464,9 +815,18 @@ function fechaHoy() {
   return dd + '/' + mm + '/' + d.getFullYear();
 }
 
+function fechaMas(dias) {
+  var d = new Date();
+  d.setDate(d.getDate() + dias);
+  var dd = String(d.getDate()).padStart(2, '0');
+  var mm = String(d.getMonth() + 1).padStart(2, '0');
+  return dd + '/' + mm + '/' + d.getFullYear();
+}
+
 function mostrarCargando(show) {
   var el = document.getElementById('cargando');
   if (el) el.classList[show ? 'remove' : 'add']('hidden');
+  document.body.style.overflow = show ? 'hidden' : '';
 }
 
 function pfModal(titulo, msg) {
@@ -479,9 +839,10 @@ function pfModal(titulo, msg) {
   var btn = document.createElement('button');
   btn.className = 'btn-primary';
   btn.textContent = 'OK';
-  btn.onclick = function() { overlay.classList.add('hidden'); };
+  btn.onclick = function() { overlay.classList.add('hidden'); document.body.style.overflow = ''; };
   actEl.appendChild(btn);
   overlay.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
 }
 
 function pfConfirm(titulo, msg, cb) {
@@ -494,23 +855,40 @@ function pfConfirm(titulo, msg, cb) {
   var btnCancel = document.createElement('button');
   btnCancel.className = 'btn-ghost';
   btnCancel.textContent = 'Cancelar';
-  btnCancel.onclick = function() { overlay.classList.add('hidden'); };
+  btnCancel.onclick = function() { overlay.classList.add('hidden'); document.body.style.overflow = ''; };
   var btnOk = document.createElement('button');
   btnOk.className = 'btn-primary';
   btnOk.textContent = 'Confirmar';
-  btnOk.onclick = function() { overlay.classList.add('hidden'); if (typeof cb === 'function') cb(); };
+  btnOk.onclick = function() {
+    overlay.classList.add('hidden');
+    document.body.style.overflow = '';
+    if (typeof cb === 'function') cb();
+  };
   actEl.appendChild(btnCancel);
   actEl.appendChild(btnOk);
   overlay.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
 }
 
 function showToast(msg) {
+  _toastQueue.push(msg);
+  if (_toastQueue.length > 3) _toastQueue = _toastQueue.slice(-3);
+  if (!_toastShowing) _processToastQueue();
+}
+
+function _processToastQueue() {
+  if (!_toastQueue.length) { _toastShowing = false; return; }
+  _toastShowing = true;
+  var msg = _toastQueue.shift();
   var el = document.getElementById('toast');
-  if (!el) return;
+  if (!el) { _toastShowing = false; return; }
   el.textContent = msg;
   el.classList.add('visible');
   if (_toastTimer) clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(function() { el.classList.remove('visible'); }, 3000);
+  _toastTimer = setTimeout(function() {
+    el.classList.remove('visible');
+    setTimeout(_processToastQueue, 350);
+  }, 2800);
 }
 
 /* ===================================================
@@ -524,6 +902,11 @@ function showScreen(id) {
 
 function login(usuario) {
   if (!USUARIOS[usuario]) return;
+  var savedRaul = localStorage.getItem('pf_nombre_raul');
+  var savedJuan = localStorage.getItem('pf_nombre_juan');
+  if (savedRaul) USUARIOS.raul.nombre = savedRaul;
+  if (savedJuan) USUARIOS.juan.nombre = savedJuan;
+
   USUARIO_ACTUAL = usuario;
   localStorage.setItem('pf_usuario', usuario);
   if (USUARIOS[usuario].esAdmin) {
@@ -536,8 +919,10 @@ function login(usuario) {
       mesSelect.value = meses[new Date().getMonth()];
     }
     sincronizarConfig();
+    sincronizarValeria();
     actualizarEstadoConexion();
     cargarClientes();
+    _initAdminRutaStatus();
   } else {
     var titleEl = document.getElementById('s1-title');
     if (titleEl) titleEl.textContent = USUARIOS[usuario].emoji + ' ' + USUARIOS[usuario].nombre;
@@ -552,16 +937,34 @@ function logout() {
   CLIENTES_DISPONIBLES = [];
   VISITAS_MES = {};
   RUTA_PREVIEW = [];
+  VALERIA_CHAT = [];
+  _chipHistorial = [];
+  _clientesFiltro = '';
   localStorage.removeItem('pf_usuario');
   switchTab('clientes');
   showScreen('s0');
+}
+
+function _initAdminRutaStatus() {
+  if (!getRefreshToken()) return;
+  dbxDownloadJSON(DBX_RECORRIDOS).then(function(rec) {
+    var hoy = rec[fechaHoy()];
+    if (!hoy || !hoy.puntos || !hoy.puntos.length) return;
+    var total = hoy.puntos.length;
+    var done = hoy.puntos.filter(function(p) { return p.done; }).length;
+    var el = document.getElementById('admin-ruta-status');
+    if (el) {
+      el.textContent = done + '/' + total;
+      el.classList.remove('hidden');
+    }
+  }).catch(function() {});
 }
 
 /* ===================================================
    ADMIN — TABS
 =================================================== */
 function switchTab(tab) {
-  ['clientes', 'voz', 'seguimiento', 'config'].forEach(function(t) {
+  ['clientes', 'valeria', 'seguimiento', 'config'].forEach(function(t) {
     var c = document.getElementById('tab-' + t);
     var b = document.getElementById('tab-btn-' + t);
     if (c) c.classList.remove('active');
@@ -573,6 +976,9 @@ function switchTab(tab) {
   if (ab) ab.classList.add('active');
   if (tab === 'seguimiento') iniciarSeguimiento(); else detenerSeguimiento();
   if (tab === 'config') actualizarEstadoConexion();
+  if (tab === 'valeria' && VALERIA_CHAT.length === 0) {
+    agregarBurbuja('valeria', 'Hola! Soy Valeria 🤖 Puedo crear rutas por voz o texto, y responder preguntas sobre el historial. \xBFQu\xE9 necesitas hoy?');
+  }
 }
 
 /* ===================================================
@@ -592,6 +998,11 @@ function cargarClientes() {
   }
   var mesEl = document.getElementById('admin-mes');
   var mes = mesEl ? mesEl.value : '';
+
+  // Show skeleton
+  var sk = document.getElementById('skeleton-lista');
+  if (sk) sk.style.display = 'flex';
+
   mostrarCargando(true);
   Promise.all([
     dbxDownload(DBX_KFC_PATH).then(function(buf) { return buf ? parseExcel(buf) : []; }),
@@ -600,6 +1011,7 @@ function cargarClientes() {
   ])
   .then(function(results) {
     mostrarCargando(false);
+    if (sk) sk.style.display = 'none';
     var rawKfc   = results[0];
     var rawOtros = results[1];
     var kfc   = deduplicarClientes(rawKfc.map(function(r) { return normalizarCliente(r, true); }))
@@ -616,7 +1028,7 @@ function cargarClientes() {
     if (!CLIENTES_DISPONIBLES.length) {
       var mesesEnKfc   = rawKfc.length   ? Array.from(new Set(rawKfc.slice(0,100).map(function(r){ return normalizarMes(r['MES_SERVICIO']||r['MES']||''); }).filter(Boolean))).slice(0,8).join(', ') : '';
       var mesesEnOtros = rawOtros.length ? Array.from(new Set(rawOtros.slice(0,100).map(function(r){ var m=r['MES']||r['Mes']||r['MES_CONTRATO']||r['PERIODO']||''; return normalizarMes(m); }).filter(Boolean))).slice(0,8).join(', ') : '';
-      var cont = document.getElementById('clientes-mes-lista');
+      var cDebug = document.getElementById('clientes-mes-lista');
       var debugMsg = 'KFC: ' + rawKfc.length + ' filas — Otros: ' + rawOtros.length + ' filas'
         + '\nFiltro mes: "' + mes + '"'
         + (rawKfc.length   ? '\nColumnas KFC: '   + Object.keys(rawKfc[0]).join(', ')   : '')
@@ -625,13 +1037,14 @@ function cargarClientes() {
         + (mesesEnOtros ? '\nMeses OTROS: ' + mesesEnOtros : '')
         + '\nRuta KFC: ' + DBX_KFC_PATH
         + '\nRuta Otros: ' + DBX_OTROS_PATH;
-      if (cont) cont.innerHTML = '<div class="no-clientes"><strong>Sin clientes para este mes.</strong><br><small style="white-space:pre-wrap;font-size:11px;color:#555">' + esc(debugMsg) + '</small></div>';
+      if (cDebug) cDebug.innerHTML = '<div class="no-clientes"><strong>Sin clientes para este mes.</strong><br><small style="white-space:pre-wrap;font-size:11px;color:#555">' + esc(debugMsg) + '</small></div>';
       return;
     }
     renderClientesMes();
   })
   .catch(function(err) {
     mostrarCargando(false);
+    if (sk) sk.style.display = 'none';
     console.error('[PF] cargarClientes error:', err);
     var cont = document.getElementById('clientes-mes-lista');
     var cache = localStorage.getItem('pf_clientes_cache');
@@ -649,10 +1062,13 @@ function cargarClientes() {
 
 function _guardarVisitas() {
   if (!getRefreshToken()) return;
-  dbxDownloadJSON(DBX_VISITAS)
-  .catch(function() { return {}; })
-  .then(function(data) { data[_claveMesActual()] = VISITAS_MES; return dbxUpload(DBX_VISITAS, JSON.stringify(data, null, 2)); })
-  .catch(function(e) { console.error('[PF] guardarVisitas error:', e); });
+  if (_guardarVisitasTimer) clearTimeout(_guardarVisitasTimer);
+  _guardarVisitasTimer = setTimeout(function() {
+    dbxDownloadJSON(DBX_VISITAS)
+    .catch(function() { return {}; })
+    .then(function(data) { data[_claveMesActual()] = VISITAS_MES; return dbxUpload(DBX_VISITAS, JSON.stringify(data, null, 2)); })
+    .catch(function(e) { console.error('[PF] guardarVisitas error:', e); });
+  }, 500);
 }
 
 function marcarVisitado(idx) {
@@ -668,6 +1084,53 @@ function marcarVisitado(idx) {
   _guardarVisitas();
 }
 
+function marcarTodosKfc() {
+  pfConfirm('Marcar todos KFC', '\xBFMarcar todos los clientes KFC como visitados?', function() {
+    CLIENTES_DISPONIBLES.forEach(function(c) {
+      if (c.esKfc) VISITAS_MES[c.nombre] = { visitado: true, fecha: fechaHoy() };
+    });
+    renderClientesMes();
+    _guardarVisitas();
+    showToast('✅ Todos los KFC marcados como visitados');
+  });
+}
+
+function marcarTodosOtros() {
+  pfConfirm('Marcar todos Otros', '\xBFMarcar todos los clientes Otros como visitados?', function() {
+    CLIENTES_DISPONIBLES.forEach(function(c) {
+      if (!c.esKfc) VISITAS_MES[c.nombre] = { visitado: true, fecha: fechaHoy() };
+    });
+    renderClientesMes();
+    _guardarVisitas();
+    showToast('✅ Todos los Otros marcados como visitados');
+  });
+}
+
+function exportarVisitados() {
+  var visitados = CLIENTES_DISPONIBLES.filter(function(c) {
+    return VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado;
+  });
+  if (!visitados.length) { showToast('⚠️ No hay visitados a\xFAn'); return; }
+  var texto = 'Clientes visitados ' + _claveMesActual() + ':\n'
+    + visitados.map(function(c) { return '- ' + c.nombre + ' (' + (VISITAS_MES[c.nombre].fecha || '') + ')'; }).join('\n');
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(texto).then(function() { showToast('✅ Lista copiada al portapapeles'); });
+  } else {
+    pfModal('Lista visitados', texto);
+  }
+}
+
+function filtrarClientesMes() {
+  var input = document.getElementById('clientes-buscar');
+  _clientesFiltro = input ? input.value.trim().toLowerCase() : '';
+  renderClientesMes();
+}
+
+function scrollToTop() {
+  var lista = document.getElementById('tab-clientes');
+  if (lista) lista.scrollTop = 0;
+}
+
 function renderClientesMes() {
   var cont  = document.getElementById('clientes-mes-lista');
   var stats = document.getElementById('clientes-mes-stats');
@@ -677,57 +1140,108 @@ function renderClientesMes() {
     if (stats) stats.innerHTML = '';
     return;
   }
-  var visitados  = CLIENTES_DISPONIBLES.filter(function(c) { return VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado; });
-  var pendientes = CLIENTES_DISPONIBLES.filter(function(c) { return !(VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado); });
+
+  var lista = CLIENTES_DISPONIBLES;
+  if (_clientesFiltro) {
+    lista = lista.filter(function(c) {
+      return c.nombre.toLowerCase().indexOf(_clientesFiltro) !== -1
+        || (c.direccion || '').toLowerCase().indexOf(_clientesFiltro) !== -1;
+    });
+  }
+
+  var kfcList   = lista.filter(function(c) { return c.esKfc; });
+  var otrosList = lista.filter(function(c) { return !c.esKfc; });
+  var kfcVisit  = kfcList.filter(function(c) { return VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado; }).length;
+  var otroVisit = otrosList.filter(function(c) { return VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado; }).length;
+  var totalVisit = kfcVisit + otroVisit;
+  var totalPend  = lista.length - totalVisit;
+
   if (stats) {
     stats.innerHTML = '<div class="mes-stats">'
-      + '<span class="mes-stat-ok">&#x2713; ' + visitados.length + ' visitados</span>'
-      + '<span class="mes-stat-pend">&#x23F3; ' + pendientes.length + ' pendientes</span>'
+      + '<span class="mes-stat-ok">✓ ' + totalVisit + ' visitados</span>'
+      + '<span class="mes-stat-pend">⏳ ' + totalPend + ' pendientes</span>'
+      + '</div>'
+      + '<div class="mes-stats" style="margin-top:4px">'
+      + '<span class="mes-stat-kfc">KFC: ' + kfcVisit + '/' + kfcList.length + '</span>'
+      + '<span class="mes-stat-otros">Otros: ' + otroVisit + '/' + otrosList.length + '</span>'
       + '</div>'
       + '<div class="mes-archivos">'
-      + '&#x1F4C2; KFC: <code>' + esc(DBX_KFC_PATH.split('/').pop()) + '</code> &nbsp;|&nbsp; '
+      + '📂 KFC: <code>' + esc(DBX_KFC_PATH.split('/').pop()) + '</code> &nbsp;|&nbsp; '
       + 'Otros: <code>' + esc(DBX_OTROS_PATH.split('/').pop()) + '</code>'
       + '</div>';
   }
+
+  var visitados  = lista.filter(function(c) { return VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado; });
+  var pendientes = lista.filter(function(c) { return !(VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado); });
+
   var html = '';
   if (pendientes.length) {
-    html += '<div class="clientes-grupo-header">&#x23F3; Pendientes (' + pendientes.length + ')</div>';
-    pendientes.forEach(function(c) { html += renderClienteMesCard(c, CLIENTES_DISPONIBLES.indexOf(c), false); });
+    html += '<div class="clientes-grupo-header">⏳ Pendientes (' + pendientes.length + ')</div>';
+    pendientes.forEach(function(c) {
+      var globalIdx = CLIENTES_DISPONIBLES.indexOf(c);
+      html += renderClienteMesCard(c, globalIdx, false);
+    });
   }
   if (visitados.length) {
-    html += '<div class="clientes-grupo-header">&#x2713; Visitados (' + visitados.length + ')</div>';
-    visitados.forEach(function(c) { html += renderClienteMesCard(c, CLIENTES_DISPONIBLES.indexOf(c), true); });
+    html += '<div class="clientes-grupo-header">✓ Visitados (' + visitados.length + ')</div>';
+    visitados.forEach(function(c) {
+      var globalIdx = CLIENTES_DISPONIBLES.indexOf(c);
+      html += renderClienteMesCard(c, globalIdx, true);
+    });
   }
   cont.innerHTML = html;
 }
 
 function renderClienteMesCard(c, idx, visitado) {
   var badge  = c.esKfc ? '<span class="badge-kfc">KFC</span>' : '';
-  var fechaV = visitado && VISITAS_MES[c.nombre] ? ' · ' + VISITAS_MES[c.nombre].fecha : '';
+  var fechaV = visitado && VISITAS_MES[c.nombre] ? ' \xB7 ' + VISITAS_MES[c.nombre].fecha : '';
   var tiposHtml = '';
   if (c.tipos && c.tipos.length) {
     tiposHtml = '<div class="cliente-tipos">'
       + c.tipos.map(function(t) {
           var label = [t.tipo, t.marca].filter(Boolean).join(' ');
-          return '<span class="cliente-tipo-tag">' + esc(label || '—') + (t.cap ? ' · ' + t.cap : '') + '</span>';
+          return '<span class="cliente-tipo-tag">' + esc(label || '—') + (t.cap ? ' \xB7 ' + t.cap : '') + '</span>';
         }).join('')
       + '</div>';
   }
+
+  // Alerta 30 dias sin recorrido
+  var alerta30 = '';
+  var patron = VALERIA_MEMORIA.patrones_cliente && VALERIA_MEMORIA.patrones_cliente[c.nombre];
+  if (patron && patron.ultimo_recorrido && !visitado) {
+    var partes = patron.ultimo_recorrido.split('/');
+    if (partes.length === 3) {
+      var ultimaVisita = new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
+      var diasPasados = Math.floor((new Date() - ultimaVisita) / (1000 * 60 * 60 * 24));
+      if (diasPasados >= 30) alerta30 = ' <span class="alerta-30d">⚠️ ' + diasPasados + 'd</span>';
+    }
+  }
+
+  var historialStr = '';
+  if (patron && (patron.veces_en_ruta || patron.ultimo_recorrido)) {
+    historialStr = '<div class="cliente-historial">'
+      + (patron.veces_en_ruta ? '📅 ' + patron.veces_en_ruta + 'x' : '')
+      + (patron.ultimo_recorrido ? ' \xB7 \xDAlt: ' + patron.ultimo_recorrido : '')
+      + (patron.tecnico_habitual ? ' \xB7 ' + patron.tecnico_habitual : '')
+      + '</div>';
+  }
+
   return '<div class="cliente-mes-card' + (visitado ? ' visitado' : '') + '">'
     + '<div class="cliente-mes-info">'
-    +   '<div class="cliente-nombre">' + badge + ' ' + esc(c.nombre) + '</div>'
+    +   '<div class="cliente-nombre">' + badge + ' ' + esc(c.nombre) + alerta30 + '</div>'
     +   (c.direccion ? '<div class="cliente-dir">' + esc(c.direccion) + '</div>' : '')
     +   tiposHtml
-    +   '<div class="cliente-ext">&#x1F9EF; Total: ' + (c.extintores || '?') + ' extintor(es)</div>'
+    +   '<div class="cliente-ext">🧯 Total: ' + (c.extintores || '?') + ' extintor(es)</div>'
+    +   historialStr
     + '</div>'
     + '<button class="btn-visitado' + (visitado ? ' btn-visitado-done' : '') + '" onclick="marcarVisitado(' + idx + ')">'
-    +   (visitado ? '&#x2713;' + fechaV : 'Marcar')
+    +   (visitado ? '✓' + fechaV : 'Marcar')
     + '</button>'
     + '</div>';
 }
 
 /* ===================================================
-   ADMIN — VOZ + GEMINI
+   ADMIN — VOZ + GEMINI (used by Valeria)
 =================================================== */
 function iniciarVoz() {
   var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -744,19 +1258,15 @@ function iniciarVoz() {
     pfModal('Sin clientes', 'Primero carga los clientes en el tab "Clientes".');
     return;
   }
-  var btn      = document.getElementById('btn-mic');
-  var statusEl = document.getElementById('voz-status');
-  var transcEl = document.getElementById('voz-transcript');
+  var btn = document.getElementById('btn-mic');
   if (_currentRec) {
     _currentRec.abort();
     _currentRec = null;
-    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4;'; }
-    if (statusEl) statusEl.textContent = '';
+    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '🎤'; }
     return;
   }
-  if (btn) { btn.classList.add('grabando'); btn.innerHTML = '&#x23F9;'; }
-  if (statusEl) statusEl.textContent = 'Escuchando... habla ahora';
-  if (transcEl) transcEl.textContent = '';
+  if (btn) { btn.classList.add('grabando'); btn.innerHTML = '⏹'; }
+
   var rec = new SpeechRecognition();
   _currentRec = rec;
   rec.lang = 'es-EC';
@@ -764,39 +1274,60 @@ function iniciarVoz() {
   rec.interimResults = false;
   rec.onresult = function(e) {
     var texto = e.results[0][0].transcript;
-    if (transcEl) transcEl.textContent = '"' + texto + '"';
-    if (statusEl) statusEl.textContent = 'Procesando con Gemini AI...';
-    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4;'; }
+    var conf = Math.round((e.results[0][0].confidence || 0) * 100);
+    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '🎤'; }
     _currentRec = null;
-    procesarInstruccionVoz(texto);
+    var input = document.getElementById('valeria-input');
+    if (input) input.value = '';
+    agregarBurbuja('usuario', texto + (conf ? ' (' + conf + '% confianza)' : ''));
+    _agregarChipHistorial(texto);
+    _ultimaInstruccionVoz = texto;
+    if (_esConsultaValeria(texto)) {
+      consultarValeria(texto);
+    } else {
+      agregarBurbuja('valeria', '⏳ Procesando con Gemini AI...', 'thinking');
+      procesarInstruccionVoz(texto);
+    }
   };
   rec.onerror = function(e) {
     _currentRec = null;
-    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4;'; }
-    if (statusEl) statusEl.textContent = '⚠️ Error de micr\xF3fono: ' + e.error;
+    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '🎤'; }
+    agregarBurbuja('valeria', '⚠️ Error de micr\xF3fono: ' + e.error);
   };
   rec.onend = function() {
     _currentRec = null;
-    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4;'; }
+    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '🎤'; }
   };
   rec.start();
 }
 
 function procesarInstruccionVoz(texto) {
-  var key      = getGeminiKey();
-  var statusEl = document.getElementById('voz-status');
+  var key = getGeminiKey();
+  if (!key) { agregarBurbuja('valeria', '⚠️ Sin clave Gemini. Conf\xEDgurala en Config.'); return; }
+  _ultimaInstruccionVoz = texto;
+
   var clientesCtx = CLIENTES_DISPONIBLES.map(function(c, i) {
     var visitado = VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado ? 'VISITADO' : 'PENDIENTE';
+    var patron = VALERIA_MEMORIA.patrones_cliente && VALERIA_MEMORIA.patrones_cliente[c.nombre];
+    var extraCtx = patron ? ' [veces:' + (patron.veces_en_ruta||0) + ',\xFAlt:' + (patron.ultimo_recorrido||'—') + ',tecnico:' + (patron.tecnico_habitual||'—') + ']' : '';
     return i + '. [' + (c.esKfc ? 'KFC' : 'OTRO') + '] ' + c.nombre
-      + (c.local ? ' (' + c.local + ')' : '') + ' - ' + c.direccion + ' [' + visitado + ']';
+      + (c.local ? ' (' + c.local + ')' : '') + ' - ' + c.direccion + ' [' + visitado + ']' + extraCtx;
   }).join('\n');
-  var prompt = 'Eres un asistente de gesti\xF3n de rutas para una empresa de mantenimiento de extintores llamada Previfuego.\n'
-    + 'Lista completa de clientes disponibles (formato: \xEDndice. [TIPO] Nombre (Local) - Direcci\xF3n [ESTADO]):\n'
+
+  var historialCtx = (VALERIA_MEMORIA.historial_rutas || []).slice(0, 10).map(function(h) {
+    return h.fecha + ': ' + (h.clientes || []).join(', ');
+  }).join('\n');
+
+  var prompt = 'Eres Valeria, asistente de rutas para Previfuego (empresa de mantenimiento de extintores).\n'
+    + 'Fecha actual: ' + fechaHoy() + '\n\n'
+    + '=== HISTORIAL RECIENTE ===\n' + (historialCtx || '(sin historial)') + '\n\n'
+    + '=== CLIENTES DISPONIBLES ===\n'
     + clientesCtx + '\n\n'
     + 'Instrucci\xF3n del administrador: "' + texto + '"\n\n'
-    + 'Selecciona los clientes que deben incluirse en el recorrido de hoy seg\xFAn la instrucci\xF3n.\n'
+    + 'Selecciona los clientes para el recorrido seg\xFAn la instrucci\xF3n.\n'
     + 'Responde \xDANICAMENTE con un array JSON de \xEDndices num\xE9ricos. Ejemplo: [0, 3, 7]\n'
     + 'No incluyas texto adicional, solo el array JSON.';
+
   fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -807,6 +1338,7 @@ function procesarInstruccionVoz(texto) {
   })
   .then(function(r) { return r.json(); })
   .then(function(d) {
+    eliminarBurbujaThinking();
     if (d.error) throw new Error(d.error.message || 'Error Gemini API');
     var raw = ((d.candidates || [])[0] || {});
     var part0 = (raw.content && raw.content.parts && raw.content.parts[0]) ? raw.content.parts[0] : null;
@@ -818,14 +1350,18 @@ function procesarInstruccionVoz(texto) {
       .filter(function(i) { return Number.isInteger(i) && i >= 0 && i < CLIENTES_DISPONIBLES.length; })
       .map(function(i) { return Object.assign({}, CLIENTES_DISPONIBLES[i]); });
     if (!RUTA_PREVIEW.length) {
-      if (statusEl) statusEl.textContent = '⚠️ Gemini no encontr\xF3 clientes para esa instrucci\xF3n.';
+      agregarBurbuja('valeria', '⚠️ Gemini no encontr\xF3 clientes para esa instrucci\xF3n.');
       return;
     }
-    if (statusEl) statusEl.textContent = '✅ Gemini seleccion\xF3 ' + RUTA_PREVIEW.length + ' cliente(s)';
+    agregarBurbuja('valeria', '✅ ' + RUTA_PREVIEW.length + ' cliente(s) seleccionados. Asigna t\xE9cnicos en la vista previa y pulsa Publicar.');
+    if (RUTA_PREVIEW.length > 20) {
+      agregarBurbuja('valeria', '⚠️ Aviso: la ruta tiene m\xE1s de 20 puntos. Considera dividirla.');
+    }
     renderRutaPreview();
   })
   .catch(function(err) {
-    if (statusEl) statusEl.textContent = '❌ Error: ' + String(err);
+    eliminarBurbujaThinking();
+    agregarBurbuja('valeria', '❌ Error: ' + String(err));
     console.error('[PF] Gemini error:', err);
   });
 }
@@ -840,56 +1376,108 @@ function renderRutaPreview() {
   var html = '';
   RUTA_PREVIEW.forEach(function(c, i) {
     var badge = c.esKfc ? '<span class="badge-kfc">KFC</span>' : '';
+    var patron = VALERIA_MEMORIA.patrones_cliente && VALERIA_MEMORIA.patrones_cliente[c.nombre];
+    var histHtml = patron && patron.ultimo_recorrido
+      ? '<div style="font-size:0.72rem;color:#888;margin-top:2px">📅 ' + (patron.veces_en_ruta||0) + 'x \xB7 \xDAlt: ' + patron.ultimo_recorrido + (patron.tecnico_habitual ? ' \xB7 ' + patron.tecnico_habitual : '') + '</div>'
+      : '';
+    var tecnicoHabitual = patron && patron.tecnico_habitual ? patron.tecnico_habitual : 'Ra\xFAl';
+    var tecNombres = [USUARIOS.raul.nombre, USUARIOS.juan.nombre];
+    var selectOpts = tecNombres.map(function(t) {
+      return '<option' + (t === tecnicoHabitual ? ' selected' : '') + '>' + esc(t) + '</option>';
+    }).join('');
     html += '<div class="ruta-preview-item">'
       + '<div class="ruta-preview-num">' + (i + 1) + '</div>'
-      + '<div class="ruta-preview-info">'
+      + '<div class="ruta-preview-info" style="flex:1;min-width:0">'
       +   '<div class="cliente-nombre">' + badge + esc(c.nombre) + (c.local ? ' \xB7 ' + esc(c.local) : '') + '</div>'
       +   '<div class="cliente-dir">' + esc(c.direccion) + '</div>'
+      +   histHtml
+      +   '<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+      +     '<select class="opts-select" id="rtecnico-' + i + '" style="width:80px;font-size:0.82rem;padding:4px">' + selectOpts + '</select>'
+      +     '<input type="text" id="rnota-' + i + '" class="opts-input" placeholder="Nota..." style="flex:1;font-size:0.78rem;padding:4px 8px;min-width:80px">'
+      +     '<label style="font-size:0.75rem;display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap">'
+      +       '<input type="checkbox" id="rpriority-' + i + '"> 🔴 Urgente'
+      +     '</label>'
+      +   '</div>'
       + '</div>'
-      + '<select class="opts-select" id="rtecnico-' + i + '" style="width:80px;font-size:0.82rem;padding:6px 4px">'
-      +   '<option>Ra\xFAl</option><option>Juan</option>'
-      + '</select>'
+      + '<button onclick="quitarPuntoPreview(' + i + ')" style="background:none;border:none;cursor:pointer;color:#bbb;font-size:1.1rem;padding:4px 6px;flex-shrink:0">✕</button>'
       + '</div>';
   });
   lista.innerHTML = html;
   wrap.style.display = 'flex';
+  setTimeout(function() { if (wrap.scrollIntoView) wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
+}
+
+function quitarPuntoPreview(i) {
+  RUTA_PREVIEW.splice(i, 1);
+  if (!RUTA_PREVIEW.length) {
+    var wrap = document.getElementById('ruta-preview');
+    if (wrap) wrap.style.display = 'none';
+    return;
+  }
+  renderRutaPreview();
+}
+
+function agregarPuntoManual() {
+  pfModal('Agregar punto manual', 'Para agregar un cliente que no est\xE1 en la base de datos, escr\xEDbelo en el chat: "agrega [nombre] en [dirección]".');
 }
 
 function limpiarPreview() {
   RUTA_PREVIEW = [];
   var wrap = document.getElementById('ruta-preview');
   if (wrap) wrap.style.display = 'none';
-  var transcEl = document.getElementById('voz-transcript');
-  var statusEl = document.getElementById('voz-status');
-  if (transcEl) transcEl.textContent = '';
-  if (statusEl) statusEl.textContent = '';
+  _ultimaInstruccionVoz = '';
+}
+
+function compartirRutaWhatsApp() {
+  if (!RUTA_PREVIEW.length) { showToast('No hay ruta para compartir'); return; }
+  var texto = 'Recorrido Previfuego ' + fechaHoy() + ':\n';
+  RUTA_PREVIEW.forEach(function(c, i) {
+    var tecEl = document.getElementById('rtecnico-' + i);
+    var tec = tecEl ? tecEl.value : '';
+    texto += (i + 1) + '. ' + c.nombre + (c.direccion ? ' - ' + c.direccion : '') + (tec ? ' [' + tec + ']' : '') + '\n';
+  });
+  var url = 'https://wa.me/?text=' + encodeURIComponent(texto);
+  window.open(url, '_blank');
 }
 
 function publicarRutaPreview() {
-  if (!RUTA_PREVIEW.length) { pfModal('Sin ruta', 'Usa el micr\xF3fono para crear la ruta primero.'); return; }
+  if (!RUTA_PREVIEW.length) { pfModal('Sin ruta', 'Usa el micr\xF3fono o escribe para crear la ruta primero.'); return; }
+  var mananaEl = document.getElementById('chk-manana');
+  var fechaPublicar = (mananaEl && mananaEl.checked) ? fechaMas(1) : fechaHoy();
   var puntos = RUTA_PREVIEW.map(function(c, i) {
-    var tecnicoEl = document.getElementById('rtecnico-' + i);
+    var tecnicoEl  = document.getElementById('rtecnico-' + i);
+    var notaEl     = document.getElementById('rnota-' + i);
+    var priorityEl = document.getElementById('rpriority-' + i);
     return {
       nombre: c.nombre, direccion: c.direccion, extintores: c.extintores,
       local: c.local || '', esKfc: c.esKfc || false, mision: 'Mantenimiento',
-      tecnico: tecnicoEl ? tecnicoEl.value : 'Ra\xFAl', done: false, horaCompletado: null
+      tecnico: tecnicoEl ? tecnicoEl.value : 'Ra\xFAl',
+      nota: notaEl ? notaEl.value.trim() : '',
+      urgente: priorityEl ? priorityEl.checked : false,
+      done: false, enCamino: false, horaCompletado: null, observacion: ''
     };
   });
-  pfConfirm('Publicar recorrido', 'Se publicar\xE1n ' + puntos.length + ' punto(s) para hoy ' + fechaHoy() + '. \xBFConfirmar?', function() {
+  pfConfirm('Publicar recorrido', 'Se publicar\xE1n ' + puntos.length + ' punto(s) para el ' + fechaPublicar + '. \xBFConfirmar?', function() {
     mostrarCargando(true);
     dbxDownloadJSON(DBX_RECORRIDOS)
     .then(function(recorridos) {
-      var existing = recorridos[fechaHoy()];
+      var existing = recorridos[fechaPublicar];
       var existingPuntos = (existing && existing.puntos) ? existing.puntos : [];
       puntos = puntos.map(function(p) {
         var prev = existingPuntos.filter(function(e) { return e.nombre === p.nombre; })[0];
-        if (prev && prev.done) { p.done = true; p.horaCompletado = prev.horaCompletado; }
+        if (prev && prev.done) { p.done = true; p.horaCompletado = prev.horaCompletado; p.observacion = prev.observacion || ''; }
         return p;
       });
-      recorridos[fechaHoy()] = { fecha: fechaHoy(), publicado: new Date().toISOString(), puntos: puntos };
+      recorridos[fechaPublicar] = { fecha: fechaPublicar, publicado: new Date().toISOString(), puntos: puntos };
       return dbxUpload(DBX_RECORRIDOS, JSON.stringify(recorridos, null, 2));
     })
-    .then(function() { mostrarCargando(false); limpiarPreview(); pfModal('\xA1Publicado!', 'Recorrido del d\xEDa publicado con ' + puntos.length + ' punto(s).'); })
+    .then(function() {
+      mostrarCargando(false);
+      actualizarMemoriaValeria(puntos, _ultimaInstruccionVoz);
+      limpiarPreview();
+      agregarBurbuja('valeria', '✅ Recorrido publicado para ' + fechaPublicar + ' con ' + puntos.length + ' punto(s). 🚀');
+      _initAdminRutaStatus();
+    })
     .catch(function(err) { mostrarCargando(false); pfModal('Error', 'No se pudo publicar: ' + String(err)); });
   });
 }
@@ -900,18 +1488,25 @@ function publicarRutaPreview() {
 function iniciarSeguimiento() {
   detenerSeguimiento();
   pfRenderSeguimiento();
-  _seguimientoInterval = setInterval(pfRenderSeguimiento, 30000);
+  _seguimientoInterval = setInterval(pfRenderSeguimiento, _seguimientoIntervaloSeg * 1000);
 }
 
 function detenerSeguimiento() {
   if (_seguimientoInterval) { clearInterval(_seguimientoInterval); _seguimientoInterval = null; }
 }
 
+function cambiarIntervaloSeguimiento() {
+  var el = document.getElementById('seg-intervalo');
+  if (el) _seguimientoIntervaloSeg = parseInt(el.value) || 30;
+  if (_seguimientoInterval) { detenerSeguimiento(); iniciarSeguimiento(); }
+}
+
 function pfRenderSeguimiento() {
   dbxDownloadJSON(DBX_RECORRIDOS)
   .then(function(recorridos) {
     var hoy = recorridos[fechaHoy()];
-    renderTablaSeguimiento(hoy && hoy.puntos ? hoy.puntos : []);
+    _segPuntosCache = hoy && hoy.puntos ? hoy.puntos : [];
+    aplicarFiltroSeguimiento();
     var nota = document.querySelector('.auto-refresh-note');
     if (nota) {
       var ahora = new Date();
@@ -925,49 +1520,96 @@ function pfRenderSeguimiento() {
   });
 }
 
+function aplicarFiltroSeguimiento() {
+  var filtroTec = document.getElementById('seg-filtro-tecnico');
+  var tec = filtroTec ? filtroTec.value : '';
+  var puntos = tec ? _segPuntosCache.filter(function(p) { return p.tecnico === tec; }) : _segPuntosCache.slice();
+  filtrarSeguimiento(puntos);
+}
+
+function filtrarSeguimiento(puntosBase) {
+  var buscar = document.getElementById('seg-buscar');
+  var q = buscar ? buscar.value.trim().toLowerCase() : '';
+  var puntos = puntosBase !== undefined ? puntosBase : _segPuntosCache.slice();
+  if (q) {
+    puntos = puntos.filter(function(p) {
+      return (p.nombre || '').toLowerCase().indexOf(q) !== -1
+        || (p.tecnico || '').toLowerCase().indexOf(q) !== -1;
+    });
+  }
+  renderTablaSeguimiento(puntos);
+}
+
+function imprimirSeguimiento() {
+  window.print();
+}
+
 function renderTablaSeguimiento(puntos) {
   var tbody    = document.getElementById('seg-tbody');
   var counters = document.getElementById('seg-counters');
   if (!tbody || !counters) return;
   if (!puntos || !puntos.length) {
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:20px">Sin recorrido publicado hoy.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#aaa;padding:20px">Sin recorrido publicado hoy.</td></tr>';
     counters.innerHTML = '';
     return;
   }
   var tecnicos = {};
   puntos.forEach(function(p) {
     var t = p.tecnico || '—';
-    if (!tecnicos[t]) tecnicos[t] = { done: 0, total: 0 };
+    if (!tecnicos[t]) tecnicos[t] = { done: 0, total: 0, enCamino: 0, ext: 0 };
     tecnicos[t].total++;
     if (p.done) tecnicos[t].done++;
+    if (p.enCamino && !p.done) tecnicos[t].enCamino++;
+    tecnicos[t].ext += (p.extintores || 0);
   });
   var cHtml = '';
-  for (var t in tecnicos) {
-    if (!tecnicos.hasOwnProperty(t)) continue;
-    var s = tecnicos[t];
-    cHtml += '<div class="seg-counter-card"><div class="seg-counter-name">' + esc(t) + '</div>'
-      + '<div class="seg-counter-num">' + s.done + '</div><div class="seg-counter-total">de ' + s.total + '</div></div>';
+  for (var tc in tecnicos) {
+    if (!tecnicos.hasOwnProperty(tc)) continue;
+    var s = tecnicos[tc];
+    var colorBorder = tc === USUARIOS.raul.nombre ? '#3b82f6' : (tc === USUARIOS.juan.nombre ? '#f97316' : '#9e1212');
+    var pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
+    var circ = 2 * Math.PI * 18;
+    var svgRing = '<svg width="44" height="44" style="position:absolute;top:8px;right:8px;flex-shrink:0"><circle cx="22" cy="22" r="18" fill="none" stroke="#eee" stroke-width="4"/><circle cx="22" cy="22" r="18" fill="none" stroke="' + colorBorder + '" stroke-width="4" stroke-dasharray="' + Math.round(circ) + '" stroke-dashoffset="' + Math.round(circ * (1 - pct / 100)) + '" stroke-linecap="round" transform="rotate(-90 22 22)"/><text x="22" y="27" text-anchor="middle" font-size="10" font-weight="bold" fill="' + colorBorder + '">' + pct + '%</text></svg>';
+    cHtml += '<div class="seg-counter-card" style="border-left:4px solid ' + colorBorder + ';position:relative;padding-right:56px">'
+      + '<div class="seg-counter-name">' + esc(tc) + '</div>'
+      + '<div class="seg-counter-num">' + s.done + '</div>'
+      + '<div class="seg-counter-total">de ' + s.total + (s.enCamino ? ' \xB7 🚗 ' + s.enCamino : '') + '</div>'
+      + '<div style="font-size:0.72rem;color:#888;margin-top:2px">🛡️ ' + s.ext + ' ext.</div>'
+      + svgRing
+      + '</div>';
   }
   counters.innerHTML = cHtml;
+
   var sorted = puntos.slice().sort(function(a, b) {
     if (a.done !== b.done) return a.done ? 1 : -1;
+    if (a.enCamino !== b.enCamino) return a.enCamino ? -1 : 1;
     return (a.nombre || '').localeCompare(b.nombre || '');
   });
   var tHtml = '';
   sorted.forEach(function(p) {
-    var badge = p.done ? '<span class="badge-done">&#x2713; Listo</span>' : '<span class="badge-pending">Pendiente</span>';
-    tHtml += '<tr>'
-      + '<td>' + esc(p.nombre || '') + (p.esKfc ? ' <span class="badge-kfc-sm">KFC</span>' : '') + '</td>'
+    var colorBorderRow = p.tecnico === USUARIOS.raul.nombre ? '3px solid #3b82f6' : (p.tecnico === USUARIOS.juan.nombre ? '3px solid #f97316' : 'none');
+    var estadoBadge;
+    if (p.done) {
+      estadoBadge = '<span class="badge-done">✓ Listo</span>';
+    } else if (p.enCamino) {
+      estadoBadge = '<span class="badge-en-camino">🚗 En camino</span>';
+    } else {
+      estadoBadge = '<span class="badge-pending">Pendiente</span>';
+    }
+    var obsHtml = p.observacion ? '<div style="font-size:0.72rem;color:#666;font-style:italic">' + esc(p.observacion) + '</div>' : '—';
+    tHtml += '<tr style="border-left:' + colorBorderRow + '">'
+      + '<td>' + esc(p.nombre || '') + (p.esKfc ? ' <span class="badge-kfc-sm">KFC</span>' : '') + (p.urgente ? ' <span style="color:#e53e3e;font-weight:700">🔴</span>' : '') + (p.nota ? '<div style="font-size:0.7rem;color:#888">' + esc(p.nota) + '</div>' : '') + '</td>'
       + '<td><span class="tecnico-tag">' + esc(p.tecnico || '—') + '</span></td>'
-      + '<td>' + badge + '</td>'
+      + '<td>' + estadoBadge + '</td>'
       + '<td>' + esc(p.horaCompletado || '—') + '</td>'
+      + '<td>' + obsHtml + '</td>'
       + '</tr>';
   });
   tbody.innerHTML = tHtml;
 }
 
 /* ===================================================
-   T\xc9CNICO
+   T\xC9CNICO
 =================================================== */
 function cargarRecorrido() {
   showScreen('s1');
@@ -1034,13 +1676,19 @@ function procesarPuntos(arr) {
     return {
       num: i + 1, nombre: p.nombre || p.cliente || '', direccion: p.direccion || p.dir || '',
       mision: p.mision || 'Mantenimiento', tecnico: p.tecnico || '', esKfc: p.esKfc || false,
-      done: e ? e.done : (p.done || false), horaCompletado: e ? e.hora : (p.horaCompletado || null)
+      urgente: p.urgente || false, nota: p.nota || '',
+      done: e ? e.done : (p.done || false),
+      enCamino: e ? (e.enCamino || false) : (p.enCamino || false),
+      horaCompletado: e ? e.hora : (p.horaCompletado || null),
+      observacion: e ? (e.observacion || '') : (p.observacion || '')
     };
   });
   var vacio = document.getElementById('s1-vacio');
   if (vacio) vacio.style.display = 'none';
   renderPuntos();
   actualizarProgreso();
+  _initSwipeGestures();
+  _initPullToRefresh();
 }
 
 function renderPuntos() {
@@ -1056,22 +1704,89 @@ function renderPuntos() {
     if (filtro && p.nombre.toLowerCase().indexOf(filtro) === -1 && p.direccion.toLowerCase().indexOf(filtro) === -1) continue;
     count++;
     var kfcBadge = p.esKfc ? '<span class="badge-kfc-sm">KFC</span> ' : '';
-    var accion   = p.done ? '<span class="btn-done-icon">&#10003;</span>'
-      : '<button class="btn-success" onclick="marcarListo(' + i + ')">&#10003; Listo</button>';
+    var urgBadge = p.urgente ? '<span style="color:#e53e3e;font-size:0.8rem;font-weight:700">🔴</span> ' : '';
+    var notaHtml = p.nota ? '<div class="punto-card-nota">📌 ' + esc(p.nota) + '</div>' : '';
+    var obsHtml  = (p.done && p.observacion) ? '<div class="punto-card-obs">📝 ' + esc(p.observacion) + '</div>' : '';
+
+    var dirHtml = p.direccion
+      ? '<a href="https://maps.google.com/?q=' + encodeURIComponent(p.direccion) + '" target="_blank" rel="noopener" class="punto-card-dir punto-card-dir-link">📍 ' + esc(p.direccion) + '</a>'
+      : '';
+
     var hora = p.done && p.horaCompletado ? '<div class="punto-card-hora">&#10003; ' + esc(p.horaCompletado) + '</div>' : '';
-    html += '<div class="punto-card' + (p.done ? ' done' : '') + '">'
-      + '<div class="punto-card-num">' + (p.done ? '&#10003;' : p.num) + '</div>'
+
+    var accion;
+    if (p.done) {
+      accion = '<span class="btn-done-icon">&#10003;</span>';
+    } else if (p.enCamino) {
+      accion = '<div style="display:flex;flex-direction:column;gap:6px;align-items:center">'
+        + '<span style="font-size:0.7rem;color:#f97316;font-weight:700">En camino</span>'
+        + '<button class="btn-success" onclick="abrirMarcarListo(' + i + ')">&#10003; Listo</button>'
+        + '</div>';
+    } else {
+      accion = '<div style="display:flex;flex-direction:column;gap:6px;align-items:center">'
+        + '<button class="btn-en-camino" onclick="marcarEnCamino(' + i + ')" title="En camino">🚗</button>'
+        + '<button class="btn-success" onclick="abrirMarcarListo(' + i + ')">&#10003; Listo</button>'
+        + '</div>';
+    }
+
+    var estadoClass = p.done ? ' done' : (p.enCamino ? ' en-camino' : '');
+
+    html += '<div class="punto-card' + estadoClass + '" id="punto-card-' + i + '" data-idx="' + i + '">'
+      + '<div class="punto-card-num">' + (p.done ? '&#10003;' : (p.enCamino ? '🚗' : p.num)) + '</div>'
       + '<div class="punto-card-body">'
-      +   '<div class="punto-card-nombre">' + kfcBadge + esc(p.nombre) + '</div>'
-      +   '<div class="punto-card-dir">' + esc(p.direccion) + '</div>'
+      +   '<div class="punto-card-nombre">' + urgBadge + kfcBadge + esc(p.nombre) + '</div>'
+      +   dirHtml
       +   '<div class="punto-card-mision">' + esc(p.mision) + '</div>'
-      +   hora
+      +   notaHtml + hora + obsHtml
       + '</div>'
       + '<div class="punto-card-actions">' + accion + '</div>'
       + '</div>';
   }
   if (!count && filtro) html = '<div class="no-clientes">Sin resultados para "<strong>' + esc(filtro) + '</strong>"</div>';
   lista.innerHTML = html;
+}
+
+function _initSwipeGestures() {
+  var lista = document.getElementById('lista-puntos');
+  if (!lista) return;
+  var touchStartX = 0;
+  var touchStartY = 0;
+  // Remove old listeners by replacing the element clone isn't reliable; use a flag
+  lista._swipeInit = true;
+  lista.addEventListener('touchstart', function(e) {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+  lista.addEventListener('touchend', function(e) {
+    var dx = e.changedTouches[0].clientX - touchStartX;
+    var dy = e.changedTouches[0].clientY - touchStartY;
+    if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 1.5 && dx > 0) {
+      var el = e.target.closest('.punto-card');
+      if (el) {
+        var idx = parseInt(el.getAttribute('data-idx'));
+        if (!isNaN(idx) && PUNTOS[idx] && !PUNTOS[idx].done) {
+          abrirMarcarListo(idx);
+        }
+      }
+    }
+  }, { passive: true });
+}
+
+var _pullStartY = 0;
+var _pulling = false;
+function _initPullToRefresh() {
+  var lista = document.getElementById('lista-puntos');
+  if (!lista) return;
+  lista.addEventListener('touchstart', function(e) {
+    if (lista.scrollTop === 0) { _pullStartY = e.touches[0].clientY; _pulling = true; }
+  }, { passive: true });
+  lista.addEventListener('touchend', function(e) {
+    if (_pulling) {
+      var dy = e.changedTouches[0].clientY - _pullStartY;
+      if (dy > 80) { showToast('🔄 Actualizando...'); recargarRecorrido(); }
+    }
+    _pulling = false;
+  }, { passive: true });
 }
 
 function filtrarPuntos() { renderPuntos(); }
@@ -1085,19 +1800,99 @@ function actualizarProgreso() {
   if (bar)   bar.style.width = (total > 0 ? Math.round(done / total * 100) : 0) + '%';
 }
 
-function marcarListo(idx) {
+function marcarEnCamino(idx) {
   if (idx < 0 || idx >= PUNTOS.length || PUNTOS[idx].done) return;
+  PUNTOS[idx].enCamino = !PUNTOS[idx].enCamino;
+  _guardarEstadoLocal();
+  renderPuntos();
+  if (navigator.vibrate) navigator.vibrate(40);
+  showToast(PUNTOS[idx].enCamino ? '🚗 En camino a ' + PUNTOS[idx].nombre : PUNTOS[idx].nombre + ' — estado cancelado');
+  subirFichas();
+}
+
+function abrirMarcarListo(idx) {
+  var p = PUNTOS[idx];
+  if (!p) return;
+  var overlay = document.getElementById('modal-overlay');
+  if (!overlay) { marcarListo(idx, ''); return; }
+  document.getElementById('modal-title').textContent = '✅ Completar: ' + p.nombre;
+  document.getElementById('modal-msg').innerHTML = '<div style="margin-bottom:10px;font-size:0.9rem;color:#555">Observaci\xF3n opcional:</div>'
+    + '<textarea id="obs-input" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:10px;font-size:0.9rem;min-height:80px;resize:vertical;font-family:inherit" placeholder="\xBFAlguna observaci\xF3n?"></textarea>';
+  var actEl = document.getElementById('modal-actions');
+  actEl.innerHTML = '';
+  var btnCancel = document.createElement('button');
+  btnCancel.className = 'btn-ghost';
+  btnCancel.textContent = 'Cancelar';
+  btnCancel.onclick = function() { overlay.classList.add('hidden'); document.body.style.overflow = ''; };
+  var btnOk = document.createElement('button');
+  btnOk.className = 'btn-primary';
+  btnOk.textContent = '✅ Marcar listo';
+  btnOk.onclick = function() {
+    var obs = document.getElementById('obs-input');
+    var obsVal = obs ? obs.value.trim() : '';
+    overlay.classList.add('hidden');
+    document.body.style.overflow = '';
+    marcarListo(idx, obsVal);
+  };
+  actEl.appendChild(btnCancel);
+  actEl.appendChild(btnOk);
+  overlay.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  setTimeout(function() { var ta = document.getElementById('obs-input'); if (ta) ta.focus(); }, 100);
+}
+
+function marcarListo(idx, observacion) {
+  if (idx < 0 || idx >= PUNTOS.length || PUNTOS[idx].done) return;
+  var prevState = JSON.parse(JSON.stringify(PUNTOS[idx]));
   PUNTOS[idx].done = true;
+  PUNTOS[idx].enCamino = false;
   var ahora = new Date();
   PUNTOS[idx].horaCompletado = String(ahora.getHours()).padStart(2,'0') + ':' + String(ahora.getMinutes()).padStart(2,'0');
-  var estado = {};
-  try { var r = localStorage.getItem('pf_estado_' + fechaHoy()); if (r) estado = JSON.parse(r); } catch(e) {}
-  estado[PUNTOS[idx].nombre || idx] = { done: true, hora: PUNTOS[idx].horaCompletado };
-  localStorage.setItem('pf_estado_' + fechaHoy(), JSON.stringify(estado));
+  PUNTOS[idx].observacion = typeof observacion === 'string' ? observacion : '';
+  _guardarEstadoLocal();
   renderPuntos();
   actualizarProgreso();
-  showToast('✓ ' + PUNTOS[idx].nombre + ' marcado como listo');
+  if (navigator.vibrate) navigator.vibrate(80);
+
+  _undoIdx = idx;
+  _undoData = prevState;
+  var undoBar = document.getElementById('undo-bar');
+  var undoMsg = document.getElementById('undo-msg');
+  if (undoBar && undoMsg) {
+    undoMsg.textContent = '✓ ' + PUNTOS[idx].nombre + ' marcado como listo';
+    undoBar.classList.remove('hidden');
+    if (_undoTimer) clearTimeout(_undoTimer);
+    _undoTimer = setTimeout(function() {
+      undoBar.classList.add('hidden');
+      _undoIdx = null;
+      _undoData = null;
+    }, 8000);
+  }
   subirFichas();
+}
+
+function deshacerListo() {
+  if (_undoIdx === null || !_undoData) return;
+  PUNTOS[_undoIdx] = _undoData;
+  _guardarEstadoLocal();
+  renderPuntos();
+  actualizarProgreso();
+  var undoBar = document.getElementById('undo-bar');
+  if (undoBar) undoBar.classList.add('hidden');
+  if (_undoTimer) clearTimeout(_undoTimer);
+  _undoIdx = null;
+  _undoData = null;
+  showToast('Acci\xF3n deshecha');
+  subirFichas();
+}
+
+function _guardarEstadoLocal() {
+  var estado = {};
+  PUNTOS.forEach(function(p, i) {
+    var clave = p.nombre || i;
+    estado[clave] = { done: p.done, hora: p.horaCompletado, enCamino: p.enCamino, observacion: p.observacion };
+  });
+  localStorage.setItem('pf_estado_' + fechaHoy(), JSON.stringify(estado));
 }
 
 function recargarRecorrido() { cargarRecorrido(); }
@@ -1114,7 +1909,9 @@ function _ejecutarSubirFichas() {
   if (_subirFichasPending) return;
   _subirFichasPending = true;
   var tecnico  = USUARIO_ACTUAL ? USUARIOS[USUARIO_ACTUAL].nombre : '';
-  var snapshot = PUNTOS.map(function(p) { return { nombre: p.nombre, done: p.done, horaCompletado: p.horaCompletado }; });
+  var snapshot = PUNTOS.map(function(p) {
+    return { nombre: p.nombre, done: p.done, horaCompletado: p.horaCompletado, enCamino: p.enCamino || false, observacion: p.observacion || '' };
+  });
   dbxDownloadJSON(DBX_RECORRIDOS)
   .catch(function() { return {}; })
   .then(function(recorridos) {
@@ -1123,7 +1920,7 @@ function _ejecutarSubirFichas() {
     hoy.puntos = hoy.puntos.map(function(p) {
       if (p.tecnico !== tecnico) return p;
       var match = snapshot.filter(function(s) { return s.nombre === p.nombre; })[0];
-      if (match) { p.done = match.done; p.horaCompletado = match.horaCompletado; }
+      if (match) { p.done = match.done; p.horaCompletado = match.horaCompletado; p.enCamino = match.enCamino; p.observacion = match.observacion; }
       return p;
     });
     recorridos[fechaHoy()] = hoy;
@@ -1141,6 +1938,15 @@ function _ejecutarSubirFichas() {
    INIT
 =================================================== */
 document.addEventListener('DOMContentLoaded', function() {
+  // FAB scroll-to-top
+  var tabClientes = document.getElementById('tab-clientes');
+  if (tabClientes) {
+    tabClientes.addEventListener('scroll', function() {
+      var fab = document.getElementById('fab-top');
+      if (fab) fab.classList.toggle('hidden', tabClientes.scrollTop < 200);
+    });
+  }
+
   var oauthInProgress = handleOAuthCallback();
   if (!oauthInProgress) {
     var savedUser = localStorage.getItem('pf_usuario');
@@ -1148,5 +1954,9 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/previfuego-recorrido/sw.js').catch(function() {});
+  }
+  if (!navigator.onLine) {
+    var b = document.getElementById('offline-banner');
+    if (b) b.classList.remove('hidden');
   }
 });
