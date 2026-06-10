@@ -44,6 +44,7 @@ var _darkMode = localStorage.getItem('pf_dark') === '1';
 var _ultimaInstruccionVoz = '';
 var _chipHistorial = [];
 var _clientesFiltro = '';
+var _clientesQuickFilter = 'todos';
 
 var USUARIOS = {
   alejandro: { nombre: 'Alejandro', emoji: '👔', esAdmin: true },
@@ -220,9 +221,13 @@ function actualizarEstadoConexion() {
 
   var groqStatus = document.getElementById('cfg-groq-status');
   if (groqStatus) {
-    groqStatus.textContent = localStorage.getItem('pf_groq_key')
-      ? '✅ Groq AI configurado (clave personalizada)'
-      : '✅ Groq AI configurado (llama-3.3-70b)';
+    if (localStorage.getItem('pf_groq_key')) {
+      groqStatus.textContent = '✅ Groq AI configurado (clave personalizada)';
+    } else if (GROQ_KEY_DEFAULT) {
+      groqStatus.textContent = '✅ Groq AI configurado (llama-3.3-70b)';
+    } else {
+      groqStatus.textContent = '⚠️ Sin clave Groq — ingresa una para activar Valeria';
+    }
   }
 
   var lastSync = document.getElementById('cfg-last-sync');
@@ -1525,15 +1530,6 @@ function renderClientesMes() {
   cont.innerHTML = html;
 }
 
-var _clientesQuickFilter = 'todos';
-function setQuickFilter(f) {
-  _clientesQuickFilter = f;
-  document.querySelectorAll('.quick-filter-pill').forEach(function(b) {
-    b.classList.toggle('active', b.getAttribute('data-filter') === f);
-  });
-  renderClientesMes();
-}
-
 function renderClienteMesCard(c, idx, visitado) {
   var badge  = c.esKfc ? '<span class="badge-kfc">KFC</span>' : '';
   var fechaV = visitado && VISITAS_MES[c.nombre] ? ' \xB7 ' + VISITAS_MES[c.nombre].fecha : '';
@@ -1733,7 +1729,7 @@ function renderRutaPreview() {
     var histHtml = patron && patron.ultimo_recorrido
       ? '<div style="font-size:0.72rem;color:#888;margin-top:2px">📅 ' + (patron.veces_en_ruta||0) + 'x \xB7 \xDAlt: ' + patron.ultimo_recorrido + (patron.tecnico_habitual ? ' \xB7 ' + patron.tecnico_habitual : '') + '</div>'
       : '';
-    var tecnicoHabitual = patron && patron.tecnico_habitual ? patron.tecnico_habitual : 'Ra\xFAl';
+    var tecnicoHabitual = patron && patron.tecnico_habitual ? patron.tecnico_habitual : USUARIOS.raul.nombre;
     var tecNombres = [USUARIOS.raul.nombre, USUARIOS.juan.nombre];
     var selectOpts = tecNombres.map(function(t) {
       return '<option' + (t === tecnicoHabitual ? ' selected' : '') + '>' + esc(t) + '</option>';
@@ -1804,7 +1800,7 @@ function publicarRutaPreview() {
     return {
       nombre: c.nombre, direccion: c.direccion, extintores: c.extintores,
       local: c.local || '', esKfc: c.esKfc || false, mision: 'Mantenimiento',
-      tecnico: tecnicoEl ? tecnicoEl.value : 'Ra\xFAl',
+      tecnico: tecnicoEl ? tecnicoEl.value : USUARIOS.raul.nombre,
       nota: notaEl ? notaEl.value.trim() : '',
       urgente: priorityEl ? priorityEl.checked : false,
       done: false, enCamino: false, horaCompletado: null, observacion: ''
@@ -1839,8 +1835,20 @@ function publicarRutaPreview() {
 /* ===================================================
    ADMIN — SEGUIMIENTO
 =================================================== */
+function _poblarFiltroTecnicos() {
+  var sel = document.getElementById('seg-filtro-tecnico');
+  if (!sel) return;
+  var prev = sel.value;
+  var nombres = [USUARIOS.raul.nombre, USUARIOS.juan.nombre];
+  var html = '<option value="">Todos</option>';
+  nombres.forEach(function(n) { html += '<option value="' + esc(n) + '">' + esc(n) + '</option>'; });
+  sel.innerHTML = html;
+  if (prev && nombres.indexOf(prev) !== -1) sel.value = prev;
+}
+
 function iniciarSeguimiento() {
   detenerSeguimiento();
+  _poblarFiltroTecnicos();
   pfRenderSeguimiento();
   _seguimientoInterval = setInterval(pfRenderSeguimiento, _seguimientoIntervaloSeg * 1000);
 }
@@ -2114,10 +2122,11 @@ function renderPuntos() {
 function _initSwipeGestures() {
   var lista = document.getElementById('lista-puntos');
   if (!lista) return;
+  // Guard: only attach once to avoid duplicate listeners on every render/reload.
+  if (lista._swipeInit) return;
+  lista._swipeInit = true;
   var touchStartX = 0;
   var touchStartY = 0;
-  // Remove old listeners by replacing the element clone isn't reliable; use a flag
-  lista._swipeInit = true;
   lista.addEventListener('touchstart', function(e) {
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
@@ -2142,6 +2151,9 @@ var _pulling = false;
 function _initPullToRefresh() {
   var lista = document.getElementById('lista-puntos');
   if (!lista) return;
+  // Guard: only attach once to avoid duplicate listeners on every render/reload.
+  if (lista._pullInit) return;
+  lista._pullInit = true;
   lista.addEventListener('touchstart', function(e) {
     if (lista.scrollTop === 0) { _pullStartY = e.touches[0].clientY; _pulling = true; }
   }, { passive: true });

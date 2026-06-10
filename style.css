@@ -1553,7 +1553,27 @@ html.dark .clientes-loading-overlay { background: rgba(20,20,24,0.72); color: #d
   width: 22px; height: 22px; border: 3px solid #ddd; border-top-color: #9e1212;
   border-radius: 50%; animation: spin 0.8s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== Missing classes referenced from app.js innerHTML ===== */
+.cliente-ultvisita {
+  font-size: 0.72rem;
+  color: #2e7d32;
+  margin-top: 2px;
+}
+html.dark .cliente-ultvisita { color: #6ee7a8; }
+
+.cliente-mes-card.card-kfc { border-left-color: #f97316; }
+.cliente-mes-card.card-otros { border-left-color: #2255cc; }
+.cliente-mes-card.card-kfc.visitado,
+.cliente-mes-card.card-otros.visitado { border-left-color: #4caf50; }
+
+mark.hl {
+  background: #fff3a0;
+  color: inherit;
+  padding: 0 1px;
+  border-radius: 3px;
+}
+html.dark mark.hl { background: #6b5b00; color: #fff8d0; }
 
 /* ===== NEW: loaded-month chip ===== */
 .mes-cargado-chip {
