@@ -1054,12 +1054,21 @@ function normalizarCliente(row, esKfc) {
   };
 }
 
+function _normKey(nombre) {
+  // Aggressive normalization for dedup: remove accents, collapse spaces, strip punctuation
+  return (nombre || '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // strip accents
+    .replace(/[^a-z0-9\s]/g, ' ')                    // punctuation → space
+    .replace(/\s+/g, ' ')                             // collapse spaces
+    .trim();
+}
+
 function deduplicarClientes(lista) {
   var mapa = {};
   var orden = [];
   lista.forEach(function(c) {
     if (!c.nombre) return;
-    var key = c.nombre.toLowerCase().trim();
+    var key = _normKey(c.nombre);
     if (!mapa[key]) {
       mapa[key] = Object.assign({}, c, { tipos: [], extintores: 0, capacidadTotal: 0 });
       orden.push(key);
@@ -1343,15 +1352,20 @@ function cargarClientes() {
     });
     var kfc   = deduplicarClientes(kfcFiltrado);
     var otros = deduplicarClientes(rawOtros.filter(function(c) { return !!c.nombre; }));
-    CLIENTES_DISPONIBLES = kfc.concat(otros);
-    if (CLIENTES_DISPONIBLES.length > 0) {
+    var nuevosClientes = kfc.concat(otros);
+    if (nuevosClientes.length > 0) {
+      CLIENTES_DISPONIBLES = nuevosClientes;
       try { localStorage.setItem('pf_clientes_cache', JSON.stringify(CLIENTES_DISPONIBLES)); } catch(e) {}
+    } else if (teniaDatos) {
+      // Keep existing data — don't wipe clients just because a month has 0 results
+      // (prevents accidental month-selector tap on mobile from clearing the list)
     } else {
+      CLIENTES_DISPONIBLES = [];
       localStorage.removeItem('pf_clientes_cache');
     }
     var claveMes = _claveMesActual();
     VISITAS_MES = (results[2] || {})[claveMes] || {};
-    if (!CLIENTES_DISPONIBLES.length) {
+    if (!nuevosClientes.length && !teniaDatos) {
       var mesesEnKfc   = rawKfc.length   ? Array.from(new Set(rawKfc.slice(0,100).map(function(r){ return normalizarMes(r['MES_SERVICIO']||r['MES']||''); }).filter(Boolean))).slice(0,8).join(', ') : '';
       var mesesEnOtros = rawOtros.length ? Array.from(new Set(rawOtros.slice(0,100).map(function(r){ var m=r['MES']||r['Mes']||r['MES_CONTRATO']||r['PERIODO']||''; return normalizarMes(m); }).filter(Boolean))).slice(0,8).join(', ') : '';
       var cDebug = document.getElementById('clientes-mes-lista');
@@ -1365,6 +1379,9 @@ function cargarClientes() {
         + '\nRuta Otros: ' + DBX_OTROS_PATH;
       if (cDebug) cDebug.innerHTML = '<div class="no-clientes"><strong>Sin clientes para este mes.</strong><br><small style="white-space:pre-wrap;font-size:11px;color:#555">' + esc(debugMsg) + '</small></div>';
       return;
+    }
+    if (!nuevosClientes.length && teniaDatos) {
+      showToast('⚠️ ' + mes + ' sin datos en Excel — mostrando mes anterior');
     }
     renderClientesMes();
     try { sugerenciaProactiva(); } catch(e) {}
