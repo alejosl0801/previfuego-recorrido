@@ -1299,7 +1299,21 @@ html.dark .seg-toolbar { background: #1a1a1a; }
 }
 .chat-valeria {
   align-self: flex-start;
+  flex-direction: column;
 }
+.btn-copiar-instruccion {
+  margin-top: 6px;
+  padding: 6px 12px;
+  background: #7c3aed;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  align-self: flex-start;
+}
+.btn-copiar-instruccion:hover { background: #6d28d9; }
+html.dark .btn-copiar-instruccion { background: #6d28d9; }
 .chat-texto {
   padding: 10px 14px;
   border-radius: 16px;
