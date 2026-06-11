@@ -1617,3 +1617,124 @@ html.dark .mes-progress { background: #2a2a30; }
   font-size: 0.66rem; font-weight: 700; border-radius: 999px;
   background: #f1f5f9; color: #334155;
 }
+
+/* ===== MODO DICTAR RECORRIDO ===== */
+#modo-recorrido-panel {
+  flex: 1;
+  overflow: hidden;
+}
+.dictar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid #eee;
+  background: #fff;
+  gap: 8px;
+}
+html.dark .dictar-header { background: #1e1e1e; border-bottom-color: #333; }
+.dictar-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #9b1c1c;
+}
+.dictar-status {
+  font-size: 0.78rem;
+  color: #555;
+  padding: 5px 12px;
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+  min-height: 26px;
+}
+html.dark .dictar-status { background: #181818; border-bottom-color: #2a2a2a; color: #aaa; }
+.recorrido-editor {
+  flex: 1;
+  width: 100%;
+  font-family: 'Courier New', monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  padding: 12px;
+  border: none;
+  outline: none;
+  resize: none;
+  background: #fff;
+  color: #1a1a1a;
+  overflow-y: auto;
+}
+html.dark .recorrido-editor { background: #141414; color: #e0e0e0; }
+.dictar-actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: 1px solid #eee;
+  background: #fff;
+  align-items: center;
+}
+html.dark .dictar-actions { background: #1e1e1e; border-top-color: #333; }
+.btn-dictar-mic {
+  background: #9b1c1c;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background .2s;
+}
+.btn-dictar-mic:active { background: #7f1d1d; }
+.btn-dictar-mic.grabando {
+  background: #c00;
+  animation: pulse-mic 1s infinite;
+}
+@keyframes pulse-mic {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(200,0,0,.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(200,0,0,0); }
+}
+.dictar-hint {
+  font-size: 0.74rem;
+  color: #888;
+  padding: 4px 12px 6px;
+  background: #fff;
+  border-top: 1px solid #f0f0f0;
+  text-align: center;
+}
+html.dark .dictar-hint { background: #1e1e1e; border-top-color: #2a2a2a; color: #666; }
+.dictar-publish-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px 8px;
+  background: #fafafa;
+  border-top: 1px solid #eee;
+}
+html.dark .dictar-publish-row { background: #181818; border-top-color: #2a2a2a; }
+
+/* "Dictar Recorrido" open button at top of Valeria chat mode */
+.btn-dictar-open {
+  width: 100%;
+  background: linear-gradient(135deg, #9b1c1c, #c0392b);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 13px 16px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  letter-spacing: 0.02em;
+}
+.btn-dictar-open:active { background: linear-gradient(135deg,#7f1d1d,#9b1c1c); }
+
+/* Ensure chat mode scrolls properly */
+#modo-chat-valeria {
+  flex: 1;
+  overflow: hidden;
+}

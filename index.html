@@ -149,33 +149,61 @@
 
     <!-- Tab Valeria (AI Assistant with memory) -->
     <div id="tab-valeria" class="tab-content">
-      <div id="valeria-sugerencia"></div>
-      <div id="valeria-chips" class="valeria-chips"></div>
-      <div id="valeria-chat" class="valeria-chat"></div>
-      <div class="valeria-input-row">
-        <input type="text" id="valeria-input" class="valeria-text-input" placeholder="Escribe o habla... Ej: KFC pendientes de Guayaquil" onkeydown="valeriaTecla(event)" autocomplete="off" />
-        <button id="btn-mic" class="btn-mic-small" onclick="iniciarVoz()" title="Hablar">&#x1F3A4;</button>
-        <button class="btn-valeria-send" onclick="enviarMensajeValeria()" title="Enviar">&#x27A4;</button>
+
+      <!-- MODO DICTAR RECORRIDO -->
+      <div id="modo-recorrido-panel" style="display:none;flex-direction:column;gap:0;flex:1;overflow:hidden">
+        <div class="dictar-header">
+          <button class="btn-ghost btn-sm" onclick="salirModoRecorrido()">&#x2190; Volver</button>
+          <span class="dictar-title">&#x1F4DD; Dictando Recorrido</span>
+          <button class="btn-ghost btn-sm" onclick="copiarTextoRecorrido()">&#x1F4CB; Copiar</button>
+        </div>
+        <div id="dictar-status" class="dictar-status"></div>
+        <textarea id="recorrido-texto-editor" class="recorrido-editor" placeholder="El recorrido aparece aquí automáticamente al hablar. También puedes escribir o editar directamente."></textarea>
+        <div class="dictar-actions">
+          <button id="btn-mic-recorrido" class="btn-dictar-mic" onclick="hablarPuntoRecorrido()">&#x1F3A4; Hablar punto</button>
+          <button class="btn-ghost btn-sm" onclick="copiarTextoRecorrido()" style="flex:1">&#x1F4CB; Copiar WhatsApp</button>
+          <button class="btn-ghost btn-sm" onclick="limpiarTextoRecorrido()" style="color:#c00">&#x1F5D1;</button>
+        </div>
+        <div class="dictar-hint">Pulsa <strong>Hablar punto</strong> y describe cada punto del recorrido en voz alta. La IA lo formatea automáticamente.</div>
+        <!-- Publicar puntos al app para seguimiento -->
+        <div class="dictar-publish-row">
+          <label style="font-size:0.8rem;color:#888;display:flex;align-items:center;gap:6px"><input type="checkbox" id="dictar-chk-manana"> Para ma&#xF1;ana</label>
+          <button class="btn-ghost btn-sm" onclick="publicarRecorridoDictado()" style="font-size:0.8rem">&#x1F4E4; Publicar en app</button>
+        </div>
       </div>
-      <div id="ruta-preview" class="ruta-preview" style="display:none">
-        <div class="ruta-preview-header">
-          <span id="ruta-preview-title">Ruta sugerida</span>
-          <div style="display:flex;gap:6px;align-items:center">
-            <button class="btn-ghost btn-sm" onclick="compartirRutaWhatsApp()">&#x1F4F1; WA</button>
-            <button class="btn-ghost btn-sm" onclick="limpiarPreview()">&#x2715;</button>
+
+      <!-- MODO CHAT VALERIA (default) -->
+      <div id="modo-chat-valeria" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+        <button class="btn-dictar-open" onclick="abrirModoRecorrido()">&#x1F3A4; Dictar Recorrido del D&#xED;a</button>
+        <div id="valeria-sugerencia"></div>
+        <div id="valeria-chips" class="valeria-chips"></div>
+        <div id="valeria-chat" class="valeria-chat"></div>
+        <div class="valeria-input-row">
+          <input type="text" id="valeria-input" class="valeria-text-input" placeholder="Consulta historial o selecciona clientes..." onkeydown="valeriaTecla(event)" autocomplete="off" />
+          <button id="btn-mic" class="btn-mic-small" onclick="iniciarVoz()" title="Hablar">&#x1F3A4;</button>
+          <button class="btn-valeria-send" onclick="enviarMensajeValeria()" title="Enviar">&#x27A4;</button>
+        </div>
+        <div id="ruta-preview" class="ruta-preview" style="display:none">
+          <div class="ruta-preview-header">
+            <span id="ruta-preview-title">Ruta sugerida</span>
+            <div style="display:flex;gap:6px;align-items:center">
+              <button class="btn-ghost btn-sm" onclick="compartirRutaWhatsApp()">&#x1F4F1; WA</button>
+              <button class="btn-ghost btn-sm" onclick="limpiarPreview()">&#x2715;</button>
+            </div>
+          </div>
+          <div id="ruta-preview-lista" class="ruta-preview-lista"></div>
+          <div style="padding:0 0 8px">
+            <button class="btn-ghost btn-full" onclick="agregarPuntoManual()" style="font-size:0.85rem">&#x2B; Agregar punto manual</button>
+          </div>
+          <div class="admin-publish-wrap">
+            <label style="font-size:0.82rem;display:flex;align-items:center;gap:8px;color:#555;cursor:pointer">
+              <input type="checkbox" id="chk-manana"> Para ma&#xF1;ana
+            </label>
+            <button class="btn-primary btn-full" style="margin-top:8px" onclick="publicarRutaPreview()">&#x1F4E4; Publicar Recorrido</button>
           </div>
         </div>
-        <div id="ruta-preview-lista" class="ruta-preview-lista"></div>
-        <div style="padding:0 0 8px">
-          <button class="btn-ghost btn-full" onclick="agregarPuntoManual()" style="font-size:0.85rem">&#x2B; Agregar punto manual</button>
-        </div>
-        <div class="admin-publish-wrap">
-          <label style="font-size:0.82rem;display:flex;align-items:center;gap:8px;color:#555;cursor:pointer">
-            <input type="checkbox" id="chk-manana"> Para ma&#xF1;ana
-          </label>
-          <button class="btn-primary btn-full" style="margin-top:8px" onclick="publicarRutaPreview()">&#x1F4E4; Publicar Recorrido</button>
-        </div>
       </div>
+
     </div>
 
     <!-- Tab Seguimiento -->
