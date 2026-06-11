@@ -982,7 +982,8 @@ function parseExcelOtros(buf, mesSeleccionado) {
   });
   var sheetsToRead = sheetTarget ? [sheetTarget] : wb.SheetNames;
   var clientes = [];
-  var FILAS_BASURA = /^(total|subtotal|cant|cantidad|tipo|extintor|marca|descripcion|item|n[°º]|suma|parcial|\d+)$/i;
+  // Use \b (word boundary) instead of $ so "TOTAL KFC", "SUBTOTAL MENESTRAS" etc. are also skipped
+  var FILAS_BASURA = /^(total\b|subtotal\b|suma\b|parcial\b|cantidad\b|cant\b|tipo\b|extintores?\b|marca\b|descripcion\b|item\b|n[°º]|\d)/i;
   sheetsToRead.forEach(function(sheetName) {
     var ws = wb.Sheets[sheetName];
     var raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
@@ -1078,7 +1079,8 @@ function normalizarCliente(row, esKfc) {
       var v = row[keys[i]];
       if (v !== undefined && v !== null && v !== '') return v;
     }
-    return '';
+    // Fallback: use the sheet tab name as month (KFC Excel organizes by sheet, not column)
+    return row.__sheet || '';
   })();
   var mes = mesRaw;
   var local = get('LOCAL','Local','LOCAL_KFC','Sucursal','SUCURSAL','TIPO','Tipo','ZONA','Zona');
@@ -1132,9 +1134,9 @@ function deduplicarClientes(lista) {
       mapa[key].extintores += 1;
       mapa[key].capacidadTotal += (c.extintores || 0);
     } else {
-      // Otros: colD es la cantidad real de extintores
-      mapa[key].extintores += (c.extintores || 1);
-      mapa[key].capacidadTotal += (c.extintores || 0);
+      // Otros: colD es la cantidad real de extintores; no usar fallback de 1 si colD estaba vacío
+      mapa[key].extintores += c.extintores;
+      mapa[key].capacidadTotal += c.extintores;
     }
   });
   return orden.map(function(k) {
