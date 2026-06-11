@@ -1446,21 +1446,36 @@ function cargarClientes() {
       return;
     }
 
-    var _KFC_BASURA = /^(total|subtotal|suma|parcial|cant|cantidad|descripcion|item|n[°º]|\d+)$/i;
+    // _KFC_BASURA: skip rows that are totals/headers/summaries OR start with a number (e.g. "210 LOCALES")
+    var _KFC_BASURA = /^(total|subtotal|suma|parcial|cant|cantidad|descripcion|item|n[°º]|\d+[\s\w]*)$/i;
     var normKfc = rawKfc.map(function(r) { return normalizarCliente(r, true); });
-    var kfcFiltrado = normKfc.filter(function(c) {
+    // KFC clients are annual — deduplicate across ALL months; only keep rows for the target month
+    // so the same local's 12×N rows don't inflate extintor count.
+    var kfcConMes = normKfc.filter(function(c) {
       if (!c.nombre) return false;
       if (_KFC_BASURA.test(c.nombre.trim())) return false;
-      if (!mes) return true;
-      if (!c.mes) return true;
-      return c.mes === mes;
+      return !!c.mes; // rows that have ANY month assigned
     });
+    // Prefer rows matching the selected month; fall back to all-months if none match
+    var kfcDelMes = kfcConMes.filter(function(c) { return !mes || c.mes === mes; });
+    // If still zero (no month match), use rows without any month as last resort
+    var kfcSinMes = normKfc.filter(function(c) {
+      if (!c.nombre) return false;
+      if (_KFC_BASURA.test(c.nombre.trim())) return false;
+      return !c.mes;
+    });
+    var kfcFiltrado = kfcDelMes.length > 0 ? kfcDelMes : kfcSinMes;
     var kfc   = deduplicarClientes(kfcFiltrado);
     var otros = deduplicarClientes(rawOtros.filter(function(c) { return !!c.nombre; }));
-    // Cross-list dedup: if same client exists in both KFC and Otros, KFC wins (has richer data)
+    // Cross-list dedup: KFC file wins; also strip any KFC-brand clients from Proyección
     var kfcKeys = {};
     kfc.forEach(function(c) { kfcKeys[_normKey(c.nombre)] = true; });
-    var otrosFiltrados = otros.filter(function(c) { return !kfcKeys[_normKey(c.nombre)]; });
+    var _KFC_BRAND_RE = /\bkfc\b|\bamerican\s*deli\b|\bgus\b/i;
+    var otrosFiltrados = otros.filter(function(c) {
+      if (kfcKeys[_normKey(c.nombre)]) return false; // exact name match
+      if (_KFC_BRAND_RE.test(c.nombre)) return false; // KFC-brand client in Proyección
+      return true;
+    });
     var nuevosClientes = kfc.concat(otrosFiltrados);
 
     _mesUltimoCargado = mes;
