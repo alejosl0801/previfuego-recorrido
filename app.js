@@ -975,6 +975,7 @@ function parseExcelOtros(buf, mesSeleccionado) {
   });
   var sheetsToRead = sheetTarget ? [sheetTarget] : wb.SheetNames;
   var clientes = [];
+  var FILAS_BASURA = /^(total|subtotal|cant|cantidad|tipo|extintor|marca|descripcion|item|n[°º]|suma|parcial|\d+)$/i;
   sheetsToRead.forEach(function(sheetName) {
     var ws = wb.Sheets[sheetName];
     var raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
@@ -983,16 +984,19 @@ function parseExcelOtros(buf, mesSeleccionado) {
       var colA = String(row[0] || '').trim();
       var colC = String(row[2] || '').trim();
       var colD = String(row[3] || '').trim();
-      if (colA) nombreActual = colA;
-      if (!nombreActual) return;
+      // Forward-fill client name, but skip garbage names (TOTAL, SUBTOTAL, headers)
+      if (colA && !FILAS_BASURA.test(colA)) nombreActual = colA;
+      if (!nombreActual || FILAS_BASURA.test(nombreActual)) return;
       if (!colC && !colD) return;
+      // Skip rows where colC looks like a header/garbage
+      if (colC && FILAS_BASURA.test(colC)) return;
       clientes.push({
         nombre:     nombreActual,
         direccion:  '',
         extintores: parseInt(colD) || 0,
         mes:        sheetTarget ? mesSeleccionado : normalizarMes(sheetName),
         local:      colC,
-        marca:      colC,
+        marca:      '',    // Otros don't have a brand column
         esKfc:      false
       });
     });
@@ -1435,16 +1439,22 @@ function cargarClientes() {
       return;
     }
 
+    var _KFC_BASURA = /^(total|subtotal|suma|parcial|cant|cantidad|descripcion|item|n[°º]|\d+)$/i;
     var normKfc = rawKfc.map(function(r) { return normalizarCliente(r, true); });
     var kfcFiltrado = normKfc.filter(function(c) {
       if (!c.nombre) return false;
+      if (_KFC_BASURA.test(c.nombre.trim())) return false;
       if (!mes) return true;
       if (!c.mes) return true;
       return c.mes === mes;
     });
     var kfc   = deduplicarClientes(kfcFiltrado);
     var otros = deduplicarClientes(rawOtros.filter(function(c) { return !!c.nombre; }));
-    var nuevosClientes = kfc.concat(otros);
+    // Cross-list dedup: if same client exists in both KFC and Otros, KFC wins (has richer data)
+    var kfcKeys = {};
+    kfc.forEach(function(c) { kfcKeys[_normKey(c.nombre)] = true; });
+    var otrosFiltrados = otros.filter(function(c) { return !kfcKeys[_normKey(c.nombre)]; });
+    var nuevosClientes = kfc.concat(otrosFiltrados);
 
     _mesUltimoCargado = mes;
 
