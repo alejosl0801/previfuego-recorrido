@@ -1944,31 +1944,19 @@ function agregarPuntoManual() {
 }
 
 /* ===================================================
-   MODO DICTAR RECORRIDO — genera texto WhatsApp por voz
+   MODO DICTAR RECORRIDO — crea puntos estructurados por voz
 =================================================== */
-var _DICTAR_PUNTOS_COUNT = 0; // How many points dictated so far
-var _DICTAR_REC = null;       // Active SpeechRecognition for dictation mode
-
-var _NUMEROS_PUNTO = ['','PRIMER','SEGUNDO','TERCER','CUARTO','QUINTO','SEXTO',
-  'S\xC9PTIMO','OCTAVO','NOVENO','D\xC9CIMO','UNDECIMO','DUODECIMO'];
+var _DICTAR_PUNTOS = [];  // Array of structured point objects
+var _DICTAR_REC = null;   // Active SpeechRecognition
 
 function abrirModoRecorrido() {
-  _DICTAR_PUNTOS_COUNT = 0;
+  _DICTAR_PUNTOS = [];
   var panelChat = document.getElementById('modo-chat-valeria');
   var panelDictar = document.getElementById('modo-recorrido-panel');
   if (panelChat) panelChat.style.display = 'none';
   if (panelDictar) panelDictar.style.display = 'flex';
-
-  // Build initial header: RECORRIDO — jornada — fecha
-  var hoy = new Date();
-  var DIAS = ['Domingo','Lunes','Martes','Mi\xE9rcoles','Jueves','Viernes','S\xE1bado'];
-  var MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-  var jornada = hoy.getHours() < 13 ? 'MA\xD1ANA' : 'TARDE';
-  var diaStr = DIAS[hoy.getDay()] + ' ' + hoy.getDate() + ' de ' + MESES_ES[hoy.getMonth()];
-  var header = 'RECORRIDO – JORNADA DE LA ' + jornada + '\n\nFecha: ' + diaStr + '\n\n―――\n\n';
-  var editor = document.getElementById('recorrido-texto-editor');
-  if (editor) editor.value = header;
-  _dictatStatus('Listo. Pulsa "Hablar punto" y describe el primer punto.');
+  _renderDictarPuntos();
+  _dictatStatus('Pulsa el micr\xF3fono y describe el primer punto.');
 }
 
 function salirModoRecorrido() {
@@ -1984,180 +1972,164 @@ function _dictatStatus(msg, color) {
   if (el) { el.textContent = msg; el.style.color = color || '#555'; }
 }
 
+function _renderDictarPuntos() {
+  var lista = document.getElementById('dictar-puntos-lista');
+  var badge = document.getElementById('dictar-count-badge');
+  var btn = document.getElementById('btn-publicar-dictado');
+  if (badge) badge.textContent = _DICTAR_PUNTOS.length + ' punto' + (_DICTAR_PUNTOS.length !== 1 ? 's' : '');
+  if (btn) btn.disabled = _DICTAR_PUNTOS.length === 0;
+  if (!lista) return;
+  if (!_DICTAR_PUNTOS.length) {
+    lista.innerHTML = '<div class=”dictar-empty”>Hab\xE1 y describe cada punto del recorrido. La IA arma la misi\xF3n autom\xE1ticamente.</div>';
+    return;
+  }
+  var tecNombres = [USUARIOS.raul.nombre, USUARIOS.juan.nombre];
+  var html = '';
+  _DICTAR_PUNTOS.forEach(function(p, i) {
+    var misionHtml = (p.mision || '').split('\n').filter(function(l) { return l.trim(); }).map(function(l) {
+      return '<div class=”dictar-mision-linea”>' + esc(l) + '</div>';
+    }).join('');
+    var opts = tecNombres.map(function(t) {
+      return '<option' + (t === p.tecnico ? ' selected' : '') + '>' + esc(t) + '</option>';
+    }).join('');
+    html += '<div class=”dictar-punto-card”>'
+      + '<div class=”dictar-punto-num”>' + (i + 1) + '</div>'
+      + '<div class=”dictar-punto-body”>'
+      +   '<div class=”dictar-punto-nombre”>' + esc(p.nombre) + '</div>'
+      +   (p.direccion ? '<div class=”dictar-punto-dir”>📍 ' + esc(p.direccion) + '</div>' : '')
+      +   '<div class=”dictar-mision-wrap”>' + misionHtml + '</div>'
+      +   (p.nota ? '<div class=”dictar-punto-nota”>📌 ' + esc(p.nota) + '</div>' : '')
+      +   '<div class=”dictar-punto-footer”>'
+      +     '<select class=”opts-select” onchange=”_dictarCambiarTecnico(' + i + ',this.value)” style=”font-size:0.8rem;padding:4px 6px”>' + opts + '</select>'
+      +     (p.urgente ? '<span style=”color:#e53e3e;font-size:0.78rem;font-weight:700”>🔴 Urgente</span>' : '')
+      +   '</div>'
+      + '</div>'
+      + '<button class=”dictar-punto-del” onclick=”_dictarEliminarPunto(' + i + ')” title=”Eliminar punto”>✕</button>'
+      + '</div>';
+  });
+  lista.innerHTML = html;
+}
+
+function _dictarCambiarTecnico(idx, val) {
+  if (_DICTAR_PUNTOS[idx]) _DICTAR_PUNTOS[idx].tecnico = val;
+}
+
+function _dictarEliminarPunto(idx) {
+  _DICTAR_PUNTOS.splice(idx, 1);
+  _renderDictarPuntos();
+  _dictatStatus(_DICTAR_PUNTOS.length + ' punto(s). Pulsa micr\xF3fono para agregar m\xE1s.');
+}
+
 function hablarPuntoRecorrido() {
   var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) { pfModal('No disponible', 'Tu navegador no soporta reconocimiento de voz. Usa Chrome.'); return; }
-
   var btn = document.getElementById('btn-mic-recorrido');
   if (_DICTAR_REC) {
     try { _DICTAR_REC.abort(); } catch(e) {}
     _DICTAR_REC = null;
-    if (btn) { btn.classList.remove('grabando'); btn.textContent = '🎤 Hablar punto'; }
+    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4; Hablar punto'; }
     _dictatStatus('Grabaci\xF3n cancelada.');
     return;
   }
-
-  if (btn) { btn.classList.add('grabando'); btn.textContent = '⏹ Detener'; }
+  if (btn) { btn.classList.add('grabando'); btn.innerHTML = '&#x23F9; Detener'; }
   _dictatStatus('🔴 Escuchando... habla ahora', '#c00');
-
   var rec = new SpeechRecognition();
   _DICTAR_REC = rec;
   rec.lang = 'es-EC';
   rec.continuous = false;
   rec.interimResults = false;
-
   rec.onresult = function(e) {
     var texto = e.results[0][0].transcript;
     _DICTAR_REC = null;
-    if (btn) { btn.classList.remove('grabando'); btn.textContent = '🎤 Hablar punto'; }
+    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4; Hablar punto'; }
     _dictatStatus('⏳ Procesando: “' + texto + '”');
-    _formatearPuntoConIA(texto);
+    _estructurarPuntoConIA(texto);
   };
   rec.onerror = function(ev) {
     _DICTAR_REC = null;
-    if (btn) { btn.classList.remove('grabando'); btn.textContent = '🎤 Hablar punto'; }
+    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4; Hablar punto'; }
     _dictatStatus('⚠️ Error de micr\xF3fono: ' + ev.error, '#c00');
   };
   rec.onend = function() {
     _DICTAR_REC = null;
-    if (btn) { btn.classList.remove('grabando'); btn.textContent = '🎤 Hablar punto'; }
+    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4; Hablar punto'; }
   };
   rec.start();
 }
 
-function _formatearPuntoConIA(descripcion) {
-  _DICTAR_PUNTOS_COUNT++;
-  var num = _DICTAR_PUNTOS_COUNT;
-  var numStr = num <= 12 ? _NUMEROS_PUNTO[num] : (num + '.\xBA');
+function _estructurarPuntoConIA(descripcion) {
+  var num = _DICTAR_PUNTOS.length + 1;
+  var tecDefault = USUARIOS.raul.nombre;
+  // Detect if admin says “para Juan”
+  if (/\bpara juan\b|\bjuan\b/i.test(descripcion)) tecDefault = USUARIOS.juan.nombre;
 
-  var systemMsg = 'Eres Valeria, asistente de Previfuego (empresa de mantenimiento de extintores en Ecuador).\n'
-    + 'Formatea el punto de recorrido descrito por el admin en el ESTILO EXACTO de WhatsApp que usa Previfuego.\n\n'
-    + 'FORMATO OBLIGATORIO (s\xEDguelo al pie de la letra):\n'
-    + numStr + ' PUNTO\n\n'
-    + '[Nombre del cliente en ma\xFAsculas o como suene natural]\n'
-    + '[Si hay ubicaci\xF3n/sector/direcci\xF3n, en la siguiente l\xEDnea]\n\n'
-    + 'Misi\xF3n:\n'
-    + '\t•\t[Tarea 1]\n'
-    + '\t•\t[Tarea 2]\n\n'
-    + 'Observaci\xF3n: (solo si hay notas especiales)\n'
-    + '\t•\t[Nota]\n\n'
-    + '―――\n\n'
+  var systemMsg = 'Eres Valeria, asistente de Previfuego (empresa de extintores en Ecuador).\n'
+    + 'El administrador te describe un punto de recorrido. Extrae la informaci\xF3n y responde SOLO con JSON v\xE1lido.\n'
+    + 'FORMATO DE RESPUESTA (solo JSON, sin texto extra):\n'
+    + '{“nombre”:”...”,”direccion”:”...”,”mision”:”...”,”nota”:”...”,”urgente”:false}\n\n'
     + 'REGLAS:\n'
-    + '- Nombre del local en la l\xEDnea siguiente al n\xFAmero, sin dos puntos\n'
-    + '- Bullets con • (copia exactamente: tabulaci\xF3n + bala + tabulaci\xF3n + texto)\n'
-    + '- Infiere misiones est\xE1ndar de Previfuego seg\xFAn el contexto:\n'
-    + '  * mantenimiento en sitio → "Realizar mantenimiento de extintores en sitio" + "Hacer firmar la nota de entrega" + "Entregar la copia de la nota de entrega"\n'
-    + '  * retiro para recarga/mantenimiento → "Retirar extintores del establecimiento" + "Dejar extintores provisionales" + "Entregar y hacer firmar recibo" + indica que en X d\xEDas se realiza devoluci\xF3n si el admin lo menciona\n'
-    + '  * entrega de extintores retirados → "Entregar los extintores" + "Retirar los extintores provisionales" + "Hacer firmar la factura" + "Entregar la copia de la factura"\n'
-    + '  * instalar → "Instalar extintores" + "Colocar se\xF1al\xE9ticas correspondientes" + "Coordinar ubicaci\xF3n con el encargado si no hay definida"\n'
-    + '  * entregar productos/accesorios → "Entregar [productos]" + "Hacer firmar la factura" + "Entregar la copia de la factura"\n'
-    + '  * cobrar/retirar cheque → "Preguntar por [nombre] y retirar el pago/cheque pendiente" + "Firmar el recibido"\n'
-    + '- Si el admin menciona a quien preguntar, incluy\xE9ndolo en Indicaciones:\n'
-    + '- Si el admin menciona que no se firma nada, agregar "Indicar que la nota de entrega se enviar\xE1 escaneada por correo"\n'
-    + '- Usa espa\xF1ol formal, terminolog\xEDa t\xE9cnica de extintores (PQS, CO₂, lb, provisional, etc.)\n'
-    + '- DEVUELVE SOLO el texto del punto, sin explicaciones, sin markdown, sin comillas';
+    + '- nombre: nombre del cliente/local tal como se menciona, capitalizado correctamente\n'
+    + '- direccion: sector, direcci\xF3n, o referencia geogr\xE1fica si se menciona (si no hay, dejar “”)\n'
+    + '- mision: texto completo de la misi\xF3n con m\xFAltiples l\xEDneas. Infiere las tareas est\xE1ndar de Previfuego:\n'
+    + '  * mantenimiento → “Realizar mantenimiento de extintores en sitio\\nHacer firmar la nota de entrega\\nEntregar la copia de la nota de entrega”\n'
+    + '  * retiro para recarga → “Retirar extintores del establecimiento\\nDejar extintores provisionales\\nEntregar y hacer firmar recibo[\\nIndicar que en X d\xEDas laborables se realiza la devoluci\xF3n]”\n'
+    + '  * entrega de retirados → “Entregar los extintores\\nRetirar los extintores provisionales\\nHacer firmar la factura\\nEntregar la copia de la factura”\n'
+    + '  * instalar → “Instalar extintores\\nColocar se\xF1al\xE9ticas correspondientes\\nCoordin\xE1 ubicaci\xF3n con el encargado si no hay una definida”\n'
+    + '  * entregar productos → “Entregar [descripci\xF3n del producto]\\nHacer firmar la factura\\nEntregar la copia de la factura”\n'
+    + '  * cobrar/cheque → “Preguntar por [nombre] y retirar el pago pendiente\\nFirmar el recibido”\n'
+    + '  * Si el admin dice que no se firma nada → agregar “Indicar que la nota de entrega se enviar\xE1 escaneada por correo”\n'
+    + '  * Incluir cantidades espec\xEDficas si se mencionan (ej: “Entregar 3 extintores PQS 20lb”)\n'
+    + '  * Incluir a qui\xE9n preguntar si se menciona (ej: “Preguntar por el Sr. Javier Luzarraga”)\n'
+    + '- nota: notas adicionales que no son parte de la misi\xF3n principal (si no hay, dejar “”)\n'
+    + '- urgente: true solo si el admin menciona urgencia, prioridad alta, o “r\xE1pido”\n'
+    + 'IMPORTANTE: usa \\n para saltos de l\xEDnea dentro de la misi\xF3n';
 
   _llamarGroq([
     { role: 'system', content: systemMsg },
-    { role: 'user', content: numStr + ' PUNTO\nDescripci\xF3n del admin: "' + descripcion + '"' }
-  ], 1024, 0.15)
+    { role: 'user', content: 'Descripci\xF3n del admin: “' + descripcion + '”' }
+  ], 800, 0.1)
   .then(function(d) {
     var choice = (d.choices || [])[0] || {};
     var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
-    var editor = document.getElementById('recorrido-texto-editor');
-    if (editor) {
-      var cur = editor.value;
-      // Ensure clean separation before new point
-      if (!cur.endsWith('\n\n')) cur += (cur.endsWith('\n') ? '\n' : '\n\n');
-      editor.value = cur + text + '\n\n';
-      editor.scrollTop = editor.scrollHeight;
-    }
-    _dictatStatus('✅ Punto ' + num + ' agregado. Pulsa de nuevo para el siguiente punto.');
+    // Extract JSON from response
+    var jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Respuesta inesperada: ' + text.slice(0, 80));
+    var parsed = JSON.parse(jsonMatch[0]);
+    _DICTAR_PUNTOS.push({
+      nombre:        parsed.nombre   || ('Punto ' + num),
+      direccion:     parsed.direccion || '',
+      mision:        parsed.mision   || 'Mantenimiento',
+      nota:          parsed.nota     || '',
+      urgente:       !!parsed.urgente,
+      tecnico:       tecDefault,
+      esKfc:         /\bkfc\b/i.test(parsed.nombre || ''),
+      extintores:    0,
+      local:         '',
+      done:          false,
+      enCamino:      false,
+      horaCompletado: null,
+      observacion:   ''
+    });
+    _renderDictarPuntos();
+    _dictatStatus('✅ Punto ' + num + ' agregado. Pulsa para el siguiente.');
+    // Scroll to bottom of list
+    var lista = document.getElementById('dictar-puntos-lista');
+    if (lista) lista.scrollTop = lista.scrollHeight;
   })
   .catch(function(err) {
-    _DICTAR_PUNTOS_COUNT--; // revert count on error
-    _dictatStatus('❌ Error al formatear: ' + String(err), '#c00');
-  });
-}
-
-function copiarTextoRecorrido() {
-  var editor = document.getElementById('recorrido-texto-editor');
-  var texto = editor ? editor.value.trim() : '';
-  if (!texto) { showToast('No hay texto para copiar'); return; }
-  navigator.clipboard.writeText(texto).then(function() {
-    showToast('✅ Copiado — pega en WhatsApp');
-  }).catch(function() {
-    var ta = document.createElement('textarea');
-    ta.value = texto;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    showToast('✅ Copiado');
-  });
-}
-
-function limpiarTextoRecorrido() {
-  pfConfirm('Limpiar recorrido', '\xBFBorrar todo el texto y empezar de nuevo?', function() {
-    _DICTAR_PUNTOS_COUNT = 0;
-    var hoy = new Date();
-    var DIAS = ['Domingo','Lunes','Martes','Mi\xE9rcoles','Jueves','Viernes','S\xE1bado'];
-    var MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-    var jornada = hoy.getHours() < 13 ? 'MA\xD1ANA' : 'TARDE';
-    var diaStr = DIAS[hoy.getDay()] + ' ' + hoy.getDate() + ' de ' + MESES_ES[hoy.getMonth()];
-    var editor = document.getElementById('recorrido-texto-editor');
-    if (editor) editor.value = 'RECORRIDO – JORNADA DE LA ' + jornada + '\n\nFecha: ' + diaStr + '\n\n―――\n\n';
-    _dictatStatus('Limpio. Listo para dictar.');
+    _dictatStatus('❌ Error: ' + String(err), '#c00');
   });
 }
 
 function publicarRecorridoDictado() {
-  // Parse the free-form text into route points for the app tracking system
-  var editor = document.getElementById('recorrido-texto-editor');
-  var texto = editor ? editor.value.trim() : '';
-  if (!texto || _DICTAR_PUNTOS_COUNT === 0) { pfModal('Sin recorrido', 'Dicta al menos un punto primero.'); return; }
-
+  if (!_DICTAR_PUNTOS.length) { pfModal('Sin puntos', 'Dicta al menos un punto primero.'); return; }
   var manana = document.getElementById('dictar-chk-manana');
   var fechaPublicar = (manana && manana.checked) ? fechaMas(1) : fechaHoy();
-
-  // Extract point names from the text (lines after PRIMER PUNTO, SEGUNDO PUNTO, etc.)
-  var puntos = [];
-  var PATRON_PUNTO = /(?:PRIMER|SEGUNDO|TERCER|CUARTO|QUINTO|SEXTO|S[EÉ]PTIMO|OCTAVO|NOVENO|D[EÉ]CIMO|UNDECIMO|DUODECIMO|(?:\d+\.?\xBA?))\s+PUNTO/gi;
-  var bloques = texto.split(PATRON_PUNTO);
-  // bloques[0] = header, bloques[1..n] = point content
-  for (var i = 1; i < bloques.length; i++) {
-    var bloque = bloques[i].trim();
-    if (!bloque) continue;
-    var lineas = bloque.split('\n').map(function(l) { return l.trim(); }).filter(function(l) { return l; });
-    var nombre = lineas[0] || ('Punto ' + i);
-    var mision = '';
-    var inMision = false;
-    for (var j = 1; j < lineas.length; j++) {
-      if (/^misi[oó]n/i.test(lineas[j])) { inMision = true; continue; }
-      if (/^observaci[oó]n|^indicaci/i.test(lineas[j])) { inMision = false; continue; }
-      if (inMision && lineas[j].startsWith('•')) mision += lineas[j].slice(1).trim() + '. ';
-    }
-    puntos.push({
-      nombre: nombre,
-      direccion: '',
-      extintores: 0,
-      local: '',
-      esKfc: /\bkfc\b/i.test(nombre),
-      mision: mision.trim() || 'Ver recorrido',
-      tecnico: USUARIOS.raul.nombre,
-      nota: '',
-      urgente: false,
-      done: false,
-      enCamino: false,
-      horaCompletado: null,
-      observacion: ''
-    });
-  }
-
-  if (!puntos.length) { pfModal('Error', 'No se pudieron extraer puntos del texto.'); return; }
-
-  pfConfirm('Publicar en app', 'Se publicar\xE1n ' + puntos.length + ' punto(s) para ' + fechaPublicar + '.\n\nLos t\xE9cnicos los ver\xE1n en la app.', function() {
+  pfConfirm('Publicar recorrido', 'Se publicar\xE1n ' + _DICTAR_PUNTOS.length + ' punto(s) para el ' + fechaPublicar + '.\nLos t\xE9cnicos lo ver\xE1n en la app de inmediato.', function() {
     mostrarCargando(true);
+    var puntos = _DICTAR_PUNTOS.map(function(p, i) {
+      return Object.assign({}, p, { num: i + 1 });
+    });
     dbxDownloadJSON(DBX_RECORRIDOS)
     .then(function(recorridos) {
       var existing = (recorridos[fechaPublicar] && recorridos[fechaPublicar].puntos) || [];
@@ -2166,13 +2138,16 @@ function publicarRecorridoDictado() {
         if (prev && prev.done) { p.done = true; p.horaCompletado = prev.horaCompletado; p.observacion = prev.observacion || ''; }
         return p;
       });
-      // Also store the full WhatsApp text in the record
-      recorridos[fechaPublicar] = { fecha: fechaPublicar, publicado: new Date().toISOString(), puntos: puntos, textoWhatsApp: texto };
+      recorridos[fechaPublicar] = { fecha: fechaPublicar, publicado: new Date().toISOString(), puntos: puntos };
       return dbxUpload(DBX_RECORRIDOS, JSON.stringify(recorridos, null, 2));
     })
     .then(function() {
       mostrarCargando(false);
-      showToast('✅ Publicado en app: ' + puntos.length + ' puntos para ' + fechaPublicar);
+      actualizarMemoriaValeria(puntos, 'Recorrido dictado por voz ' + fechaHoy());
+      showToast('✅ Recorrido publicado — ' + puntos.length + ' puntos para ' + fechaPublicar);
+      _DICTAR_PUNTOS = [];
+      _renderDictarPuntos();
+      _dictatStatus('Publicado. Puedes dictar un nuevo recorrido.');
       _initAdminRutaStatus();
     })
     .catch(function(err) { mostrarCargando(false); pfModal('Error', 'No se pudo publicar: ' + String(err)); });
