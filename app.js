@@ -1456,7 +1456,8 @@ function cargarClientes() {
     }
 
     // _KFC_BASURA: skip rows that are totals/headers/summaries OR start with a number (e.g. "210 LOCALES")
-    var _KFC_BASURA = /^(total|subtotal|suma|parcial|cant|cantidad|descripcion|item|n[°º]|\d+[\s\w]*)$/i;
+    // Uses \b (word boundary) so "TOTAL KFC", "SUBTOTAL MENESTRAS" etc. are also caught (same fix as parseExcelOtros)
+    var _KFC_BASURA = /^(total\b|subtotal\b|suma\b|parcial\b|cantidad\b|cant\b|descripcion\b|item\b|n[°º]|\d)/i;
     var normKfc = rawKfc.map(function(r) { return normalizarCliente(r, true); });
     // KFC clients are annual — deduplicate across ALL months; only keep rows for the target month
     // so the same local's 12×N rows don't inflate extintor count.
@@ -1485,7 +1486,7 @@ function cargarClientes() {
       var code = _localCode(nk);
       if (code) kfcCodes[code] = true;
     });
-    var _KFC_BRAND_RE = /\bkfc\b|\bamerican\s*deli\b|\bgus\b|\bmenestras\b|\btropiburger\b|\bjuan\s*valdez\b/i;
+    var _KFC_BRAND_RE = /\bkfc\b|\bamerican\s*deli\b|\bgus\b|\bmenestras\b|\btropiburger\b|\bjuan\s*valdez\b|\bpollo\s*grill\b|\bcalifornia\s*kitchen\b|\bpizza\s*hut\b/i;
     var otrosFiltrados = otros.filter(function(c) {
       var nk = _normKey(c.nombre);
       if (kfcKeys[nk]) return false;                   // exact name match
