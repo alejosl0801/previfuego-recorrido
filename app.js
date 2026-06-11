@@ -1670,7 +1670,18 @@ function renderClientesMes() {
       html += renderClienteMesCard(c, globalIdx, true);
     });
   }
-  if (!html) html = '<div class="no-clientes">Sin clientes para este filtro.</div>';
+  if (!html) {
+    if (_clientesFiltro) {
+      // Filter returned 0 — auto-clear it so clients don't "disappear"
+      _clientesFiltro = '';
+      var buscarEl2 = document.getElementById('clientes-buscar');
+      if (buscarEl2) buscarEl2.value = '';
+      // Re-render without filter
+      renderClientesMes();
+      return;
+    }
+    html = '<div class="no-clientes">Sin clientes para este mes.</div>';
+  }
   cont.innerHTML = html;
 }
 
