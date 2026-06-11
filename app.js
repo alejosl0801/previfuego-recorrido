@@ -1095,12 +1095,19 @@ function normalizarCliente(row, esKfc) {
 }
 
 function _normKey(nombre) {
-  // Aggressive normalization for dedup: remove accents, collapse spaces, strip punctuation
   return (nombre || '').toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '') // strip accents
-    .replace(/[^a-z0-9\s]/g, ' ')                    // punctuation → space
-    .replace(/\s+/g, ' ')                             // collapse spaces
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')   // strip accents
+    .replace(/[^a-z0-9\s]/g, ' ')                       // punctuation → space
+    .replace(/([a-z])(\d)/g, '$1 $2')                   // "m014" → "m 014", "g48" → "g 48"
+    .replace(/\b0+(\d)/g, '$1')                         // strip leading zeros: "014" → "14"
+    .replace(/\s+/g, ' ')
     .trim();
+}
+
+// Extract the KFC-group local code (e.g. "g48", "m14", "t43") from a normalized name
+function _localCode(normName) {
+  var m = normName.match(/^([a-z] \d+)/);
+  return m ? m[1].replace(/\s/g, '') : null;
 }
 
 function deduplicarClientes(lista) {
@@ -1467,13 +1474,22 @@ function cargarClientes() {
     var kfcFiltrado = kfcDelMes.length > 0 ? kfcDelMes : kfcSinMes;
     var kfc   = deduplicarClientes(kfcFiltrado);
     var otros = deduplicarClientes(rawOtros.filter(function(c) { return !!c.nombre; }));
-    // Cross-list dedup: KFC file wins; also strip any KFC-brand clients from Proyección
+    // Cross-list dedup: KFC file wins; also strip KFC-brand/code clients from Proyección
     var kfcKeys = {};
-    kfc.forEach(function(c) { kfcKeys[_normKey(c.nombre)] = true; });
-    var _KFC_BRAND_RE = /\bkfc\b|\bamerican\s*deli\b|\bgus\b/i;
+    var kfcCodes = {};
+    kfc.forEach(function(c) {
+      var nk = _normKey(c.nombre);
+      kfcKeys[nk] = true;
+      var code = _localCode(nk);
+      if (code) kfcCodes[code] = true;
+    });
+    var _KFC_BRAND_RE = /\bkfc\b|\bamerican\s*deli\b|\bgus\b|\bmenestras\b|\btropiburger\b|\bjuan\s*valdez\b/i;
     var otrosFiltrados = otros.filter(function(c) {
-      if (kfcKeys[_normKey(c.nombre)]) return false; // exact name match
-      if (_KFC_BRAND_RE.test(c.nombre)) return false; // KFC-brand client in Proyección
+      var nk = _normKey(c.nombre);
+      if (kfcKeys[nk]) return false;                   // exact name match
+      if (_KFC_BRAND_RE.test(c.nombre)) return false;  // KFC-group brand name
+      var code = _localCode(nk);
+      if (code && kfcCodes[code]) return false;        // same local code (e.g. "m14", "t43")
       return true;
     });
     var nuevosClientes = kfc.concat(otrosFiltrados);
