@@ -15,7 +15,8 @@ var DBX_VISITAS    = '/Previfuego/visitas.json';
 var DBX_VALERIA    = '/Previfuego/valeria_memoria.json';
 
 var DBX_KFC_PATH   = localStorage.getItem('pf_path_kfc')   || '/Previfuego/2026/BASE_DATOS_KFC (8).xlsx';
-var DBX_OTROS_PATH = localStorage.getItem('pf_path_otros') || '/Previfuego/PRESUPUESTOS/PROYECCION INGRESOS MENSUAL 2026.xlsx';
+var DBX_OTROS_PATH = localStorage.getItem('pf_path_otros') || '/Previfuego/PRESUPUESTOS/OTRAS_EMPRESAS.xlsx';
+var DBX_SUSHI_PATH = localStorage.getItem('pf_path_sushi') || '/Previfuego/PRESUPUESTOS/MATRIZ_SUSHICORP.xlsx';
 
 /* ===================================================
    STATE
@@ -220,8 +221,10 @@ function actualizarEstadoConexion() {
 
   var inKfc   = document.getElementById('cfg-path-kfc');
   var inOtros = document.getElementById('cfg-path-otros');
+  var inSushi = document.getElementById('cfg-path-sushi');
   if (inKfc)   inKfc.value   = DBX_KFC_PATH;
   if (inOtros) inOtros.value = DBX_OTROS_PATH;
+  if (inSushi) inSushi.value = DBX_SUSHI_PATH;
 
   var groqStatus = document.getElementById('cfg-groq-status');
   if (groqStatus) {
@@ -320,7 +323,15 @@ function guardarPathOtros() {
   if (!val) return;
   DBX_OTROS_PATH = val.value.trim();
   localStorage.setItem('pf_path_otros', DBX_OTROS_PATH);
-  showToast('✅ Path clientes guardado');
+  showToast('✅ Path Otras Empresas guardado');
+}
+
+function guardarPathSushi() {
+  var val = document.getElementById('cfg-path-sushi');
+  if (!val) return;
+  DBX_SUSHI_PATH = val.value.trim();
+  localStorage.setItem('pf_path_sushi', DBX_SUSHI_PATH);
+  showToast('✅ Path Sushicorp guardado');
 }
 
 function guardarNombresTecnicos() {
@@ -948,6 +959,15 @@ var MESES_NUM = {'1':'ENERO','2':'FEBRERO','3':'MARZO','4':'ABRIL','5':'MAYO','6
 
 function parseExcel(buf) {
   var wb = XLSX.read(buf, { type: 'array' });
+  // Prefer RESUMEN_LOCALES sheet: one row per local, N_EXTINTORES = real count, no TOTAL rows
+  var resumenName = wb.SheetNames.find(function(n) { return /resumen/i.test(n); });
+  if (resumenName) {
+    var ws = wb.Sheets[resumenName];
+    var rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    rows.forEach(function(r) { r.__sheet = resumenName; r.__isResumen = true; });
+    return rows;
+  }
+  // Fallback: read all sheets as DETALLE (one row per extintor)
   var allRows = [];
   wb.SheetNames.forEach(function(sheetName) {
     var ws = wb.Sheets[sheetName];
@@ -982,8 +1002,7 @@ function parseExcelOtros(buf, mesSeleccionado) {
   });
   var sheetsToRead = sheetTarget ? [sheetTarget] : wb.SheetNames;
   var clientes = [];
-  // Use \b (word boundary) instead of $ so "TOTAL KFC", "SUBTOTAL MENESTRAS" etc. are also skipped
-  var FILAS_BASURA = /^(total\b|subtotal\b|suma\b|parcial\b|cantidad\b|cant\b|tipo\b|extintores?\b|marca\b|descripcion\b|item\b|n[°º]|\d)/i;
+  var FILAS_BASURA = /^(totales?\b|subtotales?\b|suma\b|parcial\b|cantidad\b|cant\b|tipo\b|extintores?\b|marca\b|descripcion\b|ubicacion\b|item\b|n[°º]|cc\b|\d)/i;
   sheetsToRead.forEach(function(sheetName) {
     var ws = wb.Sheets[sheetName];
     var raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
@@ -999,14 +1018,57 @@ function parseExcelOtros(buf, mesSeleccionado) {
       // Skip rows where colC looks like a header/garbage
       if (colC && FILAS_BASURA.test(colC)) return;
       clientes.push({
-        nombre:     nombreActual,
-        direccion:  '',
-        extintores: parseInt(colD) || 0,
-        mes:        sheetTarget ? mesSeleccionado : normalizarMes(sheetName),
-        local:      colC,
-        marca:      '',    // Otros don't have a brand column
-        esKfc:      false
+        nombre:       nombreActual,
+        direccion:    String(row[1] || '').trim(),  // UBICACIÓN = col B
+        extintores:   1,                             // each row = 1 extintor
+        capacidadLbs: parseInt(colD) || 0,           // CAPACIDAD in lbs (for display)
+        mes:          sheetTarget ? mesSeleccionado : normalizarMes(sheetName),
+        local:        colC,                          // TIPO (CO2, PQS...)
+        marca:        '',
+        esKfc:        false
       });
+    });
+  });
+  return clientes;
+}
+
+// Parser for SUSHICORP / NOE / KOBE style Excel
+// Single sheet, columns: CC (col0), UBICACIÓN (col1), TIPO (col2), CAPACIDAD-lbs (col3), ..., Mes de trabajo (col16)
+function parseExcelSushi(buf, mesSeleccionado) {
+  var wb = XLSX.read(buf, { type: 'array' });
+  var ws = wb.Sheets[wb.SheetNames[0]];
+  var raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  var clientes = [];
+  var FILAS_BASURA = /^(total\b|subtotal\b|suma\b|parcial\b|cantidad\b|cant\b|tipo\b|extintores?\b|marca\b|descripcion\b|item\b|n[°º]|cc\b|ubicacion\b|\d)/i;
+  var nombreActual = '';
+  var mesActual = '';
+  raw.forEach(function(row) {
+    var colA = String(row[0] || '').trim();
+    var colB = String(row[1] || '').trim();
+    var colC = String(row[2] || '').trim();
+    var colD = String(row[3] || '').trim();
+    var colQ = String(row[16] || '').trim(); // "Mes de trabajo"
+    // Update current client name and month from first row of each client block
+    if (colA && !FILAS_BASURA.test(colA)) {
+      nombreActual = colA;
+      var m = normalizarMes(colQ);
+      if (m) mesActual = m;
+    } else if (colQ) {
+      var m2 = normalizarMes(colQ);
+      if (m2) mesActual = m2;
+    }
+    if (!nombreActual || FILAS_BASURA.test(nombreActual)) return;
+    if (!colC && !colD) return;
+    if (mesSeleccionado && mesActual && mesActual !== mesSeleccionado) return;
+    clientes.push({
+      nombre:       nombreActual,
+      direccion:    colB,
+      extintores:   1,
+      capacidadLbs: parseInt(colD) || 0,
+      mes:          mesActual,
+      local:        colC,
+      marca:        '',
+      esKfc:        false
     });
   });
   return clientes;
@@ -1070,8 +1132,8 @@ function normalizarCliente(row, esKfc) {
   var dir = get('UBICACI\xD3N','UBICACION','DIRECCION','Direcci\xF3n','DIRECCI\xD3N',
                 'DIR','Direccion','DIREC','direccion','DOMICILIO','Domicilio');
   var ciudad = get('CIUDAD','Ciudad','ciudad','CANTON','PROVINCIA');
-  var ext = get('EXTINTORES','Extintores','CAPACIDAD','CANTIDAD','Cantidad',
-                'EXT','N_EXT','TOTAL','Total','NUMERO','N\xFAmero','CANT');
+  var ext = get('N_EXTINTORES','EXTINTORES','Extintores','CAPACIDAD','CANTIDAD','Cantidad',
+                'EXT','N_EXT','NUMERO','N\xFAmero','CANT');
   // Get mes preserving original value (may be Date object from SheetJS)
   var mesRaw = (function() {
     var keys = ['MES_SERVICIO','MES','Mes','mes','MES_CONTRATO','PERIODO','Periodo'];
@@ -1086,13 +1148,14 @@ function normalizarCliente(row, esKfc) {
   var local = get('LOCAL','Local','LOCAL_KFC','Sucursal','SUCURSAL','TIPO','Tipo','ZONA','Zona');
   var marca = get('MARCA','Marca','TIPO_EXT','TIPO EXTINTOR');
   return {
-    nombre:     nombre,
-    direccion:  dir + (ciudad ? (dir ? ' — ' : '') + ciudad : ''),
-    extintores: parseInt(ext) || 0,
-    mes:        normalizarMes(mes),
-    local:      local,
-    marca:      marca,
-    esKfc:      !!esKfc
+    nombre:       nombre,
+    direccion:    dir + (ciudad ? (dir ? ' — ' : '') + ciudad : ''),
+    extintores:   parseInt(ext) || 0,
+    mes:          normalizarMes(mes),
+    local:        local,
+    marca:        marca,
+    esKfc:        !!esKfc,
+    __isResumen:  !!row.__isResumen
   };
 }
 
@@ -1123,20 +1186,26 @@ function deduplicarClientes(lista) {
       orden.push(key);
     }
     // Only add tag if it has a real extintor type (skip brand-only rows from headers/totals)
+    // capacidadLbs = lbs capacity for display (from OTRAS_EMPRESAS/Sushi rows); extintores = count
+    var dispCap = (c.capacidadLbs !== undefined) ? c.capacidadLbs : c.extintores;
     if (c.local && c.local.trim()) {
-      mapa[key].tipos.push({ tipo: c.local, marca: c.marca || '', cap: c.extintores });
+      mapa[key].tipos.push({ tipo: c.local, marca: c.marca || '', cap: dispCap });
     }
     if (!mapa[key].direccion && c.direccion) mapa[key].direccion = c.direccion;
-    // Track the actual brand (MARCA column = restaurant brand: KFC, AMERICAN DELI, GUS, etc.)
     if (!mapa[key].marcaPrincipal && c.marca) mapa[key].marcaPrincipal = c.marca;
     if (c.esKfc) {
-      // KFC: cada fila = 1 extintor; CAPACIDAD es el peso en lbs, no la cantidad
-      mapa[key].extintores += 1;
-      mapa[key].capacidadTotal += (c.extintores || 0);
+      if (c.__isResumen && c.extintores > 0) {
+        // RESUMEN_LOCALES: N_EXTINTORES = real count per local
+        mapa[key].extintores += c.extintores;
+      } else {
+        // DETALLE fallback: each row = 1 extintor
+        mapa[key].extintores += 1;
+      }
+      mapa[key].capacidadTotal += dispCap;
     } else {
-      // Otros: colD es la cantidad real de extintores; no usar fallback de 1 si colD estaba vacío
+      // Otras Empresas / Sushicorp: each row = 1 extintor (extintores already = 1)
       mapa[key].extintores += c.extintores;
-      mapa[key].capacidadTotal += c.extintores;
+      mapa[key].capacidadTotal += dispCap;
     }
   });
   return orden.map(function(k) {
@@ -1424,7 +1493,6 @@ function cargarClientes() {
     mostrarCargando(true);
   }
 
-  // Track which downloads actually returned data vs. failed (null = 409/network error)
   var kfcBufOk = false;
   var otrosBufOk = false;
 
@@ -1437,7 +1505,11 @@ function cargarClientes() {
       if (buf) { otrosBufOk = true; return parseExcelOtros(buf, mes); }
       return [];
     }),
-    dbxDownloadJSON(DBX_VISITAS)
+    dbxDownloadJSON(DBX_VISITAS),
+    dbxDownload(DBX_SUSHI_PATH).then(function(buf) {
+      if (buf) return parseExcelSushi(buf, mes);
+      return [];
+    })
   ])
   .then(function(results) {
     clearTimeout(_lockTimeout);
@@ -1447,6 +1519,7 @@ function cargarClientes() {
     if (sk) sk.style.display = 'none';
     var rawKfc   = results[0];
     var rawOtros = results[1];
+    var rawSushi = results[3] || [];
 
     // If BOTH downloads failed (network/path error), keep whatever we have and warn
     if (!kfcBufOk && !otrosBufOk) {
@@ -1455,9 +1528,7 @@ function cargarClientes() {
       return;
     }
 
-    // _KFC_BASURA: skip rows that are totals/headers/summaries OR start with a number (e.g. "210 LOCALES")
-    // Uses \b (word boundary) so "TOTAL KFC", "SUBTOTAL MENESTRAS" etc. are also caught (same fix as parseExcelOtros)
-    var _KFC_BASURA = /^(total\b|subtotal\b|suma\b|parcial\b|cantidad\b|cant\b|descripcion\b|item\b|n[°º]|\d)/i;
+    var _KFC_BASURA = /^(totales?\b|subtotales?\b|suma\b|parcial\b|cantidad\b|cant\b|descripcion\b|item\b|n[°º]|\d)/i;
     var normKfc = rawKfc.map(function(r) { return normalizarCliente(r, true); });
     // KFC clients are annual — deduplicate across ALL months; only keep rows for the target month
     // so the same local's 12×N rows don't inflate extintor count.
@@ -1476,8 +1547,10 @@ function cargarClientes() {
     });
     var kfcFiltrado = kfcDelMes.length > 0 ? kfcDelMes : kfcSinMes;
     var kfc   = deduplicarClientes(kfcFiltrado);
-    var otros = deduplicarClientes(rawOtros.filter(function(c) { return !!c.nombre; }));
-    // Cross-list dedup: KFC file wins; also strip KFC-brand/code clients from Proyección
+    // Merge OTRAS_EMPRESAS + SUSHICORP into a single non-KFC list before dedup
+    var rawOtrosTodos = rawOtros.concat(rawSushi);
+    var otros = deduplicarClientes(rawOtrosTodos.filter(function(c) { return !!c.nombre; }));
+    // Cross-list dedup: KFC file wins; also strip KFC-brand clients from Otras Empresas
     var kfcKeys = {};
     var kfcCodes = {};
     kfc.forEach(function(c) {
@@ -1486,7 +1559,8 @@ function cargarClientes() {
       var code = _localCode(nk);
       if (code) kfcCodes[code] = true;
     });
-    var _KFC_BRAND_RE = /\bkfc\b|\bamerican\s*deli\b|\bgus\b|\bmenestras\b|\btropiburger\b|\bjuan\s*valdez\b|\bpollo\s*grill\b|\bcalifornia\s*kitchen\b|\bpizza\s*hut\b/i;
+    // All brands present in the KFC Excel (BASE_DATOS_KFC): exclude these from OTRAS_EMPRESAS
+    var _KFC_BRAND_RE = /\bkfc\b|\bamerican\s*deli\b|\bgus\b|\bmenestras\b|\btropiburger\b|\bjuan\s*valdez\b|\bbaskin\b|\bcinnabon\b|\bcajun\b|\bil\s*cappo\b|\bespa\xF1ol\b|\bcafa\b|\bcasa\s*res\b|\bdolce\b|\bpollo\s*grill\b/i;
     var otrosFiltrados = otros.filter(function(c) {
       var nk = _normKey(c.nombre);
       if (kfcKeys[nk]) return false;                   // exact name match
