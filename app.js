@@ -2,6 +2,378 @@
 
 var APP_VERSION = '3.2';
 
+/* CLIENTES_BD generado desde: BASE_DATOS_KFC_9.xlsx + OTRAS_EMPRESAS.xlsx + MATRIZ_SUSHICORP.xlsx */
+var CLIENTES_BD = [
+  {nombre:"I003 - MALL DEL SOL",marca:"IL CAPPO",mes:"ENERO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"J001 - MALL DEL SOL",marca:"CAJUN",mes:"ENERO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K002 - 9 DE OCTUBRE",marca:"KFC",mes:"ENERO",extintores:8,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K025 - MOBIL DURAN",marca:"KFC",mes:"ENERO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K029 - MALECON 2000",marca:"KFC",mes:"ENERO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K034 - VIA DAULE",marca:"KFC",mes:"ENERO",extintores:7,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K037 - DOMINGO COMIN",marca:"KFC",mes:"ENERO",extintores:7,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K055 - MOBIL CORDOVA",marca:"KFC",mes:"ENERO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K063 - RIO CENTRO SUR",marca:"KFC",mes:"ENERO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K074 - CALIFORNIA",marca:"KFC",mes:"ENERO",extintores:8,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K076 - PARQUE CENTENARIO",marca:"KFC",mes:"ENERO",extintores:7,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K077 - RIO CENTRO LOS CEIBOS",marca:"KFC",mes:"ENERO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K085 - MOBIL CEIBOS",marca:"KFC",mes:"ENERO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K087 - TERMINAL TERRESTRE GYQ",marca:"KFC",mes:"ENERO",extintores:6,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K095 - PASEO SHOP KM 9 VIA DAULE",marca:"KFC",mes:"ENERO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K105 - HIPER MARKET",marca:"KFC",mes:"ENERO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K153 - LIGA CANTONAL DURAN",marca:"KFC",mes:"ENERO",extintores:7,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K154 - PASCUALES",marca:"KFC",mes:"ENERO",extintores:9,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M031 - RIO CENTRO NORTE",marca:"MENESTRAS DEL NEGRO",mes:"ENERO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M035 - GARZOTA",marca:"MENESTRAS DEL NEGRO",mes:"ENERO",extintores:9,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M058 - LAS PENAS",marca:"MENESTRAS DEL NEGRO",mes:"ENERO",extintores:6,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"T032 - TERMINAL",marca:"TROPIBURGER",mes:"ENERO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V055 - MALL DEL SOL ZONA GASTRO",marca:"JUAN VALDEZ",mes:"ENERO",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"A037 - RIOCENTRO EL DORADO",marca:"AMERICAN DELI",mes:"FEBRERO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"BS04 - MALL DEL SOL",marca:"BASKIN ROBBINS / CINNABON",mes:"FEBRERO",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"BS09 - RIO CENTRO SUR",marca:"BASKIN ROBBINS",mes:"FEBRERO",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"CN31 - RIOCENTRO CEIBOS",marca:"BASKIN ROBBINS / CINNABON",mes:"FEBRERO",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"BS38 - CEIBOS BASKIN",marca:"BASKIN ROBBINS",mes:"FEBRERO",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"E006 - MALL EL SOL",marca:"ESPAÑOL",mes:"FEBRERO",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"E010 - SAN MARINO PB",marca:"ESPAÑOL",mes:"FEBRERO",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"E026 - PUNTILLA",marca:"ESPAÑOL",mes:"FEBRERO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"I002 - RIOCENTRO CEIBOS",marca:"IL CAPPO",mes:"FEBRERO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"J002 - SAN MARINO",marca:"CAJUN",mes:"FEBRERO",extintores:6,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K007 - ALBORADA",marca:"KFC",mes:"FEBRERO",extintores:8,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K045 - BOYACA",marca:"KFC",mes:"FEBRERO",extintores:11,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K065 - MILAGRO",marca:"KFC",mes:"FEBRERO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K090 - MACHALA CENTRO",marca:"KFC",mes:"FEBRERO",extintores:9,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K091 - MACHALA RIO CENTRO",marca:"KFC",mes:"FEBRERO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K148 - TERMINAL TERRESTRE MACHALA",marca:"KFC",mes:"FEBRERO",extintores:6,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V015 - CEIBOS",marca:"JUAN VALDEZ",mes:"FEBRERO",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V021 - MALL DEL SOL",marca:"JUAN VALDEZ",mes:"FEBRERO",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V075 - PASEO SHOPPING MACHALA",marca:"JUAN VALDEZ",mes:"FEBRERO",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V079 - MILAGRO",marca:"JUAN VALDEZ",mes:"FEBRERO",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"BS37 - DORADO",marca:"BASKIN ROBBINS / CINNABON",mes:"MARZO",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"G049 - OUTLET DURAN",marca:"GUS",mes:"MARZO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"I005 - SAN MARINO",marca:"IL CAPPO",mes:"MARZO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K075 - MOBIL KENNEDY",marca:"KFC",mes:"MARZO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K094 - OUTLET DURAN",marca:"KFC",mes:"MARZO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K145 - SUPER AKI SAN EDUARDO",marca:"KFC",mes:"MARZO",extintores:8,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K169 - PLAZA PACIFICO DAULE",marca:"KFC",mes:"MARZO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K176 - SUPERCINES",marca:"KFC",mes:"MARZO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M011 - MALL SUR",marca:"MENESTRAS DEL NEGRO",mes:"MARZO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M037 - 9 DE OCTUBRE",marca:"MENESTRAS DEL NEGRO",mes:"MARZO",extintores:8,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M046 - SAN MARINO",marca:"MENESTRAS DEL NEGRO",mes:"MARZO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M047 - PASEO SHOPPING DURAN",marca:"MENESTRAS DEL NEGRO",mes:"MARZO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M057 - ALBORADA",marca:"MENESTRAS DEL NEGRO",mes:"MARZO",extintores:7,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V066 PLAZA PACIFICO DAULE",marca:"JUAN VALDEZ",mes:"MARZO",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"G045 - TUNGURAHUA",marca:"GUS",mes:"ABRIL",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"I012 - TERMINAL TERRESTRE",marca:"IL CAPPO",mes:"ABRIL",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K069 - LOJA",marca:"KFC",mes:"ABRIL",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K082 - SHOPPING PLAYAS",marca:"KFC",mes:"ABRIL",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K161 - MALL DEL RIO GYE",marca:"KFC",mes:"ABRIL",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V057 - CORAL SAMBORONDON",marca:"JUAN VALDEZ",mes:"ABRIL",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V087 - PASEO SHOPPING DAULE",marca:"JUAN VALDEZ",mes:"ABRIL",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"A006 - TERMINAL GYE",marca:"AMERICAN DELI",mes:"MAYO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"A024 - MALL DEL SUR",marca:"AMERICAN DELI",mes:"MAYO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"BS16 - PUNTILLA",marca:"BASKIN ROBBINS / CINNABON",mes:"MAYO",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"BS20 - RIO CENTRO NORTE",marca:"BASKIN ROBBINS",mes:"MAYO",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"E023 - PREEMB NAC GYE",marca:"ESPAÑOL",mes:"MAYO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"G050 - MALL DEL SUR",marca:"GUS",mes:"MAYO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K003 - PLAZA QUIL",marca:"KFC",mes:"MAYO",extintores:8,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K059 - MALL DEL SUR P/B",marca:"KFC",mes:"MAYO",extintores:6,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K096 - PORTETE",marca:"KFC",mes:"MAYO",extintores:12,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M056 - AEROPUERTO GYE",marca:"MENESTRAS DEL NEGRO",mes:"MAYO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"R003 - 9 DE OCTUBRE",marca:"CASA RES",mes:"MAYO",extintores:8,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"R004 - SAN MARINO",marca:"CASA RES",mes:"MAYO",extintores:8,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"R008 - MALL DEL SOL",marca:"CASA RES",mes:"MAYO",extintores:8,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"R010 - FRANCISCO DE ORELLANA",marca:"CASA RES",mes:"MAYO",extintores:20,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V004 - AEROPUERTO",marca:"JUAN VALDEZ",mes:"MAYO",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V024 - PREEMBARQUE NACIONAL",marca:"JUAN VALDEZ",mes:"MAYO",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V048 - MALL DEL RIO GYE",marca:"JUAN VALDEZ",mes:"MAYO",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"CN34 - RIO CENTRO SUR CINNABON TO GO",marca:"CINNABON",mes:"JUNIO",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"CN35 - RIO CENTRO NORTE",marca:"CINNABON",mes:"JUNIO",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"F003 - DOLCE INCONTRO AERGYE",marca:"AMERICAN DELI",mes:"JUNIO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"G048 - TERMINAL TERRESTRE",marca:"GUS",mes:"JUNIO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"G052 - CITY MALL",marca:"GUS",mes:"JUNIO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"I004 - MALL DEL SUR",marca:"IL CAPPO",mes:"JUNIO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"J008 - TERMINAL",marca:"CAJUN",mes:"JUNIO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K079 - BABAHOYO",marca:"KFC",mes:"JUNIO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K083 - MUCHO LOTE",marca:"KFC",mes:"JUNIO",extintores:6,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K115 - ENTRADA DE LA 8",marca:"KFC",mes:"JUNIO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K186 - PINTULAC MILAGRO",marca:"KFC",mes:"JUNIO",extintores:9,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M014 - RIOCENTRO SUR",marca:"MENESTRAS DEL NEGRO",mes:"JUNIO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M028 - VILLAGE",marca:"MENESTRAS DEL NEGRO",mes:"JUNIO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"T043 - MALL EL FORTIN",marca:"TROPIBURGER",mes:"JUNIO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V089 - PINTULAC MILAGRO",marca:"JUAN VALDEZ",mes:"JUNIO",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"A007 - SAN MARINO",marca:"AMERICAN DELI",mes:"JULIO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"A020 - VILLAGE PLAZA",marca:"AMERICAN DELI",mes:"JULIO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"DI01 - DOLCE INCONTRO MALL DEL SOL",marca:"DOLCE INCONTRO",mes:"JULIO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"DI02 - DOLCE INCONTRO CEIBOS",marca:"DOLCE INCONTRO",mes:"JULIO",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"DI03 - DOLCE INCONTRO SAMBORONDON",marca:"DOLCE INCONTRO",mes:"JULIO",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"G047 - ALBORADA",marca:"GUS",mes:"JULIO",extintores:7,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"G051 - SHOPPING QUEVEDO",marca:"GUS",mes:"JULIO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"J006 - CAJUN PUNTILLA",marca:"CAJUN",mes:"JULIO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"J020 - CAJUN PENINSULA",marca:"CAJUN",mes:"JULIO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"J021 - MALL DEL SUR",marca:"CAJUN",mes:"JULIO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"J029 - CAJUN MALL DEL NORTE",marca:"CAJUN",mes:"JULIO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K058 - MALL DEL SUR PLANTA ALTA",marca:"KFC",mes:"JULIO",extintores:6,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K078 - SHOPPING DAULE",marca:"KFC",mes:"JULIO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K092 - EL FORTIN",marca:"KFC",mes:"JULIO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K093 - QUEVEDO",marca:"KFC",mes:"JULIO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K106 - SHOPPING QUEVEDO",marca:"KFC",mes:"JULIO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K149 - PETROCOMERIAL VENTANAS",marca:"KFC",mes:"JULIO",extintores:6,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K162 - DAULE ESTACION",marca:"KFC",mes:"JULIO",extintores:8,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K165 - PLAZA TIA DURAN",marca:"KFC",mes:"JULIO",extintores:6,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K171 - SHELL ABU DABI",marca:"KFC",mes:"JULIO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K172 - MALL DEL NORTE",marca:"KFC",mes:"JULIO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M032 - SHOPPING QUEVEDO",marca:"MENESTRAS DEL NEGRO",mes:"JULIO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M062 - MN MALL DEL NORTE GY",marca:"MENESTRAS DEL NEGRO",mes:"JULIO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V003 - SAN MARINO",marca:"JUAN VALDEZ",mes:"JULIO",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V005 - URDESA",marca:"JUAN VALDEZ",mes:"JULIO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V016 - POLICENTRO",marca:"JUAN VALDEZ",mes:"JULIO",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V069 QUEVEDO PASEO SHOPPING",marca:"JUAN VALDEZ",mes:"JULIO",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"A019 - MALL DEL SOL PATIO COMIDAS",marca:"AMERICAN DELI",mes:"AGOSTO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"CA01 - CAFE ASTORIA SALIDA INTERNACIONAL",marca:"CAFA",mes:"AGOSTO",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"CA02 - CAFE ASTORIA PREEMBARQUE INTERNACIONAL",marca:"CAFA",mes:"AGOSTO",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"CA03 - CAFE DUPORT HALL PRINCIPAL",marca:"CAFA",mes:"AGOSTO",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"CN26 - PREEMB INTER GYE",marca:"CINNABON",mes:"AGOSTO",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"DI04 - DOLCE INCONTRO URDESA",marca:"DOLCE INCONTRO",mes:"AGOSTO",extintores:7,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"E007 - URDESA",marca:"ESPAÑOL",mes:"AGOSTO",extintores:7,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"E022 - ISLA EXP GYE",marca:"ESPAÑOL",mes:"AGOSTO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"G044 - BOYACA",marca:"GUS",mes:"AGOSTO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"J005 - CAJUN CEIBOS",marca:"CAJUN",mes:"AGOSTO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K012 - RIO CENTRO",marca:"KFC",mes:"AGOSTO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K021 - MALL EL SOL",marca:"KFC",mes:"AGOSTO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K052 - LAS PEÃ????AS",marca:"KFC",mes:"AGOSTO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K053 - PASEO SHOPPING BABAHOYO",marca:"KFC",mes:"AGOSTO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K187 - DOMINGO COMIN Y ERNESTO ALBAN",marca:"KFC",mes:"AGOSTO",extintores:10,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M010 - MALECON",marca:"MENESTRAS DEL NEGRO",mes:"AGOSTO",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M021 - TERMINAL TER GYQ.",marca:"MENESTRAS DEL NEGRO",mes:"AGOSTO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M039 - PASEO SHOPPING BABAHOYO",marca:"MENESTRAS DEL NEGRO",mes:"AGOSTO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M043 - EL FORTIN",marca:"MENESTRAS DEL NEGRO",mes:"AGOSTO",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V090 - SUPER AKI LA JOYA GYE",marca:"JUAN VALDEZ",mes:"AGOSTO",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"A033 - CITY MALL",marca:"AMERICAN DELI",mes:"SEPTIEMBRE",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"BS22 - POLICENTRO",marca:"BASKIN ROBBINS",mes:"SEPTIEMBRE",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"E031 - POLICENTRO",marca:"ESPAÑOL",mes:"SEPTIEMBRE",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K129 - LLEVAR 5 ESQUINAS",marca:"KFC",mes:"SEPTIEMBRE",extintores:7,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V080 - AGORA GYE",marca:"JUAN VALDEZ",mes:"SEPTIEMBRE",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"B001 - STATION SPORTS BAR",marca:"AMERICAN DELI",mes:"OCTUBRE",extintores:7,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"E009 - CEIBOS",marca:"ESPAÑOL",mes:"OCTUBRE",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"E030 - CITY MALL",marca:"ESPAÑOL",mes:"OCTUBRE",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"J011 - CITY MALL",marca:"CAJUN",mes:"OCTUBRE",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K088 - HIPERMARKET VIA DAULE",marca:"KFC",mes:"OCTUBRE",extintores:7,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K109 - CITY MALL PA",marca:"KFC",mes:"OCTUBRE",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K110 - CITY MALL PB",marca:"KFC",mes:"OCTUBRE",extintores:7,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K117 - 29 Y SEDALANA",marca:"KFC",mes:"OCTUBRE",extintores:14,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M033 - CITY MALL",marca:"MENESTRAS DEL NEGRO",mes:"OCTUBRE",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M061 - PORTETE",marca:"MENESTRAS DEL NEGRO",mes:"OCTUBRE",extintores:10,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"A047 - RIO CENTRO NORTE GYE",marca:"AMERICAN DELI",mes:"NOVIEMBRE",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"E044- EL DORADO",marca:"ESPAÑOL",mes:"NOVIEMBRE",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"G054 - RIOCENTRO EL DORADO",marca:"GUS",mes:"NOVIEMBRE",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"I017 - RIO CENTRO NORTE GYE",marca:"IL CAPPO",mes:"NOVIEMBRE",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"I018 - DORADO GYE",marca:"IL CAPPO",mes:"NOVIEMBRE",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"J030 - RIO CENTRO SUR GYE",marca:"CAJUN",mes:"NOVIEMBRE",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"J031 - GRAN PIAZZA MACHA",marca:"CAJUN",mes:"NOVIEMBRE",extintores:6,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K048 - PENINSULA SALINAS",marca:"KFC",mes:"NOVIEMBRE",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K051 - SAN MARINO PLANTA ALTA",marca:"KFC",mes:"NOVIEMBRE",extintores:6,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K067 - MOBIL BENEFICENCIA",marca:"KFC",mes:"NOVIEMBRE",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K123 - RIOCENTRO EL DORADO",marca:"KFC",mes:"NOVIEMBRE",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K173 - OASIS",marca:"KFC",mes:"NOVIEMBRE",extintores:8,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K178 - MALECON SALINAS",marca:"KFC",mes:"NOVIEMBRE",extintores:10,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K179 - ESTACION SANTA ELENA",marca:"KFC",mes:"NOVIEMBRE",extintores:9,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K180 - GRAN PIAZZA MACHALA",marca:"KFC",mes:"NOVIEMBRE",extintores:6,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K184 - SUPERMAXI MACHALA",marca:"KFC",mes:"NOVIEMBRE",extintores:9,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M050 - RIOCENTRO EL DORADO",marca:"MENESTRAS DEL NEGRO",mes:"NOVIEMBRE",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"M065 - GRAN PIAZZA MACH",marca:"MENESTRAS DEL NEGRO",mes:"NOVIEMBRE",extintores:6,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"T054 - GRAN PIAZZA MACHALA",marca:"TROPIBURGER",mes:"NOVIEMBRE",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V053 - PUERTO SANTA ANA",marca:"JUAN VALDEZ",mes:"NOVIEMBRE",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V073 - CORAL LOS CEIBOS",marca:"JUAN VALDEZ",mes:"NOVIEMBRE",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V076 - TERMINAL TERRESTE GYE",marca:"JUAN VALDEZ",mes:"NOVIEMBRE",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V077 - FERRISARIATO KENNEDY",marca:"JUAN VALDEZ",mes:"NOVIEMBRE",extintores:2,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V078 - RIOCENTRO SUR GYE",marca:"JUAN VALDEZ",mes:"NOVIEMBRE",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V082 - GRAN PIAZZA MACHA",marca:"JUAN VALDEZ",mes:"NOVIEMBRE",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V085 - PASEO SHOPPING PENINSULA",marca:"JUAN VALDEZ",mes:"NOVIEMBRE",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"J010 - RIO CENTRO NORTE",marca:"CAJUN",mes:"DICIEMBRE",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"J019 - RIOCENTRO EL DORADO",marca:"CAJUN",mes:"DICIEMBRE",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K039 - AEROPUERTO GY",marca:"KFC",mes:"DICIEMBRE",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K142 - SUPER AKI VINCES",marca:"KFC",mes:"DICIEMBRE",extintores:5,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K175 - VIA A LA COSTA",marca:"KFC",mes:"DICIEMBRE",extintores:11,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K182 - JUAN TANCA MARENGO",marca:"KFC",mes:"DICIEMBRE",extintores:13,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"K183 - LA QUADRA QUEVEDO",marca:"KFC",mes:"DICIEMBRE",extintores:8,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"T051 - MALECON GYE",marca:"TROPIBURGER",mes:"DICIEMBRE",extintores:4,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V084 - TORRE MILLENIUM",marca:"JUAN VALDEZ",mes:"DICIEMBRE",extintores:3,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"V086 - PASEO SHOPPING PLAYAS",marca:"JUAN VALDEZ",mes:"DICIEMBRE",extintores:1,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"197 LOCALES",marca:"",mes:"",extintores:906,tipos:[],esKfc:true,fuente:"kfc"},
+  {nombre:"MUNDICABLES",marca:"",mes:"ENERO",extintores:15,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 3}],esKfc:false,fuente:"otras"},
+  {nombre:"INDUTORRES",marca:"",mes:"ENERO",extintores:33,tipos:[{"tipo": "FOAM", "marca": "", "cap": 20}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA ESTEROS",marca:"",mes:"ENERO",extintores:1,tipos:[{"tipo": "CO2", "marca": "", "cap": 20}],esKfc:false,fuente:"otras"},
+  {nombre:"SHIATSUCORP DURAN",marca:"",mes:"ENERO",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"NOVOCENTRO DURAN",marca:"",mes:"ENERO",extintores:8,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"PJ BUENA VISTA",marca:"",mes:"ENERO",extintores:6,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"TORO ASADO PLANTA",marca:"",mes:"ENERO",extintores:16,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"INMOBILIARIA KHOURY",marca:"",mes:"ENERO",extintores:19,tipos:[{"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "2C", "marca": "", "cap": 0}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"BONTEX",marca:"",mes:"ENERO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"KURMA",marca:"",mes:"ENERO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"SECOMATICO",marca:"",mes:"ENERO",extintores:13,tipos:[{"tipo": "CO2", "marca": "", "cap": 20}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA CRISTO",marca:"",mes:"ENERO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"COLEGIO SAN LUIS REY DE FRANCIA",marca:"",mes:"ENERO",extintores:19,tipos:[{"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 3}],esKfc:false,fuente:"otras"},
+  {nombre:"FUJIFILM",marca:"",mes:"ENERO",extintores:2,tipos:[{"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"ING CHANE",marca:"",mes:"ENERO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO CORAL CEIBOS",marca:"",mes:"ENERO",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA CENTENARIO",marca:"",mes:"ENERO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA ENTRE RIOS",marca:"",mes:"ENERO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA SAMANES",marca:"",mes:"ENERO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"ALMODOBAR GUAYARTE",marca:"",mes:"FEBRERO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PEÑA LUIS ILUCTRONS",marca:"",mes:"FEBRERO",extintores:8,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"CLINICA ODONTOLOGICA SURIAN",marca:"",mes:"FEBRERO",extintores:7,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"PJ GARZOTA",marca:"",mes:"FEBRERO",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"SECOMATICO",marca:"",mes:"FEBRERO",extintores:13,tipos:[{"tipo": "CO2", "marca": "", "cap": 20}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"ROLORTIZ",marca:"",mes:"FEBRERO",extintores:13,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}],esKfc:false,fuente:"otras"},
+  {nombre:"IVAN RIVADENEIRA CEBICHES EL DORADO",marca:"",mes:"FEBRERO",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PAPIZZEC MILAGRO",marca:"",mes:"FEBRERO",extintores:7,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"FEDERAL",marca:"",mes:"FEBRERO",extintores:12,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"JEANS - RUMICHACA Y 9OCT (ALADO GARAJE) ANDREA SARABIA",marca:"",mes:"FEBRERO",extintores:4,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"FIGURA Y SALUD",marca:"",mes:"FEBRERO",extintores:4,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"GASEC",marca:"",mes:"FEBRERO",extintores:16,tipos:[{"tipo": "CO2", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 26}, {"tipo": "CO2", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"SOCELEC",marca:"",mes:"FEBRERO",extintores:8,tipos:[{"tipo": "CO2", "marca": "", "cap": 20}, {"tipo": "CO2", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA PLAZA TIA CENTRAL",marca:"",mes:"FEBRERO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"EMPANADAS PACO CITY MALL",marca:"",mes:"FEBRERO",extintores:1,tipos:[{"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"EMPANADAS PACO VERMONT PLAZA",marca:"",mes:"FEBRERO",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PHARMEDICAL PARQUE COLON",marca:"",mes:"FEBRERO",extintores:4,tipos:[{"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"YOPIURA ENTRE RIOS",marca:"",mes:"FEBRERO",extintores:4,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 20}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO RIOC CEIBOS",marca:"",mes:"FEBRERO",extintores:2,tipos:[{"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"TORO RIOC EL DORADO",marca:"",mes:"MARZO",extintores:2,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"TORO ASADO DURAN",marca:"",mes:"MARZO",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PAPA JOHNS VILLA CLUB",marca:"",mes:"MARZO",extintores:8,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PLAZA TIA EL CAMINO PACO",marca:"",mes:"MARZO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PLAZA TIA LA JOYA PACO",marca:"",mes:"MARZO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"LOS ARCOS PLAZA 2 LATITUD 0",marca:"",mes:"MARZO",extintores:2,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"FREIRE VILLA CLUB",marca:"",mes:"MARZO",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"CONGAS PORTOVIEJO",marca:"",mes:"MARZO",extintores:14,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 150}],esKfc:false,fuente:"otras"},
+  {nombre:"THE POINT SHIRLEY COBO",marca:"",mes:"MARZO",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA PLAZA TIA LA JOYA",marca:"",mes:"MARZO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"GARAJE SUCRE Y MALECON SILVANA",marca:"",mes:"MARZO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PROBANEN",marca:"",mes:"MARZO",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"CENTRO ODONTOPEDIATRICO CEIBOS",marca:"",mes:"MARZO",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"EDISON ROLANDO/VICTOR SHIFU XDEDIFICIO XIMA PISO 1 OFICINA 118",marca:"",mes:"MARZO",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"SHIATSUCORP CITY MALL",marca:"",mes:"ABRIL",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"SHIATSUCORP MALL DEL SUR",marca:"",mes:"ABRIL",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"CEBICHES BUENA VISTA SOCIEDAD DE HECHO",marca:"",mes:"ABRIL",extintores:4,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"CEBICHES RIOCENTRO PUNTILLA",marca:"",mes:"ABRIL",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"CEBICHES CITY MALL",marca:"",mes:"ABRIL",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"CEBICHES DE LA RUMIÑAHUI URDESA",marca:"",mes:"ABRIL",extintores:6,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"CEBICHES SAN MARINO",marca:"",mes:"ABRIL",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO 9 DE OCT Y G AVILES",marca:"",mes:"ABRIL",extintores:1,tipos:[{"tipo": "CO2", "marca": "", "cap": 20}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO TERMINAL",marca:"",mes:"ABRIL",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO PLAZA TIA SALITRE",marca:"",mes:"ABRIL",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"LITTLE ITALY MALL DEL SOL",marca:"",mes:"ABRIL",extintores:4,tipos:[{"tipo": "CO2", "marca": "", "cap": 100}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"FREIRE ALLYSON ALBORADA",marca:"",mes:"ABRIL",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO MALL DEL RIO",marca:"",mes:"ABRIL",extintores:1,tipos:[{"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"NOVOCENTRO JUAN MONTALVO",marca:"",mes:"ABRIL",extintores:10,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"NOVOCENTRO LAS AGUAS",marca:"",mes:"ABRIL",extintores:7,tipos:[{"tipo": "AP", "marca": "", "cap": 2}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"AGO SAS",marca:"",mes:"ABRIL",extintores:8,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORO PICHINCHA Y LUQUE",marca:"",mes:"ABRIL",extintores:7,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PAPA JOHNS SAMBO CORAL",marca:"",mes:"ABRIL",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"SHIATSU DORADO",marca:"",mes:"ABRIL",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO COMISARIATO VIA A LA C",marca:"",mes:"ABRIL",extintores:2,tipos:[{"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"TORO ASADO CHIMBORAZO",marca:"",mes:"MAYO",extintores:6,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA DURAN CENTRO",marca:"",mes:"MAYO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA PASCUALES",marca:"",mes:"MAYO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA PORTETE 38",marca:"",mes:"MAYO",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA SUBURBIO",marca:"",mes:"MAYO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA MUCHO LOTE",marca:"",mes:"MAYO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA PORTETE 17",marca:"",mes:"MAYO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO RIOCENTRO SUR",marca:"",mes:"MAYO",extintores:2,tipos:[{"tipo": "CO2", "marca": "", "cap": 20}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"NOVOCENTRO ORELLANA",marca:"",mes:"MAYO",extintores:6,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"KOREA MOTORS",marca:"",mes:"MAYO",extintores:12,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"SOCELEC",marca:"",mes:"MAYO",extintores:34,tipos:[{"tipo": "CO2", "marca": "", "cap": 20}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"ING BUSTOS CASTILLO",marca:"",mes:"MAYO",extintores:6,tipos:[{"tipo": "CO2", "marca": "", "cap": 15}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"BABAHOYO TORO ASADO",marca:"",mes:"JUNIO",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"RIOCENTRO DORADO PAPIZZEC",marca:"",mes:"JUNIO",extintores:5,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"URDESA PAPIZZEC",marca:"",mes:"JUNIO",extintores:6,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"ALBORADA PAPIZZEC",marca:"",mes:"JUNIO",extintores:4,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"MALL DEL SUR PAPIZZEC",marca:"",mes:"JUNIO",extintores:5,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"TORO ASADO DORADO",marca:"",mes:"JUNIO",extintores:2,tipos:[{"tipo": "CO2", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"SERVIORDER EDIF ONIX",marca:"",mes:"JUNIO",extintores:2,tipos:[{"tipo": "CO2", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA SAUCES",marca:"",mes:"JUNIO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA SAN FELIPE",marca:"",mes:"JUNIO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA GUASMO",marca:"",mes:"JUNIO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA ENTRADA DE LA 8",marca:"",mes:"JUNIO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA CHIMBORAZO Y VELEZ",marca:"",mes:"JUNIO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA MILAGRO",marca:"",mes:"JUNIO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO TIA BASTION",marca:"",mes:"JUNIO",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO MALL EL FORTIN ISLA",marca:"",mes:"JUNIO",extintores:1,tipos:[{"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"NOVOPAN JUAN MONTALVO",marca:"",mes:"JUNIO",extintores:16,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"NOVOPAN LAS AGUAS",marca:"",mes:"JUNIO",extintores:5,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"JORGE TIERRA EKOMODA 1",marca:"",mes:"JUNIO",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"JORGE TIERRA EKOMODA 2",marca:"",mes:"JUNIO",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"ZUNTI SKY SPA",marca:"",mes:"JUNIO",extintores:21,tipos:[{"tipo": "CO2", "marca": "", "cap": 100}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"COMEDOR DYLAN LA 39 Y CALLEJON PARRA",marca:"",mes:"JUNIO",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO PLANTA DURAN",marca:"",mes:"JUNIO",extintores:12,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA MUCHO LOTE 1",marca:"",mes:"JULIO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA DURAN",marca:"",mes:"JULIO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"SHIATSUCORP DURAN",marca:"",mes:"JULIO",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO PLAZA TIA DURAN",marca:"",mes:"JULIO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO 9 OCT Y G AVILES",marca:"",mes:"JULIO",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO MALL DEL SUR",marca:"",mes:"JULIO",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO VILLAGE",marca:"",mes:"JULIO",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 20}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"LUBRICADORA GARMA",marca:"",mes:"JULIO",extintores:4,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"TRANSPORTE DE CARGA PESADA\nEVOLUCARG S.A. (CONGAS)",marca:"",mes:"JULIO",extintores:22,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"JV90 SUPER AKI LA JOYA",marca:"",mes:"AGOSTO",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"RIOC CEIBOS PAPIZZEC",marca:"",mes:"AGOSTO",extintores:5,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"ICELAND & MARKET S.A.",marca:"",mes:"AGOSTO",extintores:19,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"PRODUCSOL",marca:"",mes:"AGOSTO",extintores:19,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "H2O", "marca": "", "cap": 0}, {"tipo": "CO2", "marca": "", "cap": 0}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"PROCORPORATION",marca:"",mes:"AGOSTO",extintores:5,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "CO2", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO SHOPPING VIA A DAULE",marca:"",mes:"AGOSTO",extintores:2,tipos:[{"tipo": "CO2", "marca": "", "cap": 20}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO MALL DEL NORTE",marca:"",mes:"AGOSTO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"SHIATSU MALL DEL NORTE",marca:"",mes:"AGOSTO",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"COBRAFACIL FABRACILISA",marca:"",mes:"AGOSTO",extintores:18,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "FOAM", "marca": "", "cap": 0}],esKfc:false,fuente:"otras"},
+  {nombre:"SOCELEC",marca:"",mes:"AGOSTO",extintores:27,tipos:[{"tipo": "CO2", "marca": "", "cap": 20}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 20}],esKfc:false,fuente:"otras"},
+  {nombre:"MARCELO FREIRE SA",marca:"",mes:"AGOSTO",extintores:14,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"MARCELO FREIRE PEÑAFIEL",marca:"",mes:"AGOSTO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"FREIRE PEÑAFIEL MARJORIE",marca:"",mes:"AGOSTO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"warenjous",marca:"",mes:"AGOSTO",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"CHANE",marca:"",mes:"AGOSTO",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 3}],esKfc:false,fuente:"otras"},
+  {nombre:"ESCUELA MATILDE HIDALGO DEL PROCEL",marca:"",mes:"AGOSTO",extintores:4,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"MARYAH SPA CC LAS VITRINAS",marca:"",mes:"AGOSTO",extintores:1,tipos:[{"tipo": "CO2", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"METROBURGER ASHLEY AREVALO",marca:"",mes:"SEPTIEMBRE",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"SANDR MADINYA SCHOENSTATT",marca:"",mes:"SEPTIEMBRE",extintores:12,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 3}],esKfc:false,fuente:"otras"},
+  {nombre:"DIEGO PIMIENTEL RUDY’S - ROMERIA PLAZA",marca:"",mes:"SEPTIEMBRE",extintores:2,tipos:[{"tipo": "CO2", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"LAPSAN ALICIA GARCIA",marca:"",mes:"SEPTIEMBRE",extintores:17,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"FIDEO NAPOLITANO",marca:"",mes:"SEPTIEMBRE",extintores:9,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"NOVOCENTRO ORELLANA",marca:"",mes:"SEPTIEMBRE",extintores:7,tipos:[{"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"NOVOCENTRO LAS AGUAS",marca:"",mes:"SEPTIEMBRE",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"NOVOCENTRO DURAN",marca:"",mes:"SEPTIEMBRE",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TECNICENTRO ATM",marca:"",mes:"SEPTIEMBRE",extintores:4,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO UNIV ESTATAL",marca:"",mes:"SEPTIEMBRE",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"FIDEO NAPOLTANO",marca:"",mes:"SEPTIEMBRE",extintores:9,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TORRES DEL SOL",marca:"",mes:"SEPTIEMBRE",extintores:30,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"EMPANADAS PACO MALECON",marca:"",mes:"OCTUBRE",extintores:1,tipos:[{"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"SHIATSU MALL DEL SOL",marca:"",mes:"OCTUBRE",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"JOYERIA MARTITHA MALL DEL SOL",marca:"",mes:"OCTUBRE",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"JOYERIA MARTITHA CENTRO",marca:"",mes:"OCTUBRE",extintores:4,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"EMPANADAS PACO MALL DEL SOL",marca:"",mes:"OCTUBRE",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO MUCHO LOTE COMISARIATO",marca:"",mes:"OCTUBRE",extintores:2,tipos:[{"tipo": "CO2", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"CIUDAD DEL SOL PAPIZZEC",marca:"",mes:"NOVIEMBRE",extintores:6,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PELUQUERIA YENS",marca:"",mes:"NOVIEMBRE",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"EQUILIBRIUM",marca:"",mes:"NOVIEMBRE",extintores:23,tipos:[{"tipo": "CO2", "marca": "", "cap": 15}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO TIA VIA A LA COSTA",marca:"",mes:"NOVIEMBRE",extintores:1,tipos:[{"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"PACO MALECON Y COLON",marca:"",mes:"NOVIEMBRE",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA VILLA CLUB",marca:"",mes:"NOVIEMBRE",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"EL TORO ASADO FORTIN",marca:"",mes:"DICIEMBRE",extintores:5,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"NOVOCENTRO SAMBORONDON",marca:"",mes:"DICIEMBRE",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 5}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"NOVOCENTRO ORELLANA",marca:"",mes:"DICIEMBRE",extintores:6,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "CO2", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"TORTAMANIA URDESA",marca:"",mes:"DICIEMBRE",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"NOE MALL DEL SOL",marca:"",mes:"FEBRERO",extintores:6,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
+  {nombre:"NOE BOCCA SAMBO",marca:"",mes:"FEBRERO",extintores:4,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
+  {nombre:"KOBE SUPERCINES ORELLANA",marca:"",mes:"MARZO",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
+  {nombre:"KOBE PLAZA BATAN",marca:"",mes:"AGOSTO",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
+  {nombre:"KOBE MALL DEL SOL",marca:"",mes:"AGOSTO",extintores:2,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
+  {nombre:"KOBE MALL DEL NORTE",marca:"",mes:"JULIO",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
+  {nombre:"NOE SAN MARINO",marca:"",mes:"NOVIEMBRE",extintores:5,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "K", "marca": "", "cap": 0}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
+  {nombre:"KOBE PLAZA TIA JOYA",marca:"",mes:"NOVIEMBRE",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
+  {nombre:"KOBE BAMBOO PLAZA VIA A LA C",marca:"",mes:"NOVIEMBRE",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"sushi"},
+  {nombre:"KOBE RIOC ENTRE RIOS",marca:"",mes:"NOVIEMBRE",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
+  {nombre:"KOBE RIOC CEIBOS",marca:"",mes:"DICIEMBRE",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
+  {nombre:"KOBE URDESA",marca:"",mes:"NOVIEMBRE",extintores:8,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
+  {nombre:"KOBE PLANTA",marca:"",mes:"NOVIEMBRE",extintores:16,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
+];
+
 var GROQ_KEY_DEFAULT = '';
 
 /* ===================================================
@@ -1453,19 +1825,17 @@ var _mesUltimoCargado = '';
 function cargarClientes() {
   if (!getRefreshToken()) {
     var cont = document.getElementById('clientes-mes-lista');
-    if (cont) cont.innerHTML = '<div class="no-clientes"><strong>⚠️ Conecta Dropbox primero</strong><br><small>Ve al tab ⚙️ Config y pulsa "Conectar con Dropbox".</small><br><button class="btn-primary" style="margin-top:12px" onclick="switchTab(\'config\')">Ir a Config</button></div>';
+    if (cont) cont.innerHTML = '<div class="no-clientes"><strong>&#9888; Conecta Dropbox primero</strong><br><small>Ve al tab &#9881; Config y pulsa "Conectar con Dropbox".</small><br><button class="btn-primary" style="margin-top:12px" onclick="switchTab(\'config\')">Ir a Config</button></div>';
     return;
   }
   var mesEl = document.getElementById('admin-mes');
   var mes = mesEl ? mesEl.value : '';
   if (mes) localStorage.setItem('pf_mes_seleccionado', mes);
 
-  // Lock: prevent concurrent loads. Auto-release after 45s in case of hang.
   if (_cargandoClientes) return;
   _cargandoClientes = true;
-  var _lockTimeout = setTimeout(function() { _cargandoClientes = false; }, 45000);
+  var _lockTimeout = setTimeout(function() { _cargandoClientes = false; }, 15000);
 
-  // Clear search filter on month change so stuck filter doesn't show 0 results
   if (mes !== _mesUltimoCargado && _mesUltimoCargado !== '') {
     _clientesFiltro = '';
     var buscarEl = document.getElementById('clientes-buscar');
@@ -1473,163 +1843,67 @@ function cargarClientes() {
   }
 
   var sk = document.getElementById('skeleton-lista');
+  if (sk) sk.style.display = 'flex';
+  mostrarCargando(true);
 
-  // STALE-WHILE-REVALIDATE: show cached data immediately while fresh data loads.
-  // This eliminates "flash of empty" on every page load/refresh.
-  var cacheRaw = localStorage.getItem('pf_clientes_cache');
-  if (cacheRaw && !CLIENTES_DISPONIBLES.length) {
-    try {
-      var cached = JSON.parse(cacheRaw);
-      if (cached && cached.length) {
-        CLIENTES_DISPONIBLES = cached;
-        renderClientesMes();
-        _mostrarOverlayClientes(true); // show "Actualizando..." while fresh data loads
-      }
-    } catch(e) {}
-  } else if (CLIENTES_DISPONIBLES.length) {
-    _mostrarOverlayClientes(true);
-  } else {
-    if (sk) sk.style.display = 'flex';
-    mostrarCargando(true);
-  }
+  // Filter embedded BD by month
+  var filtrados = CLIENTES_BD.filter(function(c) {
+    return !mes || c.mes === mes;
+  });
 
-  var kfcBufOk = false;
-  var otrosBufOk = false;
+  // Enrich entries with expected fields
+  var nuevosClientes = filtrados.map(function(c) {
+    return {
+      nombre:        c.nombre,
+      marca:         c.marca || '',
+      marcaPrincipal: c.marca || '',
+      mes:           c.mes,
+      extintores:    c.extintores,
+      tipos:         (c.tipos || []),
+      esKfc:         !!c.esKfc,
+      fuente:        c.fuente || '',
+      direccion:     c.direccion || '',
+      local:         '',
+      capacidadTotal: 0
+    };
+  });
 
-  Promise.all([
-    dbxDownload(DBX_KFC_PATH).then(function(buf) {
-      if (buf) { kfcBufOk = true; return parseExcel(buf); }
-      return [];
-    }),
-    dbxDownload(DBX_OTROS_PATH).then(function(buf) {
-      if (buf) { otrosBufOk = true; return parseExcelOtros(buf, mes); }
-      return [];
-    }),
-    dbxDownloadJSON(DBX_VISITAS),
-    dbxDownload(DBX_SUSHI_PATH).then(function(buf) {
-      if (buf) return parseExcelSushi(buf, mes);
-      return [];
-    })
-  ])
-  .then(function(results) {
+  _mesUltimoCargado = mes;
+
+  // Download only visitas.json from Dropbox (runtime data, not Excel)
+  dbxDownloadJSON(DBX_VISITAS).then(function(data) {
     clearTimeout(_lockTimeout);
     _cargandoClientes = false;
     mostrarCargando(false);
-    _mostrarOverlayClientes(false);
     if (sk) sk.style.display = 'none';
-    var rawKfc   = results[0];
-    var rawOtros = results[1];
-    var rawSushi = results[3] || [];
-
-    // If BOTH downloads failed (network/path error), keep whatever we have and warn
-    if (!kfcBufOk && !otrosBufOk) {
-      showToast('⚠️ No se pudo descargar desde Dropbox — mostrando datos en cach\xE9');
-      if (CLIENTES_DISPONIBLES.length) renderClientesMes();
-      return;
-    }
-
-    var _KFC_BASURA = /^(totales?\b|subtotales?\b|suma\b|parcial\b|cantidad\b|cant\b|descripcion\b|item\b|n[°º]|\d)/i;
-    var normKfc = rawKfc.map(function(r) { return normalizarCliente(r, true); });
-    // KFC clients are annual — deduplicate across ALL months; only keep rows for the target month
-    // so the same local's 12×N rows don't inflate extintor count.
-    var kfcConMes = normKfc.filter(function(c) {
-      if (!c.nombre) return false;
-      if (_KFC_BASURA.test(c.nombre.trim())) return false;
-      return !!c.mes; // rows that have ANY month assigned
-    });
-    // Prefer rows matching the selected month; fall back to all-months if none match
-    var kfcDelMes = kfcConMes.filter(function(c) { return !mes || c.mes === mes; });
-    // If still zero (no month match), use rows without any month as last resort
-    var kfcSinMes = normKfc.filter(function(c) {
-      if (!c.nombre) return false;
-      if (_KFC_BASURA.test(c.nombre.trim())) return false;
-      return !c.mes;
-    });
-    var kfcFiltrado = kfcDelMes.length > 0 ? kfcDelMes : kfcSinMes;
-    var kfc   = deduplicarClientes(kfcFiltrado);
-    // Merge OTRAS_EMPRESAS + SUSHICORP into a single non-KFC list before dedup
-    var rawOtrosTodos = rawOtros.concat(rawSushi);
-    var otros = deduplicarClientes(rawOtrosTodos.filter(function(c) { return !!c.nombre; }));
-    // Cross-list dedup: KFC file wins; also strip KFC-brand clients from Otras Empresas
-    var kfcKeys = {};
-    var kfcCodes = {};
-    kfc.forEach(function(c) {
-      var nk = _normKey(c.nombre);
-      kfcKeys[nk] = true;
-      var code = _localCode(nk);
-      if (code) kfcCodes[code] = true;
-    });
-    // All brands present in the KFC Excel (BASE_DATOS_KFC): exclude these from OTRAS_EMPRESAS
-    var _KFC_BRAND_RE = /\bkfc\b|\bamerican\s*deli\b|\bgus\b|\bmenestras\b|\btropiburger\b|\bjuan\s*valdez\b|\bbaskin\b|\bcinnabon\b|\bcajun\b|\bil\s*cappo\b|\bespa\xF1ol\b|\bcafa\b|\bcasa\s*res\b|\bdolce\b|\bpollo\s*grill\b/i;
-    var otrosFiltrados = otros.filter(function(c) {
-      var nk = _normKey(c.nombre);
-      if (kfcKeys[nk]) return false;                   // exact name match
-      if (_KFC_BRAND_RE.test(c.nombre)) return false;  // KFC-group brand name
-      var code = _localCode(nk);
-      if (code && kfcCodes[code]) return false;        // same local code (e.g. "m14", "t43")
-      return true;
-    });
-    var nuevosClientes = kfc.concat(otrosFiltrados);
-
-    _mesUltimoCargado = mes;
+    _mostrarOverlayClientes(false);
 
     var claveMes = _claveMesActual();
-    VISITAS_MES = (results[2] || {})[claveMes] || {};
+    VISITAS_MES = (data || {})[claveMes] || {};
 
     if (nuevosClientes.length > 0) {
       CLIENTES_DISPONIBLES = nuevosClientes;
-      try { localStorage.setItem('pf_clientes_cache', JSON.stringify(CLIENTES_DISPONIBLES)); } catch(e) {}
     } else {
-      // Downloads succeeded but 0 rows matched this month filter.
-      // If we already have data showing, keep it — don't replace with empty.
-      // This prevents the "disappearing clients" when month filter doesn't match Excel data.
-      if (CLIENTES_DISPONIBLES.length > 0) {
-        var mesesEnKfc2   = rawKfc.length   ? Array.from(new Set(rawKfc.slice(0,100).map(function(r){ return normalizarMes(r['MES_SERVICIO']||r['MES']||''); }).filter(Boolean))).slice(0,5).join(', ') : 'N/A';
-        var mesesEnOtros2 = rawOtros.length ? Array.from(new Set(rawOtros.slice(0,100).map(function(r){ var m=r['MES']||r['Mes']||r['MES_CONTRATO']||r['PERIODO']||''; return normalizarMes(m); }).filter(Boolean))).slice(0,5).join(', ') : 'N/A';
-        showToast('⚠️ ' + mes + ' sin datos en Excel (KFC: ' + mesesEnKfc2 + ', Otros: ' + mesesEnOtros2 + '). Mostrando datos anteriores.');
-        renderClientesMes();
-        return;
-      }
-      // Nothing cached either — show the diagnostic message
-      var mesesEnKfc   = rawKfc.length   ? Array.from(new Set(rawKfc.slice(0,100).map(function(r){ return normalizarMes(r['MES_SERVICIO']||r['MES']||''); }).filter(Boolean))).slice(0,8).join(', ') : '';
-      var mesesEnOtros = rawOtros.length ? Array.from(new Set(rawOtros.slice(0,100).map(function(r){ var m=r['MES']||r['Mes']||r['MES_CONTRATO']||r['PERIODO']||''; return normalizarMes(m); }).filter(Boolean))).slice(0,8).join(', ') : '';
-      var cDebug = document.getElementById('clientes-mes-lista');
-      var debugMsg = 'KFC: ' + rawKfc.length + ' filas | Otros: ' + rawOtros.length + ' filas'
-        + '\nMes filtrado: "' + mes + '"'
-        + (mesesEnKfc   ? '\nMeses en KFC: '   + mesesEnKfc   : '')
-        + (mesesEnOtros ? '\nMeses en Otros: ' + mesesEnOtros : '')
-        + '\n\nSelecciona el mes que aparece arriba.';
-      if (cDebug) cDebug.innerHTML = '<div class="no-clientes"><strong>📭 Sin clientes para ' + esc(mes) + '</strong>'
-        + '<br><small style="white-space:pre-wrap;font-size:11px;color:#777;margin-top:8px;display:block">' + esc(debugMsg) + '</small>'
-        + '<br><button class="btn-ghost btn-sm" onclick="cargarTodosSinFiltro()" style="margin-top:10px">Ir al mes actual</button>'
-        + '</div>';
+      var cont = document.getElementById('clientes-mes-lista');
+      if (cont) cont.innerHTML = '<div class="no-clientes"><strong>\ud83d\udcad Sin clientes para ' + esc(mes) + '</strong><br><small>No hay datos para este mes en la base de datos.</small></div>';
+      _cargandoClientes = false;
+      mostrarCargando(false);
+      if (sk) sk.style.display = 'none';
       return;
     }
     renderClientesMes();
     try { sugerenciaProactiva(); } catch(e) {}
-  })
-  .catch(function(err) {
+  }).catch(function(err) {
     clearTimeout(_lockTimeout);
     _cargandoClientes = false;
     mostrarCargando(false);
-    _mostrarOverlayClientes(false);
     if (sk) sk.style.display = 'none';
-    _logError('cargarClientes', err);
-    console.error('[PF] cargarClientes error:', err);
-    var cont = document.getElementById('clientes-mes-lista');
-    var cache = localStorage.getItem('pf_clientes_cache');
-    var cacheData = null;
-    try { if (cache) cacheData = JSON.parse(cache); } catch(e) {}
-    if (cacheData && cacheData.length > 0) {
-      CLIENTES_DISPONIBLES = cacheData;
-      showToast('Sin conexi\xF3n — usando cach\xE9 (' + cacheData.length + ' clientes)');
-      renderClientesMes();
-      return;
-    }
-    if (cont) cont.innerHTML = '<div class="no-clientes"><strong>❌ Error al cargar desde Dropbox</strong><br><small style="white-space:pre-wrap;font-size:11px;color:#c00">' + esc(String(err)) + '</small><br><br><small>Ruta KFC: ' + esc(DBX_KFC_PATH) + '<br>Ruta Otros: ' + esc(DBX_OTROS_PATH) + '</small></div>';
+    // Visitas failed — still show clients, just without visit state
+    VISITAS_MES = {};
+    CLIENTES_DISPONIBLES = nuevosClientes;
+    renderClientesMes();
   });
 }
-
 /* Load all months — escape hatch when the selected month has no data */
 function cargarTodosSinFiltro() {
   var mesEl = document.getElementById('admin-mes');
