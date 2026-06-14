@@ -312,7 +312,7 @@ var CLIENTES_BD = [
   {nombre:"PACO MALL DEL SUR",marca:"",mes:"JULIO",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
   {nombre:"PACO VILLAGE",marca:"",mes:"JULIO",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 20}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
   {nombre:"LUBRICADORA GARMA",marca:"",mes:"JULIO",extintores:4,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
-  {nombre:"TRANSPORTE DE CARGA PESADA\nEVOLUCARG S.A. (CONGAS)",marca:"",mes:"JULIO",extintores:22,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"TRANSPORTE DE CARGA PESADA EVOLUCAR S.A. (CONGAS)",marca:"",mes:"JULIO",extintores:22,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
   {nombre:"JV90 SUPER AKI LA JOYA",marca:"",mes:"AGOSTO",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
   {nombre:"RIOC CEIBOS PAPIZZEC",marca:"",mes:"AGOSTO",extintores:5,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
   {nombre:"ICELAND & MARKET S.A.",marca:"",mes:"AGOSTO",extintores:19,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
@@ -513,10 +513,13 @@ function refreshAccessToken() {
   });
 }
 
+var _refreshPromise = null;
 function getValidToken() {
   if (!getRefreshToken()) return Promise.reject(new Error('No conectado a Dropbox. Ve a Config → Conectar Dropbox.'));
   if (!isTokenExpired()) return Promise.resolve(getAccessToken());
-  return refreshAccessToken();
+  if (_refreshPromise) return _refreshPromise;
+  _refreshPromise = refreshAccessToken().finally(function() { _refreshPromise = null; });
+  return _refreshPromise;
 }
 
 function generateCodeVerifier() {
@@ -1632,7 +1635,12 @@ function fechaMas(dias) {
 function mostrarCargando(show) {
   var el = document.getElementById('cargando');
   if (el) el.classList[show ? 'remove' : 'add']('hidden');
-  document.body.style.overflow = show ? 'hidden' : '';
+  if (show) {
+    document.body.style.overflow = 'hidden';
+  } else {
+    var modalOpen = document.getElementById('modal-overlay') && !document.getElementById('modal-overlay').classList.contains('hidden');
+    if (!modalOpen) document.body.style.overflow = '';
+  }
 }
 
 function pfModal(titulo, msg) {
@@ -1939,7 +1947,6 @@ function _guardarVisitas() {
   if (_guardarVisitasTimer) clearTimeout(_guardarVisitasTimer);
   _guardarVisitasTimer = setTimeout(function() {
     dbxDownloadJSON(DBX_VISITAS)
-    .catch(function() { return {}; })
     .then(function(data) { data[_claveMesActual()] = VISITAS_MES; return dbxUpload(DBX_VISITAS, JSON.stringify(data, null, 2)); })
     .catch(function(e) { console.error('[PF] guardarVisitas error:', e); });
   }, 500);
