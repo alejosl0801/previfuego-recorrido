@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = '3.2';
+var APP_VERSION = '3.6';
 
 /* CLIENTES_BD generado desde: BASE_DATOS_KFC_9.xlsx + OTRAS_EMPRESAS.xlsx + MATRIZ_SUSHICORP.xlsx */
 var CLIENTES_BD = [
@@ -60,7 +60,7 @@ var CLIENTES_BD = [
   {nombre:"M046 - SAN MARINO",marca:"MENESTRAS DEL NEGRO",mes:"MARZO",extintores:5,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "TIPO K", "marca": "", "cap": 2}],esKfc:true,fuente:"kfc"},
   {nombre:"M047 - PASEO SHOPPING DURAN",marca:"MENESTRAS DEL NEGRO",mes:"MARZO",extintores:5,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
   {nombre:"M057 - ALBORADA",marca:"MENESTRAS DEL NEGRO",mes:"MARZO",extintores:7,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "TIPO K", "marca": "", "cap": 2}],esKfc:true,fuente:"kfc"},
-  {nombre:"V066 PLAZA PACIFICO DAULE",marca:"JUAN VALDEZ",mes:"MARZO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
+  {nombre:"V066 - PLAZA PACIFICO DAULE",marca:"JUAN VALDEZ",mes:"MARZO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
   {nombre:"G045 - TUNGURAHUA",marca:"GUS",mes:"ABRIL",extintores:4,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
   {nombre:"I012 - TERMINAL TERRESTRE",marca:"IL CAPPO",mes:"ABRIL",extintores:4,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "TIPO K", "marca": "", "cap": 2}],esKfc:true,fuente:"kfc"},
   {nombre:"K069 - LOJA",marca:"KFC",mes:"ABRIL",extintores:4,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:true,fuente:"kfc"},
@@ -505,6 +505,7 @@ function refreshAccessToken() {
     }
     if (d.error) throw new Error(d.error_description || d.error);
     localStorage.setItem('pf_dbx_access_token', d.access_token);
+    if (d.refresh_token) localStorage.setItem('pf_dbx_refresh_token', d.refresh_token);
     if (d.expires_in) {
       localStorage.setItem('pf_dbx_token_exp', String(Date.now() + d.expires_in * 1000));
     }
@@ -553,7 +554,10 @@ function handleOAuthCallback() {
   if (!code) return false;
   history.replaceState({}, '', window.location.pathname);
   var verifier = localStorage.getItem('pf_dbx_verifier');
-  if (!verifier) return false;
+  if (!verifier) {
+    pfModal('Error OAuth', 'La sesi\xF3n de autorización expir\xF3 o fue iniciada en otro dispositivo. Intenta conectar Dropbox de nuevo desde ⚙️ Config.');
+    return false;
+  }
   mostrarCargando(true);
   fetch('https://api.dropbox.com/oauth2/token', {
     method: 'POST',
@@ -620,9 +624,9 @@ function actualizarEstadoConexion() {
     lastSync.textContent = ts ? '\xDAltima sync: ' + ts : '\xDAltima sync: —';
   }
 
-  var rNaul = document.getElementById('cfg-nombre-raul');
+  var rRaul = document.getElementById('cfg-nombre-raul');
   var rJuan = document.getElementById('cfg-nombre-juan');
-  if (rNaul) rNaul.value = localStorage.getItem('pf_nombre_raul') || 'Ra\xFAl';
+  if (rRaul) rRaul.value = localStorage.getItem('pf_nombre_raul') || 'Ra\xFAl';
   if (rJuan) rJuan.value = localStorage.getItem('pf_nombre_juan') || 'Juan';
 }
 
@@ -891,7 +895,6 @@ function sugerenciaProactiva() {
   if (!VALERIA_MEMORIA.historial_rutas || !VALERIA_MEMORIA.historial_rutas.length) return;
   var ultima = parseInt(localStorage.getItem('pf_ultima_sugerencia') || '0');
   if (Date.now() - ultima < 4 * 60 * 60 * 1000) return;
-  localStorage.setItem('pf_ultima_sugerencia', String(Date.now()));
 
   var pendientes = CLIENTES_DISPONIBLES.filter(function(c) {
     return !(VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado);
@@ -909,7 +912,7 @@ function sugerenciaProactiva() {
   .then(function(d) {
     var choice = (d.choices || [])[0] || {};
     var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
-    if (text) _mostrarSugerenciaChip(text);
+    if (text) { localStorage.setItem('pf_ultima_sugerencia', String(Date.now())); _mostrarSugerenciaChip(text); }
   })
   .catch(function(e) { console.error('[PF] sugerenciaProactiva error:', e); });
 }
@@ -1747,6 +1750,7 @@ function logout() {
   VALERIA_CHAT = [];
   _chipHistorial = [];
   _clientesFiltro = '';
+  _clientesQuickFilter = 'todos';
   localStorage.removeItem('pf_usuario');
   switchTab('clientes');
   showScreen('s0');
@@ -2045,7 +2049,7 @@ function renderClientesMes() {
       + '<span class="mes-stat-otros">Otros: ' + otroVisit + '/' + otrosList.length + '</span>'
       + '</div>'
       + '<div class="mes-archivos">'
-      + '&#x1F4BE; Base de datos embebida &nbsp;&mdash;&nbsp; KFC + Otras Empresas + Sushicorp (' + CLIENTES_BD.length + ' clientes)'
+      + '&#x1F4BE; Base de datos embebida &nbsp;&mdash;&nbsp; KFC + Otras Empresas + Sushicorp (' + CLIENTES_DISPONIBLES.length + ' en ' + esc(mesLbl) + ' / ' + CLIENTES_BD.length + ' total)'
       + '</div>';
   }
 
@@ -2094,7 +2098,7 @@ function renderClienteMesCard(c, idx, visitado) {
   var badgeMarca = (c.marcaPrincipal || (c.esKfc ? 'KFC' : '')).toUpperCase();
   var badgeCls = badgeMarca === 'KFC' ? 'badge-kfc' : 'badge-kfc badge-brand-otro';
   var badge = badgeMarca ? '<span class="' + badgeCls + '">' + esc(badgeMarca) + '</span>' : '';
-  var fechaV = visitado && VISITAS_MES[c.nombre] ? ' \xB7 ' + VISITAS_MES[c.nombre].fecha : '';
+  var fechaV = visitado && VISITAS_MES[c.nombre] ? ' \xB7 ' + esc(VISITAS_MES[c.nombre].fecha || '') : '';
   var tiposHtml = '';
   if (c.tipos && c.tipos.length) {
     var principalUp = (c.marcaPrincipal || '').toUpperCase();
@@ -2648,6 +2652,8 @@ function detenerSeguimiento() {
 function cambiarIntervaloSeguimiento() {
   var el = document.getElementById('seg-intervalo');
   if (el) _seguimientoIntervaloSeg = parseInt(el.value) || 30;
+  var nota = document.getElementById('auto-refresh-note');
+  if (nota) nota.textContent = 'Se actualiza cada ' + _seguimientoIntervaloSeg + 's';
   if (_seguimientoInterval) { detenerSeguimiento(); iniciarSeguimiento(); }
 }
 
@@ -2680,7 +2686,13 @@ function aplicarFiltroSeguimiento() {
 function filtrarSeguimiento(puntosBase) {
   var buscar = document.getElementById('seg-buscar');
   var q = buscar ? buscar.value.trim().toLowerCase() : '';
-  var puntos = puntosBase !== undefined ? puntosBase : _segPuntosCache.slice();
+  // When called from search input (no arg), respect active technician filter
+  if (puntosBase === undefined) {
+    var filtroTec = document.getElementById('seg-filtro-tecnico');
+    var tec = filtroTec ? filtroTec.value : '';
+    puntosBase = tec ? _segPuntosCache.filter(function(p) { return p.tecnico === tec; }) : _segPuntosCache.slice();
+  }
+  var puntos = puntosBase;
   if (q) {
     puntos = puntos.filter(function(p) {
       return (p.nombre || '').toLowerCase().indexOf(q) !== -1
