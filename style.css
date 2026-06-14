@@ -704,6 +704,27 @@ html.dark .seg-toolbar { background: #1a1a1a; }
 
 .clientes-search-wrap input:focus { border-color: #9e1212; }
 
+.clientes-qf-row {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px 0;
+}
+.qf-btn {
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1.5px solid #ddd;
+  background: #f5f5f5;
+  color: #555;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.qf-btn-active {
+  background: #c0392b;
+  border-color: #c0392b;
+  color: #fff;
+}
 .clientes-bulk-row {
   display: flex;
   gap: 8px;

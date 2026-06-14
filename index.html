@@ -130,6 +130,11 @@
         <input type="search" id="clientes-buscar" placeholder="Buscar cliente o direcci&#xF3;n..." oninput="filtrarClientesMes()" autocomplete="off" />
       </div>
       <div id="clientes-mes-stats" class="clientes-mes-stats"></div>
+      <div class="clientes-qf-row">
+        <button class="qf-btn qf-btn-active" data-qf="todos" onclick="setQuickFilter('todos')">Todos</button>
+        <button class="qf-btn" data-qf="pendientes" onclick="setQuickFilter('pendientes')">&#x23F3; Pendientes</button>
+        <button class="qf-btn" data-qf="visitados" onclick="setQuickFilter('visitados')">&#x2713; Visitados</button>
+      </div>
       <div class="clientes-bulk-row">
         <button class="btn-ghost btn-sm" onclick="marcarTodosKfc()">&#x2713; KFC</button>
         <button class="btn-ghost btn-sm" onclick="marcarTodosOtros()">&#x2713; Otros</button>

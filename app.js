@@ -139,7 +139,7 @@ var CLIENTES_BD = [
   {nombre:"J005 - CAJUN CEIBOS",marca:"CAJUN",mes:"AGOSTO",extintores:4,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:true,fuente:"kfc"},
   {nombre:"K012 - RIO CENTRO",marca:"KFC",mes:"AGOSTO",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 20}],esKfc:true,fuente:"kfc"},
   {nombre:"K021 - MALL EL SOL",marca:"KFC",mes:"AGOSTO",extintores:5,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
-  {nombre:"K052 - LAS PEÃ????AS",marca:"KFC",mes:"AGOSTO",extintores:4,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
+  {nombre:"K052 - LAS PEÑAS",marca:"KFC",mes:"AGOSTO",extintores:4,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
   {nombre:"K053 - PASEO SHOPPING BABAHOYO",marca:"KFC",mes:"AGOSTO",extintores:4,tipos:[{"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "MOVILIZACIÓN", "marca": "", "cap": 0}],esKfc:true,fuente:"kfc"},
   {nombre:"K187 - DOMINGO COMIN Y ERNESTO ALBAN",marca:"KFC",mes:"AGOSTO",extintores:10,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "TIPO K", "marca": "", "cap": 2}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
   {nombre:"M010 - MALECON",marca:"MENESTRAS DEL NEGRO",mes:"AGOSTO",extintores:5,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
@@ -198,7 +198,6 @@ var CLIENTES_BD = [
   {nombre:"T051 - MALECON GYE",marca:"TROPIBURGER",mes:"DICIEMBRE",extintores:4,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "TIPO K", "marca": "", "cap": 2}],esKfc:true,fuente:"kfc"},
   {nombre:"V084 - TORRE MILLENIUM",marca:"JUAN VALDEZ",mes:"DICIEMBRE",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
   {nombre:"V086 - PASEO SHOPPING PLAYAS",marca:"JUAN VALDEZ",mes:"DICIEMBRE",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
-  {nombre:"197 LOCALES",marca:"",mes:"",extintores:906,tipos:[],esKfc:true,fuente:"kfc"},
   {nombre:"MUNDICABLES",marca:"",mes:"ENERO",extintores:15,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 3}],esKfc:false,fuente:"otras"},
   {nombre:"INDUTORRES",marca:"",mes:"ENERO",extintores:33,tipos:[{"tipo": "FOAM", "marca": "", "cap": 20}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
   {nombre:"TORTAMANIA ESTEROS",marca:"",mes:"ENERO",extintores:1,tipos:[{"tipo": "CO2", "marca": "", "cap": 20}],esKfc:false,fuente:"otras"},
@@ -418,6 +417,14 @@ var _ultimaInstruccionVoz = '';
 var _chipHistorial = [];
 var _clientesFiltro = '';
 var _clientesQuickFilter = 'todos';
+
+function setQuickFilter(val) {
+  _clientesQuickFilter = val;
+  document.querySelectorAll('.qf-btn').forEach(function(b) {
+    b.classList.toggle('qf-btn-active', b.dataset.qf === val);
+  });
+  renderClientesMes();
+}
 
 var USUARIOS = {
   alejandro: { nombre: 'Alejandro', emoji: '👔', esAdmin: true },
@@ -1864,7 +1871,7 @@ function cargarClientes() {
       fuente:        c.fuente || '',
       direccion:     c.direccion || '',
       local:         '',
-      capacidadTotal: 0
+      capacidadTotal: (c.tipos || []).reduce(function(s, t) { return s + (t.cap || 0); }, 0)
     };
   });
 
@@ -2580,7 +2587,7 @@ function publicarRutaPreview() {
     var priorityEl = document.getElementById('rpriority-' + i);
     return {
       nombre: c.nombre, direccion: c.direccion, extintores: c.extintores,
-      local: c.local || '', esKfc: c.esKfc || false, mision: 'Mantenimiento',
+      local: c.local || '', esKfc: c.esKfc || false, mision: (c.tipos && c.tipos.length ? c.tipos.map(function(t){return t.tipo+(t.cap?' '+t.cap+'lbs':'');}).join(', ') : 'Mantenimiento'),
       tecnico: tecnicoEl ? tecnicoEl.value : USUARIOS.raul.nombre,
       nota: notaEl ? notaEl.value.trim() : '',
       urgente: priorityEl ? priorityEl.checked : false,
