@@ -2093,7 +2093,7 @@ function renderClienteMesCard(c, idx, visitado) {
   // Show actual brand badge: KFC, AMERICAN DELI, GUS, IL CAPPO, etc.
   var badgeMarca = (c.marcaPrincipal || (c.esKfc ? 'KFC' : '')).toUpperCase();
   var badgeCls = badgeMarca === 'KFC' ? 'badge-kfc' : 'badge-kfc badge-brand-otro';
-  var badge = c.esKfc ? '<span class="' + badgeCls + '">' + esc(badgeMarca) + '</span>' : '';
+  var badge = badgeMarca ? '<span class="' + badgeCls + '">' + esc(badgeMarca) + '</span>' : '';
   var fechaV = visitado && VISITAS_MES[c.nombre] ? ' \xB7 ' + VISITAS_MES[c.nombre].fecha : '';
   var tiposHtml = '';
   if (c.tipos && c.tipos.length) {
@@ -2897,7 +2897,7 @@ function renderPuntos() {
       + '<div class="punto-card-body">'
       +   '<div class="punto-card-nombre">' + urgBadge + kfcBadge + esc(p.nombre) + '</div>'
       +   dirHtml
-      +   '<div class="punto-card-mision">' + esc(p.mision) + '</div>'
+      +   '<div class="punto-card-mision">' + (p.mision || '').split('\n').filter(function(l){return l.trim();}).map(function(l){return esc(l);}).join('<br>') + '</div>'
       +   notaHtml + hora + obsHtml
       + '</div>'
       + '<div class="punto-card-actions">' + accion + '</div>'
@@ -3080,10 +3080,10 @@ function _ejecutarSubirFichas() {
     return { nombre: p.nombre, done: p.done, horaCompletado: p.horaCompletado, enCamino: p.enCamino || false, observacion: p.observacion || '' };
   });
   dbxDownloadJSON(DBX_RECORRIDOS)
-  .catch(function() { return {}; })
   .then(function(recorridos) {
     var hoy = recorridos[fechaHoy()];
-    if (!hoy) return;
+    // dbxDownloadJSON returns {} for "file not found" — hoy absent = no route published yet, skip silently
+    if (!hoy) { var e = new Error('Sin recorrido hoy'); e.noRetry = true; throw e; }
     hoy.puntos = hoy.puntos.map(function(p) {
       if (p.tecnico !== tecnico) return p;
       var match = snapshot.filter(function(s) { return s.nombre === p.nombre; })[0];
@@ -3096,6 +3096,7 @@ function _ejecutarSubirFichas() {
   .then(function() { _subirFichasReintentos = 0; })
   .finally(function() { _subirFichasPending = false; })
   .catch(function(err) {
+    if (err && err.noRetry) return; // "no route today" — silent skip, not an error
     console.error('[PF] subirFichas error:', err);
     _subirFichasReintentos++;
     if (_subirFichasReintentos <= 3) {
