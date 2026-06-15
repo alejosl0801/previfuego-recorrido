@@ -1747,6 +1747,7 @@ function login(usuario) {
 function logout() {
   detenerSeguimiento();
   if (_DICTAR_REC) { try { _DICTAR_REC.abort(); } catch(e) {} _DICTAR_REC = null; }
+  if (_currentRec) { try { _currentRec.abort(); } catch(e) {} _currentRec = null; }
   USUARIO_ACTUAL = null;
   PUNTOS = [];
   CLIENTES_DISPONIBLES = [];
@@ -2551,6 +2552,7 @@ function publicarRecorridoDictado() {
       puntos = puntos.map(function(p) {
         var prev = existing.filter(function(e) { return e.nombre === p.nombre; })[0];
         if (prev && prev.done) { p.done = true; p.horaCompletado = prev.horaCompletado; p.observacion = prev.observacion || ''; }
+        else if (prev && prev.enCamino) { p.enCamino = true; }
         return p;
       });
       recorridos[fechaPublicar] = { fecha: fechaPublicar, publicado: new Date().toISOString(), puntos: puntos };
@@ -2614,6 +2616,7 @@ function publicarRutaPreview() {
       puntos = puntos.map(function(p) {
         var prev = existingPuntos.filter(function(e) { return e.nombre === p.nombre; })[0];
         if (prev && prev.done) { p.done = true; p.horaCompletado = prev.horaCompletado; p.observacion = prev.observacion || ''; }
+        else if (prev && prev.enCamino) { p.enCamino = true; }
         return p;
       });
       recorridos[fechaPublicar] = { fecha: fechaPublicar, publicado: new Date().toISOString(), puntos: puntos };
