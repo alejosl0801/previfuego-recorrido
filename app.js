@@ -1930,17 +1930,10 @@ function cargarClientes() {
 /* Load all months — escape hatch when the selected month has no data */
 function cargarTodosSinFiltro() {
   var mesEl = document.getElementById('admin-mes');
-  // Detect which month actually has data by trying months in order
   var MESES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
-  // Try current calendar month first, then previous
-  var actual = new Date().getMonth(); // 0-based
-  var orden = [];
-  for (var i = 0; i < 12; i++) {
-    orden.push(MESES[(actual - i + 12) % 12]);
-  }
+  var actual = new Date().getMonth();
   var cont = document.getElementById('clientes-mes-lista');
   if (cont) cont.innerHTML = '<div class="no-clientes">🔍 Buscando mes con datos...</div>';
-  // Just clear the lock and load without month filter by picking the actual current month
   if (mesEl) mesEl.value = MESES[actual];
   _cargandoClientes = false;
   _mesUltimoCargado = '';
@@ -2170,12 +2163,15 @@ function renderClienteMesCard(c, idx, visitado) {
 }
 
 function _resaltar(texto, filtro) {
-  var safe = esc(texto || '');
-  if (!filtro) return safe;
+  if (!texto) return '';
+  if (!filtro) return esc(texto);
   try {
     var re = new RegExp('(' + filtro.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
-    return safe.replace(re, '<mark class="hl">$1</mark>');
-  } catch(e) { return safe; }
+    var partes = texto.split(re);
+    return partes.map(function(p, i) {
+      return (i % 2 === 1) ? '<mark class="hl">' + esc(p) + '</mark>' : esc(p);
+    }).join('');
+  } catch(e) { return esc(texto); }
 }
 
 /* ===================================================
@@ -3104,12 +3100,13 @@ function _ejecutarSubirFichas() {
   if (_subirFichasPending) return;
   _subirFichasPending = true;
   var tecnico  = USUARIO_ACTUAL ? USUARIOS[USUARIO_ACTUAL].nombre : '';
+  var fechaSubir = fechaHoy();
   var snapshot = PUNTOS.map(function(p) {
     return { nombre: p.nombre, done: p.done, horaCompletado: p.horaCompletado, enCamino: p.enCamino || false, observacion: p.observacion || '' };
   });
   dbxDownloadJSON(DBX_RECORRIDOS)
   .then(function(recorridos) {
-    var hoy = recorridos[fechaHoy()];
+    var hoy = recorridos[fechaSubir];
     // dbxDownloadJSON returns {} for "file not found" — hoy absent = no route published yet, skip silently
     if (!hoy) { var e = new Error('Sin recorrido hoy'); e.noRetry = true; throw e; }
     hoy.puntos = hoy.puntos.map(function(p) {
@@ -3118,7 +3115,7 @@ function _ejecutarSubirFichas() {
       if (match) { p.done = match.done; p.horaCompletado = match.horaCompletado; p.enCamino = match.enCamino; p.observacion = match.observacion; }
       return p;
     });
-    recorridos[fechaHoy()] = hoy;
+    recorridos[fechaSubir] = hoy;
     return dbxUpload(DBX_RECORRIDOS, JSON.stringify(recorridos, null, 2));
   })
   .then(function() { _subirFichasReintentos = 0; })
