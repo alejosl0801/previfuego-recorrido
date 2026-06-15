@@ -923,7 +923,7 @@ function _mostrarSugerenciaChip(texto) {
   var cont = document.getElementById('valeria-sugerencia');
   if (!cont) return;
   cont.innerHTML = '<div class="valeria-sugerencia-chip">💡 ' + esc(texto)
-    + ' <button onclick="this.parentNode.parentNode.innerHTML=\'\'" style="background:none;border:none;cursor:pointer;color:#999">✕</button></div>';
+    + ' <button onclick="document.getElementById(\'valeria-sugerencia\').innerHTML=\'\'" style="background:none;border:none;cursor:pointer;color:#999">✕</button></div>';
 }
 
 /* D3 — Clasificar observaciones de t\xE9cnicos */
@@ -1057,6 +1057,7 @@ function consultarValeria(texto) {
     var partes = (h.fecha || '').split('/');
     if (partes.length !== 3) return false;
     var d = new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
+    if (isNaN(d.getTime())) return false;
     return d >= hace30;
   }).slice(0, 15);
 
@@ -1199,7 +1200,7 @@ function renderChat() {
   var html = '';
   VALERIA_CHAT.forEach(function(b, idx) {
     var esUsuario = b.quien === 'usuario';
-    var tieneInstruccion = !esUsuario && b.texto && b.texto.indexOf('--- INSTRUCCIÓN PARA CLAUDE ---') !== -1;
+    var tieneInstruccion = b.quien === 'valeria' && b.texto && b.texto.indexOf('--- INSTRUCCIÓN PARA CLAUDE ---') !== -1;
     var textoHtml = esc(b.texto).replace(/\n/g, '<br>');
     if (tieneInstruccion) {
       textoHtml = textoHtml
@@ -1217,7 +1218,7 @@ function renderChat() {
 
 function copiarInstruccionClaude(idx) {
   var b = VALERIA_CHAT[idx];
-  if (!b) return;
+  if (!b || !b.texto) return;
   var inicio = b.texto.indexOf('--- INSTRUCCIÓN PARA CLAUDE ---');
   var fin = b.texto.indexOf('--- FIN INSTRUCCIÓN ---');
   var instruccion = fin > inicio
@@ -1389,6 +1390,7 @@ function parseExcelOtros(buf, mesSeleccionado) {
   var FILAS_BASURA = /^(totales?\b|subtotales?\b|suma\b|parcial\b|cantidad\b|cant\b|tipo\b|extintores?\b|marca\b|descripcion\b|ubicacion\b|item\b|n[°º]|cc\b|\d)/i;
   sheetsToRead.forEach(function(sheetName) {
     var ws = wb.Sheets[sheetName];
+    if (!ws) return;
     var raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
     var nombreActual = '';
     raw.forEach(function(row) {
@@ -1533,7 +1535,7 @@ function normalizarCliente(row, esKfc) {
   var marca = get('MARCA','Marca','TIPO_EXT','TIPO EXTINTOR');
   return {
     nombre:       nombre,
-    direccion:    dir + (ciudad ? (dir ? ' — ' : '') + ciudad : ''),
+    direccion:    (dir || '') + (ciudad ? (dir ? ' — ' : '') + ciudad : ''),
     extintores:   parseInt(ext) || 0,
     mes:          normalizarMes(mes),
     local:        local,
@@ -1948,9 +1950,10 @@ function cargarTodosSinFiltro() {
 function _guardarVisitas() {
   if (!getRefreshToken()) return;
   if (_guardarVisitasTimer) clearTimeout(_guardarVisitasTimer);
+  var clave = _claveMesActual();
   _guardarVisitasTimer = setTimeout(function() {
     dbxDownloadJSON(DBX_VISITAS)
-    .then(function(data) { data[_claveMesActual()] = VISITAS_MES; return dbxUpload(DBX_VISITAS, JSON.stringify(data, null, 2)); })
+    .then(function(data) { data[clave] = VISITAS_MES; return dbxUpload(DBX_VISITAS, JSON.stringify(data, null, 2)); })
     .catch(function(e) { console.error('[PF] guardarVisitas error:', e); });
   }, 500);
 }
