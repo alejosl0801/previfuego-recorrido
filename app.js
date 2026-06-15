@@ -126,7 +126,7 @@ var CLIENTES_BD = [
   {nombre:"V003 - SAN MARINO",marca:"JUAN VALDEZ",mes:"JULIO",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
   {nombre:"V005 - URDESA",marca:"JUAN VALDEZ",mes:"JULIO",extintores:4,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
   {nombre:"V016 - POLICENTRO",marca:"JUAN VALDEZ",mes:"JULIO",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
-  {nombre:"V069 QUEVEDO PASEO SHOPPING",marca:"JUAN VALDEZ",mes:"JULIO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
+  {nombre:"V069 - QUEVEDO PASEO SHOPPING",marca:"JUAN VALDEZ",mes:"JULIO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
   {nombre:"A019 - MALL DEL SOL PATIO COMIDAS",marca:"AMERICAN DELI",mes:"AGOSTO",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
   {nombre:"CA01 - CAFE ASTORIA SALIDA INTERNACIONAL",marca:"CAFA",mes:"AGOSTO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:true,fuente:"kfc"},
   {nombre:"CA02 - CAFE ASTORIA PREEMBARQUE INTERNACIONAL",marca:"CAFA",mes:"AGOSTO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:true,fuente:"kfc"},
@@ -163,7 +163,7 @@ var CLIENTES_BD = [
   {nombre:"M033 - CITY MALL",marca:"MENESTRAS DEL NEGRO",mes:"OCTUBRE",extintores:4,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
   {nombre:"M061 - PORTETE",marca:"MENESTRAS DEL NEGRO",mes:"OCTUBRE",extintores:10,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 20}],esKfc:true,fuente:"kfc"},
   {nombre:"A047 - RIO CENTRO NORTE GYE",marca:"AMERICAN DELI",mes:"NOVIEMBRE",extintores:4,tipos:[{"tipo": "TIPO K", "marca": "", "cap": 2}, {"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
-  {nombre:"E044- EL DORADO",marca:"ESPAÑOL",mes:"NOVIEMBRE",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
+  {nombre:"E044 - EL DORADO",marca:"ESPAÑOL",mes:"NOVIEMBRE",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
   {nombre:"G054 - RIOCENTRO EL DORADO",marca:"GUS",mes:"NOVIEMBRE",extintores:4,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
   {nombre:"I017 - RIO CENTRO NORTE GYE",marca:"IL CAPPO",mes:"NOVIEMBRE",extintores:4,tipos:[{"tipo": "TIPO K", "marca": "", "cap": 2}, {"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
   {nombre:"I018 - DORADO GYE",marca:"IL CAPPO",mes:"NOVIEMBRE",extintores:4,tipos:[{"tipo": "TIPO K", "marca": "", "cap": 2}, {"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:true,fuente:"kfc"},
@@ -326,7 +326,7 @@ var CLIENTES_BD = [
   {nombre:"MARCELO FREIRE SA",marca:"",mes:"AGOSTO",extintores:14,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
   {nombre:"MARCELO FREIRE PEÑAFIEL",marca:"",mes:"AGOSTO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
   {nombre:"FREIRE PEÑAFIEL MARJORIE",marca:"",mes:"AGOSTO",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
-  {nombre:"warenjous",marca:"",mes:"AGOSTO",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
+  {nombre:"WARENJOUS",marca:"",mes:"AGOSTO",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
   {nombre:"CHANE",marca:"",mes:"AGOSTO",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 3}],esKfc:false,fuente:"otras"},
   {nombre:"ESCUELA MATILDE HIDALGO DEL PROCEL",marca:"",mes:"AGOSTO",extintores:4,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
   {nombre:"MARYAH SPA CC LAS VITRINAS",marca:"",mes:"AGOSTO",extintores:1,tipos:[{"tipo": "CO2", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
@@ -340,7 +340,7 @@ var CLIENTES_BD = [
   {nombre:"NOVOCENTRO DURAN",marca:"",mes:"SEPTIEMBRE",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
   {nombre:"TECNICENTRO ATM",marca:"",mes:"SEPTIEMBRE",extintores:4,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
   {nombre:"PACO UNIV ESTATAL",marca:"",mes:"SEPTIEMBRE",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
-  {nombre:"FIDEO NAPOLTANO",marca:"",mes:"SEPTIEMBRE",extintores:9,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
+  {nombre:"FIDEO NAPOLITANO",marca:"",mes:"SEPTIEMBRE",extintores:9,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
   {nombre:"TORRES DEL SOL",marca:"",mes:"SEPTIEMBRE",extintores:30,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
   {nombre:"EMPANADAS PACO MALECON",marca:"",mes:"OCTUBRE",extintores:1,tipos:[{"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
   {nombre:"SHIATSU MALL DEL SOL",marca:"",mes:"OCTUBRE",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
@@ -1545,7 +1545,7 @@ function normalizarCliente(row, esKfc) {
 
 function _normKey(nombre) {
   return (nombre || '').toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')   // strip accents
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // strip accents
     .replace(/[^a-z0-9\s]/g, ' ')                       // punctuation → space
     .replace(/([a-z])(\d)/g, '$1 $2')                   // "m014" → "m 014", "g48" → "g 48"
     .replace(/\b0+(\d)/g, '$1')                         // strip leading zeros: "014" → "14"
