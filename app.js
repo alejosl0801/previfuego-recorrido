@@ -385,7 +385,7 @@ var DBX_CONFIG     = '/Previfuego/config.json';
 var DBX_VISITAS    = '/Previfuego/visitas.json';
 var DBX_VALERIA    = '/Previfuego/valeria_memoria.json';
 
-var DBX_KFC_PATH   = localStorage.getItem('pf_path_kfc')   || '/Previfuego/2026/BASE_DATOS_KFC (8).xlsx';
+var DBX_KFC_PATH   = localStorage.getItem('pf_path_kfc')   || '/Previfuego/' + new Date().getFullYear() + '/BASE_DATOS_KFC (8).xlsx';
 var DBX_OTROS_PATH = localStorage.getItem('pf_path_otros') || '/Previfuego/PRESUPUESTOS/OTRAS_EMPRESAS.xlsx';
 var DBX_SUSHI_PATH = localStorage.getItem('pf_path_sushi') || '/Previfuego/PRESUPUESTOS/MATRIZ_SUSHICORP.xlsx';
 
