@@ -1749,12 +1749,15 @@ function login(usuario) {
 
 function logout() {
   detenerSeguimiento();
+  if (_DICTAR_REC) { try { _DICTAR_REC.abort(); } catch(e) {} _DICTAR_REC = null; }
   USUARIO_ACTUAL = null;
   PUNTOS = [];
   CLIENTES_DISPONIBLES = [];
   VISITAS_MES = {};
   RUTA_PREVIEW = [];
   VALERIA_CHAT = [];
+  VALERIA_MEMORIA = {};
+  _DICTAR_PUNTOS = [];
   _chipHistorial = [];
   _clientesFiltro = '';
   _clientesQuickFilter = 'todos';
