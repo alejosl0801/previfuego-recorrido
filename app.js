@@ -577,7 +577,7 @@ function handleOAuthCallback() {
     localStorage.removeItem('pf_dbx_verifier');
     if (d.error) { pfModal('Error al conectar Dropbox', d.error_description || d.error); return; }
     localStorage.setItem('pf_dbx_access_token', d.access_token);
-    localStorage.setItem('pf_dbx_refresh_token', d.refresh_token);
+    if (d.refresh_token) localStorage.setItem('pf_dbx_refresh_token', d.refresh_token);
     if (d.expires_in) localStorage.setItem('pf_dbx_token_exp', String(Date.now() + d.expires_in * 1000));
     showToast('✅ Dropbox conectado correctamente');
     actualizarEstadoConexion();
@@ -797,10 +797,9 @@ function guardarGroqKey() {
   if (groqStatus) groqStatus.textContent = '✅ Groq AI configurado (clave personalizada)';
   if (getRefreshToken()) {
     dbxDownloadJSON(DBX_CONFIG)
-    .catch(function() { return {}; })
     .then(function(cfg) { cfg.groq_key = key; return dbxUpload(DBX_CONFIG, JSON.stringify(cfg, null, 2)); })
     .then(function() { showToast('✅ Clave Groq guardada en Dropbox'); })
-    .catch(function() { showToast('✅ Clave guardada localmente'); });
+    .catch(function() { showToast('✅ Clave guardada localmente (sin conexión a Dropbox)'); });
   } else {
     showToast('✅ Clave Groq guardada');
   }
@@ -1902,6 +1901,7 @@ function cargarClientes() {
     if (nuevosClientes.length > 0) {
       CLIENTES_DISPONIBLES = nuevosClientes;
     } else {
+      CLIENTES_DISPONIBLES = [];
       var cont = document.getElementById('clientes-mes-lista');
       if (cont) cont.innerHTML = '<div class="no-clientes"><strong>\ud83d\udcad Sin clientes para ' + esc(mes) + '</strong><br><small>No hay datos para este mes en la base de datos.</small></div>';
       _cargandoClientes = false;
@@ -2355,13 +2355,16 @@ var _DICTAR_PUNTOS = [];  // Array of structured point objects
 var _DICTAR_REC = null;   // Active SpeechRecognition
 
 function abrirModoRecorrido() {
-  _DICTAR_PUNTOS = [];
   var panelChat = document.getElementById('modo-chat-valeria');
   var panelDictar = document.getElementById('modo-recorrido-panel');
   if (panelChat) panelChat.style.display = 'none';
   if (panelDictar) panelDictar.style.display = 'flex';
   _renderDictarPuntos();
-  _dictatStatus('Pulsa el micr\xF3fono y describe el primer punto.');
+  if (!_DICTAR_PUNTOS.length) {
+    _dictatStatus('Pulsa el micr\xF3fono y describe el primer punto.');
+  } else {
+    _dictatStatus(_DICTAR_PUNTOS.length + ' punto(s) en espera. Pulsa mic\xF3fono para agregar m\xE1s.');
+  }
 }
 
 function salirModoRecorrido() {
