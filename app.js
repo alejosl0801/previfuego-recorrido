@@ -1089,7 +1089,7 @@ function consultarValeria(texto) {
   var diaSemana = DIAS_SEMANA[new Date().getDay()];
 
   var systemMsg = 'Eres Valeria, asistente experta de PREVIFUEGO, empresa de extintores y seguridad contra incendios en Guayaquil, Ecuador.\n'
-    + 'Admin: Alejandro L\xF3pez (due\xF1o). T\xE9cnicos: Ra\xFAl Romero y Juan Carlos Arboleda.\n'
+    + 'Admin: Alejandro López (dueño). Técnicos: ' + USUARIOS.raul.nombre + ' y ' + USUARIOS.juan.nombre + '.\n'
     + 'Hoy es ' + diaSemana + ' ' + fechaHoy() + '.\n'
     + 'CONOCIMIENTO OPERATIVO:\n'
     + '- Sectores Guayaquil: Norte (Alborada, Garzota, Sauces, Kennedy, V\xEDa Perimetral, V\xEDa Daule, Los Ceibos), Centro (Mal\xE9con, Urdesa, Miraflores), Riocentros (Norte, El Dorado, Ceibos, Puntilla), Malls (Mall del Sol, San Marino, City Mall, Mall del Norte, Village Plaza), Oriente (Samborond\xF3n), Sur (Guasmo, Pascuales), Dur\xE1n.\n'
@@ -2863,6 +2863,11 @@ function procesarPuntos(arr) {
       observacion: e ? (e.observacion || '') : (p.observacion || '')
     };
   });
+  // Clear undo state — array indices are now stale
+  _undoIdx = null; _undoData = null;
+  if (_undoTimer) { clearTimeout(_undoTimer); _undoTimer = null; }
+  var undoBar = document.getElementById('undo-bar');
+  if (undoBar) undoBar.classList.add('hidden');
   var vacio = document.getElementById('s1-vacio');
   if (vacio) vacio.style.display = 'none';
   renderPuntos();
@@ -3057,7 +3062,13 @@ function marcarListo(idx, observacion) {
 
 function deshacerListo() {
   if (_undoIdx === null || !_undoData) return;
-  PUNTOS[_undoIdx] = _undoData;
+  // Re-locate by name in case array was rebuilt since undo was set
+  var targetIdx = _undoIdx;
+  if (!PUNTOS[targetIdx] || PUNTOS[targetIdx].nombre !== _undoData.nombre) {
+    targetIdx = PUNTOS.findIndex(function(p) { return p.nombre === _undoData.nombre; });
+    if (targetIdx === -1) { _undoIdx = null; _undoData = null; return; }
+  }
+  PUNTOS[targetIdx] = _undoData;
   _guardarEstadoLocal();
   renderPuntos();
   actualizarProgreso();
