@@ -1555,11 +1555,6 @@ function _normKey(nombre) {
     .trim();
 }
 
-// Extract the KFC-group local code (e.g. "g48", "m14", "t43") from a normalized name
-function _localCode(normName) {
-  var m = normName.match(/^([a-z] \d+)/);
-  return m ? m[1].replace(/\s/g, '') : null;
-}
 
 function deduplicarClientes(lista) {
   var mapa = {};
@@ -1853,7 +1848,6 @@ function cargarClientes() {
   }
   var mesEl = document.getElementById('admin-mes');
   var mes = mesEl ? mesEl.value : '';
-  if (mes) localStorage.setItem('pf_mes_seleccionado', mes);
 
   if (_cargandoClientes) return;
   _cargandoClientes = true;
@@ -2470,8 +2464,9 @@ function hablarPuntoRecorrido() {
 function _estructurarPuntoConIA(descripcion) {
   var num = _DICTAR_PUNTOS.length + 1;
   var tecDefault = USUARIOS.raul.nombre;
-  // Detect if admin says “para Juan”
-  if (/\bpara juan\b|\bjuan\b/i.test(descripcion)) tecDefault = USUARIOS.juan.nombre;
+  // Detect if admin mentions the second technician by name
+  var nombreJuan = USUARIOS.juan.nombre.toLowerCase().split(/\s+/)[0];
+  if (new RegExp('\\b' + nombreJuan + '\\b', 'i').test(descripcion)) tecDefault = USUARIOS.juan.nombre;
 
   var systemMsg = 'Eres un transcriptor de recorridos para PREVIFUEGO (empresa de extintores, Guayaquil, Ecuador).\n'
     + 'El admin Alejandro te describe UN punto de recorrido en voz. Tu \xFAnica tarea es plasmar EXACTAMENTE lo que dice en formato JSON.\n'
