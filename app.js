@@ -978,11 +978,13 @@ function resumenSeguimientoIA() {
     { role: 'user', content: 'Fecha: ' + fechaHoy() + '\n\n' + lista }
   ], 1024, 0.3)
   .then(function(d) {
+    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
     var choice = (d.choices || [])[0] || {};
     var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
     pfModal('📊 Resumen IA del d\xEDa', text || 'Sin respuesta.');
   })
   .catch(function(err) {
+    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
     pfModal('Error', 'No se pudo generar el resumen: ' + String(err));
   });
 }
