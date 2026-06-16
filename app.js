@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = '3.6';
+var APP_VERSION = '3.7';
 
 /* CLIENTES_BD generado desde: BASE_DATOS_KFC_9.xlsx + OTRAS_EMPRESAS.xlsx + MATRIZ_SUSHICORP.xlsx */
 var CLIENTES_BD = [
