@@ -844,8 +844,9 @@ function _llamarGroq(mensajes, maxTokens, temperatura) {
   // Must reject (not throw): callers chain .then/.catch and a sync throw
   // breaks publicarRutaPreview, renderTablaSeguimiento and leaves "Pensando..." stuck
   if (!key) return Promise.reject(new Error('Sin clave Groq — ingr\xE9sala en ⚙️ Config'));
+  var timeoutId;
   var timeoutP = new Promise(function(_, reject) {
-    setTimeout(function() { reject(new Error('Tiempo de espera agotado (20s). Intenta de nuevo.')); }, 20000);
+    timeoutId = setTimeout(function() { reject(new Error('Tiempo de espera agotado (20s). Intenta de nuevo.')); }, 20000);
   });
   return Promise.race([
     fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -862,7 +863,7 @@ function _llamarGroq(mensajes, maxTokens, temperatura) {
       return r.json();
     }),
     timeoutP
-  ]);
+  ]).finally(function() { clearTimeout(timeoutId); });
 }
 
 /* D1 — Auto-resumen diario de la ruta publicada */
@@ -1907,9 +1908,6 @@ function cargarClientes() {
       CLIENTES_DISPONIBLES = [];
       var cont = document.getElementById('clientes-mes-lista');
       if (cont) cont.innerHTML = '<div class="no-clientes"><strong>\ud83d\udcad Sin clientes para ' + esc(mes) + '</strong><br><small>No hay datos para este mes en la base de datos.</small></div>';
-      _cargandoClientes = false;
-      mostrarCargando(false);
-      if (sk) sk.style.display = 'none';
       return;
     }
     renderClientesMes();
