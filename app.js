@@ -1748,6 +1748,9 @@ function logout() {
   detenerSeguimiento();
   if (_DICTAR_REC) { try { _DICTAR_REC.abort(); } catch(e) {} _DICTAR_REC = null; }
   if (_currentRec) { try { _currentRec.abort(); } catch(e) {} _currentRec = null; }
+  if (_undoTimer) { clearTimeout(_undoTimer); _undoTimer = null; }
+  if (_guardarVisitasTimer) { clearTimeout(_guardarVisitasTimer); _guardarVisitasTimer = null; }
+  if (_filtroClientesTimer) { clearTimeout(_filtroClientesTimer); _filtroClientesTimer = null; }
   USUARIO_ACTUAL = null;
   PUNTOS = [];
   CLIENTES_DISPONIBLES = [];
@@ -2854,8 +2857,9 @@ function procesarPuntos(arr) {
   var estadoGuardado = {};
   try { var raw = localStorage.getItem('pf_estado_' + fechaHoy()); if (raw) estadoGuardado = JSON.parse(raw); } catch(e) {}
   PUNTOS = arr.map(function(p, i) {
-    var clave = p.nombre || i;
-    var e = estadoGuardado[clave];
+    // Compound key matches _guardarEstadoLocal; fall back to bare name for old format
+    var clave = (p.nombre || '') + '\x00' + i;
+    var e = estadoGuardado[clave] || estadoGuardado[p.nombre || i];
     return {
       num: i + 1, nombre: p.nombre || p.cliente || '', direccion: p.direccion || p.dir || '',
       mision: p.mision || 'Mantenimiento', tecnico: p.tecnico || '', esKfc: p.esKfc || false,
@@ -3087,7 +3091,8 @@ function deshacerListo() {
 function _guardarEstadoLocal() {
   var estado = {};
   PUNTOS.forEach(function(p, i) {
-    var clave = p.nombre || i;
+    // Compound key: name + position handles duplicate client names in the same route
+    var clave = (p.nombre || '') + '\x00' + i;
     estado[clave] = { done: p.done, hora: p.horaCompletado, enCamino: p.enCamino, observacion: p.observacion };
   });
   localStorage.setItem('pf_estado_' + fechaHoy(), JSON.stringify(estado));
