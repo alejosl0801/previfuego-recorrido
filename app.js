@@ -340,7 +340,6 @@ var CLIENTES_BD = [
   {nombre:"NOVOCENTRO DURAN",marca:"",mes:"SEPTIEMBRE",extintores:3,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
   {nombre:"TECNICENTRO ATM",marca:"",mes:"SEPTIEMBRE",extintores:4,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
   {nombre:"PACO UNIV ESTATAL",marca:"",mes:"SEPTIEMBRE",extintores:2,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
-  {nombre:"FIDEO NAPOLITANO",marca:"",mes:"SEPTIEMBRE",extintores:9,tipos:[{"tipo": "PQS", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
   {nombre:"TORRES DEL SOL",marca:"",mes:"SEPTIEMBRE",extintores:30,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"otras"},
   {nombre:"EMPANADAS PACO MALECON",marca:"",mes:"OCTUBRE",extintores:1,tipos:[{"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
   {nombre:"SHIATSU MALL DEL SOL",marca:"",mes:"OCTUBRE",extintores:1,tipos:[{"tipo": "PQS", "marca": "", "cap": 5}],esKfc:false,fuente:"otras"},
