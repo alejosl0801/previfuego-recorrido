@@ -653,7 +653,10 @@ function verificarConexion() {
       headers: { 'Authorization': 'Bearer ' + token }
     });
   })
-  .then(function(r) { return r.json(); })
+  .then(function(r) {
+    if (!r.ok) return r.json().then(function(d) { throw new Error('HTTP ' + r.status + ': ' + (d.error_summary || JSON.stringify(d))); });
+    return r.json();
+  })
   .then(function(d) {
     if (debug) debug.textContent = '✅ Conectado como: ' + (d.email || (d.name && d.name.display_name) || 'OK');
     showToast('✅ Conexi\xF3n OK');
@@ -1782,6 +1785,7 @@ function logout() {
   if (_filtroClientesTimer) { clearTimeout(_filtroClientesTimer); _filtroClientesTimer = null; }
   if (_subirFichasTimer) { clearTimeout(_subirFichasTimer); _subirFichasTimer = null; }
   if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
+  _toastQueue = []; _toastShowing = false;
   _pensandoValeria = false;
   _sincronizarValeriaP = Promise.resolve();
   USUARIO_ACTUAL = null;
@@ -1795,6 +1799,8 @@ function logout() {
   _chipHistorial = [];
   _clientesFiltro = '';
   _clientesQuickFilter = 'todos';
+  _obsClasifCache = {};
+  _segPuntosCache = [];
   localStorage.removeItem('pf_usuario');
   switchTab('clientes');
   showScreen('s0');
@@ -2514,7 +2520,7 @@ function _estructurarPuntoConIA(descripcion) {
   var num = _DICTAR_PUNTOS.length + 1;
   var tecDefault = USUARIOS.raul.nombre;
   // Detect if admin mentions the second technician by name
-  var nombreJuan = USUARIOS.juan.nombre.toLowerCase().split(/\s+/)[0];
+  var nombreJuan = USUARIOS.juan.nombre.toLowerCase().split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   if (new RegExp('\\b' + nombreJuan + '\\b', 'i').test(descripcion)) tecDefault = USUARIOS.juan.nombre;
 
   var systemMsg = 'Eres un transcriptor de recorridos para PREVIFUEGO (empresa de extintores, Guayaquil, Ecuador).\n'
