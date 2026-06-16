@@ -1962,9 +1962,10 @@ function _guardarVisitas() {
   if (!getRefreshToken()) return;
   if (_guardarVisitasTimer) clearTimeout(_guardarVisitasTimer);
   var clave = _claveMesActual();
+  var snapshot = JSON.parse(JSON.stringify(VISITAS_MES));  // Capture now — VISITAS_MES may reset if user switches months before timer fires
   _guardarVisitasTimer = setTimeout(function() {
     dbxDownloadJSON(DBX_VISITAS)
-    .then(function(data) { data[clave] = VISITAS_MES; return dbxUpload(DBX_VISITAS, JSON.stringify(data, null, 2)); })
+    .then(function(data) { data[clave] = snapshot; return dbxUpload(DBX_VISITAS, JSON.stringify(data, null, 2)); })
     .catch(function(e) { console.error('[PF] guardarVisitas error:', e); });
   }, 500);
 }
@@ -3186,6 +3187,26 @@ document.addEventListener('DOMContentLoaded', function() {
       if (fab) fab.classList.toggle('hidden', tabClientes.scrollTop < 200);
     });
   }
+
+  // Clean up old per-day localStorage entries (older than 7 days)
+  try {
+    var ahora = Date.now();
+    var siete = 7 * 24 * 60 * 60 * 1000;
+    for (var li = localStorage.length - 1; li >= 0; li--) {
+      var lk = localStorage.key(li);
+      if (!lk) continue;
+      if (lk.startsWith('pf_estado_') || lk.startsWith('pf_puntos_')) {
+        // Key suffix is DD/MM/YYYY
+        var partes = lk.split('_').slice(-1)[0].split('/');
+        if (partes.length === 3) {
+          var fechaEntry = new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
+          if (!isNaN(fechaEntry.getTime()) && ahora - fechaEntry.getTime() > siete) {
+            localStorage.removeItem(lk);
+          }
+        }
+      }
+    }
+  } catch(e) {}
 
   var oauthInProgress = handleOAuthCallback();
   if (!oauthInProgress) {
