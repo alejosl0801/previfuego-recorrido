@@ -882,7 +882,12 @@ function _resumenDiarioGroq(puntos) {
     var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
     if (!text) return;
     if (!VALERIA_MEMORIA.resumenes_diarios) VALERIA_MEMORIA.resumenes_diarios = [];
-    VALERIA_MEMORIA.resumenes_diarios.unshift({ fecha: fechaHoy(), resumen: text });
+    // Replace existing entry for today instead of accumulating duplicates
+    if (VALERIA_MEMORIA.resumenes_diarios.length && VALERIA_MEMORIA.resumenes_diarios[0].fecha === fechaHoy()) {
+      VALERIA_MEMORIA.resumenes_diarios[0].resumen = text;
+    } else {
+      VALERIA_MEMORIA.resumenes_diarios.unshift({ fecha: fechaHoy(), resumen: text });
+    }
     if (VALERIA_MEMORIA.resumenes_diarios.length > 30) VALERIA_MEMORIA.resumenes_diarios = VALERIA_MEMORIA.resumenes_diarios.slice(0, 30);
     if (getRefreshToken()) {
       dbxUpload(DBX_VALERIA, JSON.stringify(VALERIA_MEMORIA, null, 2)).catch(function() {});
@@ -895,7 +900,7 @@ function _resumenDiarioGroq(puntos) {
 function sugerenciaProactiva() {
   if (!CLIENTES_DISPONIBLES.length) return;
   if (!VALERIA_MEMORIA.historial_rutas || !VALERIA_MEMORIA.historial_rutas.length) return;
-  var ultima = parseInt(localStorage.getItem('pf_ultima_sugerencia') || '0');
+  var ultima = parseInt(localStorage.getItem('pf_ultima_sugerencia') || '0') || 0;
   if (Date.now() - ultima < 4 * 60 * 60 * 1000) return;
 
   var pendientes = CLIENTES_DISPONIBLES.filter(function(c) {
@@ -1018,6 +1023,18 @@ function actualizarMemoriaValeria(puntos, instruccion) {
     pc.veces_en_ruta = (pc.veces_en_ruta || 0) + 1;
     if (p.tecnico) pc.tecnico_habitual = p.tecnico;
   });
+
+  // Cap patrones_cliente at 300 entries (LRU: remove oldest by ultimo_recorrido)
+  var keys = Object.keys(VALERIA_MEMORIA.patrones_cliente);
+  if (keys.length > 300) {
+    keys.sort(function(a, b) {
+      return (VALERIA_MEMORIA.patrones_cliente[a].ultimo_recorrido || '')
+           < (VALERIA_MEMORIA.patrones_cliente[b].ultimo_recorrido || '') ? -1 : 1;
+    });
+    keys.slice(0, keys.length - 300).forEach(function(k) {
+      delete VALERIA_MEMORIA.patrones_cliente[k];
+    });
+  }
 
   if (getRefreshToken()) {
     dbxUpload(DBX_VALERIA, JSON.stringify(VALERIA_MEMORIA, null, 2)).catch(function(e) {
@@ -1842,6 +1859,7 @@ function _logError(contexto, err) {
 }
 
 var _cargandoClientes = false;
+var _cargandoClientesGen = 0;  // Generation counter to discard stale responses
 var _mesUltimoCargado = '';
 
 function cargarClientes() {
@@ -1855,6 +1873,8 @@ function cargarClientes() {
 
   if (_cargandoClientes) return;
   _cargandoClientes = true;
+  _cargandoClientesGen++;
+  var genActual = _cargandoClientesGen;
   var _lockTimeout = setTimeout(function() { _cargandoClientes = false; }, 15000);
 
   if (mes !== _mesUltimoCargado && _mesUltimoCargado !== '') {
@@ -1891,6 +1911,7 @@ function cargarClientes() {
 
   // Download only visitas.json from Dropbox (runtime data, not Excel)
   dbxDownloadJSON(DBX_VISITAS).then(function(data) {
+    if (genActual !== _cargandoClientesGen) return;  // Stale — newer load in progress
     clearTimeout(_lockTimeout);
     _cargandoClientes = false;
     mostrarCargando(false);
@@ -1912,6 +1933,7 @@ function cargarClientes() {
     renderClientesMes();
     try { sugerenciaProactiva(); } catch(e) {}
   }).catch(function(err) {
+    if (genActual !== _cargandoClientesGen) return;  // Stale — newer load in progress
     clearTimeout(_lockTimeout);
     _cargandoClientes = false;
     mostrarCargando(false);
@@ -2131,8 +2153,8 @@ function renderClienteMesCard(c, idx, visitado) {
   if (patron && (patron.veces_en_ruta || patron.ultimo_recorrido)) {
     historialStr = '<div class="cliente-historial">'
       + (patron.veces_en_ruta ? '📅 ' + patron.veces_en_ruta + 'x' : '')
-      + (patron.ultimo_recorrido ? ' \xB7 \xDAlt: ' + patron.ultimo_recorrido : '')
-      + (patron.tecnico_habitual ? ' \xB7 ' + patron.tecnico_habitual : '')
+      + (patron.ultimo_recorrido ? ' \xB7 \xDAlt: ' + esc(patron.ultimo_recorrido) : '')
+      + (patron.tecnico_habitual ? ' \xB7 ' + esc(patron.tecnico_habitual) : '')
       + '</div>';
   }
 
@@ -2302,7 +2324,7 @@ function renderRutaPreview() {
     var badge = c.esKfc ? '<span class="badge-kfc">KFC</span>' : '';
     var patron = VALERIA_MEMORIA.patrones_cliente && VALERIA_MEMORIA.patrones_cliente[c.nombre];
     var histHtml = patron && patron.ultimo_recorrido
-      ? '<div style="font-size:0.72rem;color:#888;margin-top:2px">📅 ' + (patron.veces_en_ruta||0) + 'x \xB7 \xDAlt: ' + patron.ultimo_recorrido + (patron.tecnico_habitual ? ' \xB7 ' + patron.tecnico_habitual : '') + '</div>'
+      ? '<div style="font-size:0.72rem;color:#888;margin-top:2px">📅 ' + (patron.veces_en_ruta||0) + 'x \xB7 \xDAlt: ' + esc(patron.ultimo_recorrido) + (patron.tecnico_habitual ? ' \xB7 ' + esc(patron.tecnico_habitual) : '') + '</div>'
       : '';
     var tecnicoHabitual = patron && patron.tecnico_habitual ? patron.tecnico_habitual : USUARIOS.raul.nombre;
     var tecNombres = [USUARIOS.raul.nombre, USUARIOS.juan.nombre];
