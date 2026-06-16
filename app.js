@@ -730,6 +730,7 @@ function guardarNombresTecnicos() {
     localStorage.setItem('pf_nombre_juan', rJuan.value.trim());
     USUARIOS.juan.nombre = rJuan.value.trim();
   }
+  _poblarFiltroTecnicos();  // Refresh seg filter if seguimiento tab is open
   showToast('✅ Nombres guardados');
 }
 
