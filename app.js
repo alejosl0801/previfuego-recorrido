@@ -413,6 +413,8 @@ var _obsClasifCache = {};
 var _fontSizeDelta = parseInt(localStorage.getItem('pf_font_delta') || '0');
 var _darkMode = localStorage.getItem('pf_dark') === '1';
 var _ultimaInstruccionVoz = '';
+var _pensandoValeria = false;  // Guard against concurrent Valeria AI calls
+var _sincronizarValeriaP = Promise.resolve();  // Track in-flight Valeria sync
 var _chipHistorial = [];
 var _clientesFiltro = '';
 var _clientesQuickFilter = 'todos';
@@ -979,7 +981,7 @@ function resumenSeguimientoIA() {
 =================================================== */
 function sincronizarValeria() {
   if (!getRefreshToken()) return;
-  dbxDownloadJSON(DBX_VALERIA)
+  _sincronizarValeriaP = dbxDownloadJSON(DBX_VALERIA)
   .then(function(mem) {
     VALERIA_MEMORIA = mem || {};
     if (!VALERIA_MEMORIA.historial_rutas) VALERIA_MEMORIA.historial_rutas = [];
@@ -992,6 +994,10 @@ function sincronizarValeria() {
 }
 
 function actualizarMemoriaValeria(puntos, instruccion) {
+  // Wait for any in-flight sincronizarValeria download to finish — prevents overwrite race
+  _sincronizarValeriaP.then(function() { _doActualizarMemoriaValeria(puntos, instruccion); });
+}
+function _doActualizarMemoriaValeria(puntos, instruccion) {
   if (!VALERIA_MEMORIA.historial_rutas) VALERIA_MEMORIA.historial_rutas = [];
   if (!VALERIA_MEMORIA.patrones_cliente) VALERIA_MEMORIA.patrones_cliente = {};
 
@@ -1171,20 +1177,24 @@ function consultarValeria(texto) {
     eliminarBurbujaThinking();
     agregarBurbuja('valeria', '❌ Error al consultar: ' + String(err));
     console.error('[PF] consultarValeria error:', err);
-  });
+  })
+  .finally(function() { _pensandoValeria = false; });
 }
 
 function enviarMensajeValeria() {
+  if (_pensandoValeria) return;
   var input = document.getElementById('valeria-input');
   if (!input) return;
   var texto = input.value.trim();
   if (!texto) return;
+  _pensandoValeria = true;
   input.value = '';
   agregarBurbuja('usuario', texto);
   _agregarChipHistorial(texto);
 
   if (!CLIENTES_DISPONIBLES.length) {
     agregarBurbuja('valeria', '⚠️ Primero carga los clientes desde el tab Clientes.');
+    _pensandoValeria = false;
     return;
   }
 
@@ -1771,6 +1781,9 @@ function logout() {
   if (_guardarVisitasTimer) { clearTimeout(_guardarVisitasTimer); _guardarVisitasTimer = null; }
   if (_filtroClientesTimer) { clearTimeout(_filtroClientesTimer); _filtroClientesTimer = null; }
   if (_subirFichasTimer) { clearTimeout(_subirFichasTimer); _subirFichasTimer = null; }
+  if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
+  _pensandoValeria = false;
+  _sincronizarValeriaP = Promise.resolve();
   USUARIO_ACTUAL = null;
   PUNTOS = [];
   CLIENTES_DISPONIBLES = [];
@@ -2236,6 +2249,8 @@ function iniciarVoz() {
     agregarBurbuja('usuario', texto + (conf ? ' (' + conf + '% confianza)' : ''));
     _agregarChipHistorial(texto);
     _ultimaInstruccionVoz = texto;
+    if (_pensandoValeria) { agregarBurbuja('valeria', '⏳ Espera, aún estoy procesando la instrucción anterior...'); return; }
+    _pensandoValeria = true;
     if (_esConsultaValeria(texto)) {
       consultarValeria(texto);
     } else {
@@ -2317,7 +2332,8 @@ function procesarInstruccionVoz(texto) {
     eliminarBurbujaThinking();
     agregarBurbuja('valeria', '❌ Error: ' + String(err));
     console.error('[PF] Groq error:', err);
-  });
+  })
+  .finally(function() { _pensandoValeria = false; });
 }
 
 function renderRutaPreview() {
