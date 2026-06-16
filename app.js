@@ -889,6 +889,9 @@ function _resumenDiarioGroq(puntos) {
     { role: 'user', content: 'D\xEDa: ' + diaSemana + '\nPuntos:\n' + lista }
   ], 256, 0.3)
   .then(function(d) {
+    // Guard: if admin logged out while Groq was processing, VALERIA_MEMORIA was reset to {}.
+    // Uploading now would overwrite the full memory file with a nearly empty object — data loss.
+    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
     var choice = (d.choices || [])[0] || {};
     var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
     if (!text) return;
@@ -1006,6 +1009,8 @@ function actualizarMemoriaValeria(puntos, instruccion) {
   _sincronizarValeriaP.then(function() { _doActualizarMemoriaValeria(puntos, instruccion); });
 }
 function _doActualizarMemoriaValeria(puntos, instruccion) {
+  // Guard: if admin logged out while sincronizarValeria promise was pending, VALERIA_MEMORIA is {}
+  if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
   if (!VALERIA_MEMORIA.historial_rutas) VALERIA_MEMORIA.historial_rutas = [];
   if (!VALERIA_MEMORIA.patrones_cliente) VALERIA_MEMORIA.patrones_cliente = {};
 
