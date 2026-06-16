@@ -2583,6 +2583,8 @@ function _estructurarPuntoConIA(descripcion) {
     { role: 'user', content: 'Descripci\xF3n del admin: “' + descripcion + '”' }
   ], 800, 0.1)
   .then(function(d) {
+    // Guard: admin may have logged out during the Groq call — don't push into a stale/new session
+    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
     var choice = (d.choices || [])[0] || {};
     var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
     // Extract JSON from response
