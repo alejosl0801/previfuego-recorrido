@@ -1203,6 +1203,7 @@ function valeriaTecla(e) {
 
 function agregarBurbuja(quien, texto, clase) {
   VALERIA_CHAT.push({ quien: quien, texto: texto, clase: clase || '' });
+  if (VALERIA_CHAT.length > 100) VALERIA_CHAT = VALERIA_CHAT.slice(-100);
   renderChat();
 }
 
@@ -2213,6 +2214,8 @@ function iniciarVoz() {
     if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '🎤'; }
     return;
   }
+  // Abort dictation mic if active
+  if (_DICTAR_REC) { try { _DICTAR_REC.abort(); } catch(e) {} _DICTAR_REC = null; }
   if (btn) { btn.classList.add('grabando'); btn.innerHTML = '⏹'; }
 
   var rec = new SpeechRecognition();
@@ -2376,6 +2379,8 @@ var _DICTAR_PUNTOS = [];  // Array of structured point objects
 var _DICTAR_REC = null;   // Active SpeechRecognition
 
 function abrirModoRecorrido() {
+  // Abort Valeria mic if active before switching to dictation mode
+  if (_currentRec) { try { _currentRec.abort(); } catch(e) {} _currentRec = null; var bm = document.getElementById('btn-mic'); if (bm) { bm.classList.remove('grabando'); bm.innerHTML = '🎤'; } }
   var panelChat = document.getElementById('modo-chat-valeria');
   var panelDictar = document.getElementById('modo-recorrido-panel');
   if (panelChat) panelChat.style.display = 'none';
