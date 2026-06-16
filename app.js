@@ -1798,6 +1798,11 @@ function logout() {
   _toastQueue = []; _toastShowing = false;
   _pensandoValeria = false;
   _sincronizarValeriaP = Promise.resolve();
+  _subirFichasPending = false;
+  _subirFichasReintentos = 0;
+  _cargandoClientes = false;
+  _cargandoClientesGen++;  // Invalidate any in-flight cargarClientes response
+  _mesUltimoCargado = '';
   USUARIO_ACTUAL = null;
   PUNTOS = [];
   CLIENTES_DISPONIBLES = [];
