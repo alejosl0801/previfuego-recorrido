@@ -1159,6 +1159,8 @@ function consultarValeria(texto) {
   ], 4096, 0.2)
   .then(function(d) {
     eliminarBurbujaThinking();
+    // Guard: admin may have logged out during the 20s Groq call
+    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
     if (d.error) throw new Error(d.error.message || 'Error Groq API');
     var choice = (d.choices || [])[0] || {};
     if (choice.finish_reason === 'length') {
@@ -2327,6 +2329,8 @@ function procesarInstruccionVoz(texto) {
   ], 2048, 0.1)
   .then(function(d) {
     eliminarBurbujaThinking();
+    // Guard: admin may have logged out during the 20s Groq call
+    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
     if (d.error) throw new Error(d.error.message || 'Error Groq API');
     var choice = (d.choices || [])[0] || {};
     var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
