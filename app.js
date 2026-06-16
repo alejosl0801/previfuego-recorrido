@@ -498,7 +498,10 @@ function refreshAccessToken() {
       + '&refresh_token=' + encodeURIComponent(rt)
       + '&client_id=' + DBX_APP_KEY
   })
-  .then(function(r) { return r.json(); })
+  .then(function(r) {
+    if (!r.ok && r.status >= 500) throw new Error('Dropbox token endpoint error ' + r.status + ' — intenta de nuevo');
+    return r.json();
+  })
   .then(function(d) {
     if (d.error === 'invalid_grant' || d.error === 'expired_token') {
       localStorage.removeItem('pf_dbx_refresh_token');
@@ -3069,11 +3072,13 @@ function abrirMarcarListo(idx) {
   var p = PUNTOS[idx];
   if (!p) return;
   var overlay = document.getElementById('modal-overlay');
-  if (!overlay) { marcarListo(idx, ''); return; }
-  document.getElementById('modal-title').textContent = '✅ Completar: ' + p.nombre;
-  document.getElementById('modal-msg').innerHTML = '<div style="margin-bottom:10px;font-size:0.9rem;color:#555">Observaci\xF3n opcional:</div>'
+  var titleEl2 = document.getElementById('modal-title');
+  var msgEl2   = document.getElementById('modal-msg');
+  var actEl    = document.getElementById('modal-actions');
+  if (!overlay || !titleEl2 || !msgEl2 || !actEl) { marcarListo(idx, ''); return; }
+  titleEl2.textContent = '✅ Completar: ' + p.nombre;
+  msgEl2.innerHTML = '<div style="margin-bottom:10px;font-size:0.9rem;color:#555">Observaci\xF3n opcional:</div>'
     + '<textarea id="obs-input" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:10px;font-size:0.9rem;min-height:80px;resize:vertical;font-family:inherit" placeholder="\xBFAlguna observaci\xF3n?"></textarea>';
-  var actEl = document.getElementById('modal-actions');
   actEl.innerHTML = '';
   var btnCancel = document.createElement('button');
   btnCancel.className = 'btn-ghost';
