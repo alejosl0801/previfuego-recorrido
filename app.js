@@ -1768,6 +1768,7 @@ function logout() {
   if (_undoTimer) { clearTimeout(_undoTimer); _undoTimer = null; }
   if (_guardarVisitasTimer) { clearTimeout(_guardarVisitasTimer); _guardarVisitasTimer = null; }
   if (_filtroClientesTimer) { clearTimeout(_filtroClientesTimer); _filtroClientesTimer = null; }
+  if (_subirFichasTimer) { clearTimeout(_subirFichasTimer); _subirFichasTimer = null; }
   USUARIO_ACTUAL = null;
   PUNTOS = [];
   CLIENTES_DISPONIBLES = [];
@@ -1875,7 +1876,7 @@ function cargarClientes() {
   _cargandoClientes = true;
   _cargandoClientesGen++;
   var genActual = _cargandoClientesGen;
-  var _lockTimeout = setTimeout(function() { _cargandoClientes = false; }, 15000);
+  var _lockTimeout = setTimeout(function() { if (genActual === _cargandoClientesGen) _cargandoClientes = false; }, 15000);
 
   if (mes !== _mesUltimoCargado && _mesUltimoCargado !== '') {
     _clientesFiltro = '';
@@ -2875,7 +2876,7 @@ function mostrarVacio(msg) {
 function procesarPuntos(arr) {
   var estadoGuardado = {};
   try { var raw = localStorage.getItem('pf_estado_' + fechaHoy()); if (raw) estadoGuardado = JSON.parse(raw); } catch(e) {}
-  PUNTOS = arr.map(function(p, i) {
+  PUNTOS = (Array.isArray(arr) ? arr : []).map(function(p, i) {
     // Compound key matches _guardarEstadoLocal; fall back to bare name for old format
     var clave = (p.nombre || '') + '\x00' + i;
     var e = estadoGuardado[clave] || estadoGuardado[p.nombre || i];
@@ -3159,7 +3160,7 @@ function _ejecutarSubirFichas() {
     _subirFichasReintentos++;
     if (_subirFichasReintentos <= 3) {
       showToast('⚠️ No se pudo sincronizar. Reintentando (' + _subirFichasReintentos + '/3)...');
-      setTimeout(_ejecutarSubirFichas, 5000 * _subirFichasReintentos);
+      _subirFichasTimer = setTimeout(_ejecutarSubirFichas, 5000 * _subirFichasReintentos);
     } else {
       showToast('❌ Sin conexi\xF3n — tu avance qued\xF3 guardado en el tel\xE9fono. Pulsa ↻ cuando vuelva el internet.');
     }
