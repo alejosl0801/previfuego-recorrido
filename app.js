@@ -1254,6 +1254,7 @@ function copiarInstruccionClaude(idx) {
   var b = VALERIA_CHAT[idx];
   if (!b || !b.texto) return;
   var inicio = b.texto.indexOf('--- INSTRUCCIÓN PARA CLAUDE ---');
+  if (inicio === -1) return;  // Stale index — bubble no longer contains instruction
   var fin = b.texto.indexOf('--- FIN INSTRUCCIÓN ---');
   var instruccion = fin > inicio
     ? b.texto.slice(inicio, fin + '--- FIN INSTRUCCIÓN ---'.length)
@@ -2851,6 +2852,7 @@ function renderTablaSeguimiento(puntos) {
    T\xC9CNICO
 =================================================== */
 function cargarRecorrido() {
+  if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL]) return;
   showScreen('s1');
   mostrarCargando(true);
   var vacio = document.getElementById('s1-vacio');
