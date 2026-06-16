@@ -3140,7 +3140,7 @@ function subirFichas() {
 }
 
 function _ejecutarSubirFichas() {
-  if (_subirFichasPending) return;
+  if (_subirFichasPending) { subirFichas(); return; }  // Reschedule if upload still in flight
   _subirFichasPending = true;
   var tecnico  = USUARIO_ACTUAL ? USUARIOS[USUARIO_ACTUAL].nombre : '';
   var fechaSubir = fechaHoy();
