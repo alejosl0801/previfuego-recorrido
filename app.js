@@ -1676,10 +1676,12 @@ function mostrarCargando(show) {
 
 function pfModal(titulo, msg) {
   var overlay = document.getElementById('modal-overlay');
-  if (!overlay) return;
-  document.getElementById('modal-title').textContent = titulo;
-  document.getElementById('modal-msg').innerHTML = esc(msg).replace(/\n/g, '<br>');
-  var actEl = document.getElementById('modal-actions');
+  var titleEl = document.getElementById('modal-title');
+  var msgEl   = document.getElementById('modal-msg');
+  var actEl   = document.getElementById('modal-actions');
+  if (!overlay || !titleEl || !msgEl || !actEl) return;
+  titleEl.textContent = titulo;
+  msgEl.innerHTML = esc(msg).replace(/\n/g, '<br>');
   actEl.innerHTML = '';
   var btn = document.createElement('button');
   btn.className = 'btn-primary';
@@ -1692,10 +1694,12 @@ function pfModal(titulo, msg) {
 
 function pfConfirm(titulo, msg, cb) {
   var overlay = document.getElementById('modal-overlay');
-  if (!overlay) return;
-  document.getElementById('modal-title').textContent = titulo;
-  document.getElementById('modal-msg').innerHTML = esc(msg).replace(/\n/g, '<br>');
-  var actEl = document.getElementById('modal-actions');
+  var titleEl = document.getElementById('modal-title');
+  var msgEl   = document.getElementById('modal-msg');
+  var actEl   = document.getElementById('modal-actions');
+  if (!overlay || !titleEl || !msgEl || !actEl) return;
+  titleEl.textContent = titulo;
+  msgEl.innerHTML = esc(msg).replace(/\n/g, '<br>');
   actEl.innerHTML = '';
   var btnCancel = document.createElement('button');
   btnCancel.className = 'btn-ghost';
