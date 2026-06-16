@@ -2015,7 +2015,9 @@ function exportarVisitados() {
   var texto = 'Clientes visitados ' + _claveMesActual() + ':\n'
     + visitados.map(function(c) { return '- ' + c.nombre + ' (' + (VISITAS_MES[c.nombre].fecha || '') + ')'; }).join('\n');
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(texto).then(function() { showToast('✅ Lista copiada al portapapeles'); });
+    navigator.clipboard.writeText(texto)
+      .then(function() { showToast('✅ Lista copiada al portapapeles'); })
+      .catch(function() { pfModal('Lista visitados', texto); });
   } else {
     pfModal('Lista visitados', texto);
   }
@@ -3149,7 +3151,7 @@ function _ejecutarSubirFichas() {
   .then(function(recorridos) {
     var hoy = recorridos[fechaSubir];
     // dbxDownloadJSON returns {} for "file not found" — hoy absent = no route published yet, skip silently
-    if (!hoy) { var e = new Error('Sin recorrido hoy'); e.noRetry = true; throw e; }
+    if (!hoy || !hoy.puntos) { var e = new Error('Sin recorrido hoy'); e.noRetry = true; throw e; }
     hoy.puntos = hoy.puntos.map(function(p) {
       if (p.tecnico !== tecnico) return p;
       var match = snapshot.filter(function(s) { return s.nombre === p.nombre; })[0];
