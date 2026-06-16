@@ -410,7 +410,7 @@ var _undoData = null;
 var _guardarVisitasTimer = null;
 var _segPuntosCache = [];
 var _obsClasifCache = {};
-var _fontSizeDelta = parseInt(localStorage.getItem('pf_font_delta') || '0');
+var _fontSizeDelta = parseInt(localStorage.getItem('pf_font_delta') || '0') || 0;
 var _darkMode = localStorage.getItem('pf_dark') === '1';
 var _ultimaInstruccionVoz = '';
 var _pensandoValeria = false;  // Guard against concurrent Valeria AI calls
@@ -468,6 +468,8 @@ window.addEventListener('online', function() {
   var b = document.getElementById('offline-banner');
   if (b) b.classList.add('hidden');
   showToast('✅ Conexi\xF3n restaurada');
+  // Retry pending tech progress upload if it stalled while offline
+  if (USUARIO_ACTUAL && !USUARIOS[USUARIO_ACTUAL].esAdmin && PUNTOS.length) subirFichas();
 });
 
 /* ===================================================
@@ -482,7 +484,7 @@ function getRefreshToken() {
 }
 
 function isTokenExpired() {
-  var exp = parseInt(localStorage.getItem('pf_dbx_token_exp') || '0');
+  var exp = parseInt(localStorage.getItem('pf_dbx_token_exp') || '0') || 0;
   return Date.now() > exp - 60000;
 }
 
