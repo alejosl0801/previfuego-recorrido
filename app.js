@@ -501,6 +501,9 @@ function refreshAccessToken() {
     body: 'grant_type=refresh_token'
       + '&refresh_token=' + encodeURIComponent(rt)
       + '&client_id=' + DBX_APP_KEY
+  }).catch(function(err) {
+    if (err instanceof TypeError) throw new Error('Sin conexi\xF3n — no se pudo renovar el token de Dropbox');
+    throw err;
   })
   .then(function(r) {
     if (!r.ok && r.status >= 500) throw new Error('Dropbox token endpoint error ' + r.status + ' — intenta de nuevo');
@@ -583,7 +586,7 @@ function handleOAuthCallback() {
       + '&redirect_uri=' + encodeURIComponent(DBX_REDIRECT)
       + '&code_verifier=' + encodeURIComponent(verifier)
   })
-  .then(function(r) { return r.json(); })
+  .then(function(r) { if (!r.ok) throw new Error('Dropbox OAuth error HTTP ' + r.status); return r.json(); })
   .then(function(d) {
     mostrarCargando(false);
     _lsRemove('pf_dbx_verifier');
@@ -699,7 +702,7 @@ function listarCarpeta(carpeta) {
       body: JSON.stringify({ path: carpeta, recursive: false })
     });
   })
-  .then(function(r) { return r.json(); })
+  .then(function(r) { if (!r.ok) throw new Error('Dropbox HTTP ' + r.status); return r.json(); })
   .then(function(d) {
     if (d.error_summary) { if (debug) debug.textContent = '❌ ' + d.error_summary; return; }
     var entries = (d.entries || []).filter(function(e) { return e['.tag'] === 'file'; });
@@ -877,6 +880,11 @@ function _llamarGroq(mensajes, maxTokens, temperatura) {
     }).then(function(r) {
       if (!r.ok) return r.text().then(function(t) { throw new Error('Groq HTTP ' + r.status + ': ' + t.slice(0, 200)); });
       return r.json();
+    }).catch(function(err) {
+      if (err instanceof TypeError || /fetch|network|internet/i.test(err.message)) {
+        throw new Error('Sin conexi\xF3n a internet — verifica tu red e intenta de nuevo');
+      }
+      throw err;
     }),
     timeoutP
   ]).finally(function() { clearTimeout(timeoutId); });
@@ -1320,6 +1328,9 @@ function dbxDownload(path) {
           'Authorization': 'Bearer ' + token,
           'Dropbox-API-Arg': JSON.stringify({ path: path })
         }
+      }).catch(function(err) {
+        if (err instanceof TypeError) throw new Error('Sin conexi\xF3n — no se pudo descargar ' + path.split('/').pop());
+        throw err;
       }).then(function(r) {
         if (r.status === 401) throw new Error('Tu sesi\xF3n de Dropbox expir\xF3, reconecta en ⚙️ Config');
         if (r.status === 400 || r.status === 409) {
@@ -1347,6 +1358,9 @@ function dbxUpload(path, content) {
           'Content-Type': 'application/octet-stream'
         },
         body: typeof content === 'string' ? content : JSON.stringify(content)
+      }).catch(function(err) {
+        if (err instanceof TypeError) throw new Error('Sin conexi\xF3n — no se pudo subir ' + path.split('/').pop());
+        throw err;
       }).then(function(r) {
         if (r.status === 401) throw new Error('Tu sesi\xF3n de Dropbox expir\xF3, reconecta en ⚙️ Config');
         if (r.status === 400 || r.status === 409) {
