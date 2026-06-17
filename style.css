@@ -1491,8 +1491,25 @@ html.dark .btn-copiar-instruccion { background: #6d28d9; }
   box-shadow: 0 1px 4px rgba(0,0,0,.08);
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
+  transition: opacity 0.15s, box-shadow 0.15s;
 }
+.ruta-preview-item.rp-dragging { opacity: 0.4; }
+.ruta-preview-item.rp-drag-over { box-shadow: 0 -3px 0 0 #9e1212, 0 1px 4px rgba(0,0,0,.08); }
+.ruta-preview-drag {
+  cursor: grab;
+  color: #bbb;
+  font-size: 1rem;
+  padding: 2px 0;
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.ruta-preview-drag:active { cursor: grabbing; color: #888; }
+html.dark .ruta-preview-drag { color: #555; }
+html.dark .ruta-preview-drag:active { color: #aaa; }
+.rp-touch-ghost { border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
 .ruta-preview-num {
   width: 28px;
   height: 28px;
