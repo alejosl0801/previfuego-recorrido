@@ -1963,12 +1963,12 @@ function renderClienteMesCard(c, idx, visitado) {
     var principalUp = (c.marcaPrincipal || '').toUpperCase();
     tiposHtml = '<div class="cliente-tipos">'
       + c.tipos.map(function(t) {
-          // Show tipo (CO2/PQS/TIPO K) + marca only when marca ≠ client's own brand (avoid redundancy)
           var marcaTag = (t.marca && t.marca.toUpperCase() !== principalUp) ? t.marca : '';
           var partes = [t.tipo, marcaTag].filter(function(x){ return x && x.trim(); });
           var label = partes.join(' ');
-          var capStr = t.cap ? ' <span class="tipo-cap">' + t.cap + 'lb</span>' : '';
-          return '<span class="cliente-tipo-tag">' + esc(label || '—') + capStr + '</span>';
+          var capStr = t.cap ? ' ' + t.cap + 'lb' : '';
+          var qtyStr = t.qty ? t.qty + '× ' : '';
+          return '<span class="cliente-tipo-tag">' + qtyStr + esc(label || '—') + '<span class="tipo-cap">' + capStr + '</span></span>';
         }).join('')
       + '</div>';
   }
@@ -2005,7 +2005,7 @@ function renderClienteMesCard(c, idx, visitado) {
     +   '<div class="cliente-nombre">' + badge + ' ' + nombreHtml + alerta30 + '</div>'
     +   (dirHtml ? '<div class="cliente-dir">' + dirHtml + '</div>' : '')
     +   tiposHtml
-    +   '<div class="cliente-ext">🧯 ' + (c.extintores || '?') + ' extintor(es)' + (c.esKfc && c.capacidadTotal ? ' · ' + c.capacidadTotal + 'lb total' : '') + '</div>'
+    +   '<div class="cliente-ext">🧯 ' + (c.extintores || '?') + ' extintor(es)</div>'
     +   ultVisStr
     +   historialStr
     + '</div>'
