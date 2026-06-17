@@ -627,14 +627,7 @@ function actualizarEstadoConexion() {
   if (inOtros) inOtros.value = DBX_OTROS_PATH;
   if (inSushi) inSushi.value = DBX_SUSHI_PATH;
 
-  var groqStatus = document.getElementById('cfg-groq-status');
-  if (groqStatus) {
-    if (getGroqKey()) {
-      groqStatus.textContent = '✅ Groq AI configurado (llama-3.3-70b)';
-    } else {
-      groqStatus.textContent = '⚠️ Sin clave Groq — ingresa una para activar Valeria';
-    }
-  }
+  _actualizarEstadoIA();
 
   var lastSync = document.getElementById('cfg-last-sync');
   if (lastSync) {
@@ -790,23 +783,55 @@ function guardarGroqKey() {
   if (!key) {
     _lsRemove('pf_groq_key');
     input.value = '';
-    var gs0 = document.getElementById('cfg-groq-status');
-    if (gs0) gs0.textContent = '⚠️ Sin clave Groq — ingresa una para activar Valeria';
+    _actualizarEstadoIA();
     showToast('Clave Groq eliminada');
     return;
   }
   _lsSet('pf_groq_key', key);
   input.value = '';
-  var groqStatus = document.getElementById('cfg-groq-status');
-  if (groqStatus) groqStatus.textContent = '✅ Groq AI configurado (clave personalizada)';
+  _actualizarEstadoIA();
   if (getRefreshToken()) {
     dbxDownloadJSON(DBX_CONFIG)
     .then(function(cfg) { cfg.groq_key = key; return dbxUpload(DBX_CONFIG, JSON.stringify(cfg, null, 2)); })
     .then(function() { showToast('✅ Clave Groq guardada en Dropbox'); })
-    .catch(function() { showToast('✅ Clave guardada localmente (sin conexión a Dropbox)'); });
+    .catch(function() { showToast('✅ Clave guardada localmente'); });
   } else {
     showToast('✅ Clave Groq guardada');
   }
+}
+
+function guardarOpenAIKey() {
+  var input = document.getElementById('cfg-openai-key');
+  if (!input) return;
+  var key = input.value.trim();
+  if (!key) {
+    _lsRemove('pf_openai_key');
+    input.value = '';
+    _actualizarEstadoIA();
+    showToast('Clave ChatGPT eliminada');
+    return;
+  }
+  _lsSet('pf_openai_key', key);
+  input.value = '';
+  _actualizarEstadoIA();
+  if (getRefreshToken()) {
+    dbxDownloadJSON(DBX_CONFIG)
+    .then(function(cfg) { cfg.openai_key = key; return dbxUpload(DBX_CONFIG, JSON.stringify(cfg, null, 2)); })
+    .then(function() { showToast('✅ Clave ChatGPT guardada en Dropbox'); })
+    .catch(function() { showToast('✅ Clave guardada localmente'); });
+  } else {
+    showToast('✅ Clave ChatGPT guardada');
+  }
+}
+
+function _actualizarEstadoIA() {
+  var el = document.getElementById('cfg-ia-status');
+  if (!el) return;
+  var openai = getOpenAIKey();
+  var groq = getGroqKey();
+  if (openai) { el.textContent = '✅ Usando ChatGPT (OpenAI)'; el.style.color = '#1a7f37'; }
+  else if (groq) { el.textContent = '✅ Usando Groq AI'; el.style.color = '#1a7f37'; }
+  else { el.textContent = '⚠️ Sin clave de IA — ingresa una para activar Valeria'; el.style.color = '#b45309'; }
 }
 
 /* Create required Dropbox files on first use so 409 not_found never fires again */
@@ -832,38 +857,43 @@ function sincronizarConfig() {
   if (!getRefreshToken()) return;
   dbxDownloadJSON(DBX_CONFIG)
   .then(function(cfg) {
-    if (cfg.groq_key) {
-      _lsSet('pf_groq_key', cfg.groq_key);
-    }
+    if (cfg.groq_key) _lsSet('pf_groq_key', cfg.groq_key);
+    if (cfg.openai_key) _lsSet('pf_openai_key', cfg.openai_key);
+    _actualizarEstadoIA();
     _lsSet('pf_last_sync', new Date().toLocaleString('es-EC'));
   })
   .catch(function() {});
 }
 
 /* ===================================================
-   GROQ API — shared call helper
+   AI API — supports OpenAI (ChatGPT) and Groq
 =================================================== */
+function getOpenAIKey() { return _lsGet('pf_openai_key') || ''; }
+
 function _llamarGroq(mensajes, maxTokens, temperatura) {
-  var key = getGroqKey();
-  // Must reject (not throw): callers chain .then/.catch and a sync throw
-  // breaks publicarRutaPreview, renderTablaSeguimiento and leaves "Pensando..." stuck
-  if (!key) return Promise.reject(new Error('Sin clave Groq — ingr\xE9sala en ⚙️ Config'));
+  var openaiKey = getOpenAIKey();
+  var groqKey = getGroqKey();
+  if (!openaiKey && !groqKey) return Promise.reject(new Error('Sin clave de IA — ingresa una clave de ChatGPT o Groq en ⚙️ Config'));
+  var useOpenAI = !!openaiKey;
+  var key = useOpenAI ? openaiKey : groqKey;
+  var url = useOpenAI ? 'https://api.openai.com/v1/chat/completions' : 'https://api.groq.com/openai/v1/chat/completions';
+  var model = useOpenAI ? 'gpt-4o-mini' : 'llama-3.3-70b-versatile';
   var timeoutId;
   var timeoutP = new Promise(function(_, reject) {
-    timeoutId = setTimeout(function() { reject(new Error('Tiempo de espera agotado (20s). Intenta de nuevo.')); }, 20000);
+    timeoutId = setTimeout(function() { reject(new Error('Tiempo de espera agotado (25s). Intenta de nuevo.')); }, 25000);
   });
   return Promise.race([
-    fetch('https://api.groq.com/openai/v1/chat/completions', {
+    fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
       body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
+        model: model,
         messages: mensajes,
         temperature: temperatura || 0.1,
         max_tokens: maxTokens || 1024
       })
     }).then(function(r) {
-      if (!r.ok) return r.text().then(function(t) { throw new Error('Groq HTTP ' + r.status + ': ' + t.slice(0, 200)); });
+      if (!r.ok) return r.text().then(function(t) { throw new Error((useOpenAI ? 'OpenAI' : 'Groq') + ' HTTP ' + r.status + ': ' + t.slice(0, 200)); });
       return r.json();
     }).catch(function(err) {
       if (err instanceof TypeError || /fetch|network|internet/i.test(err.message)) {
@@ -2408,6 +2438,8 @@ function _dictarEliminarPunto(idx) {
   _dictatStatus(_DICTAR_PUNTOS.length + ' punto(s). Pulsa micr\xF3fono para agregar m\xE1s.');
 }
 
+var _DICTAR_TEXTO_ACUM = '';
+
 function hablarPuntoRecorrido() {
   var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) { pfModal('No disponible', 'Tu navegador no soporta reconocimiento de voz. Usa Chrome.'); return; }
@@ -2416,31 +2448,54 @@ function hablarPuntoRecorrido() {
     try { _DICTAR_REC.abort(); } catch(e) {}
     _DICTAR_REC = null;
     if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4; Hablar punto'; }
-    _dictatStatus('Grabaci\xF3n cancelada.');
+    if (_DICTAR_TEXTO_ACUM.trim()) {
+      var textoFinal = _DICTAR_TEXTO_ACUM.trim();
+      _DICTAR_TEXTO_ACUM = '';
+      _dictatStatus('⏳ Procesando: “' + textoFinal.slice(0, 80) + (textoFinal.length > 80 ? '...' : '') + '”');
+      _estructurarPuntoConIA(textoFinal);
+    } else {
+      _DICTAR_TEXTO_ACUM = '';
+      _dictatStatus('Grabaci\xF3n cancelada.');
+    }
     return;
   }
-  if (btn) { btn.classList.add('grabando'); btn.innerHTML = '&#x23F9; Detener'; }
-  _dictatStatus('🔴 Escuchando... habla ahora', '#c00');
+  _DICTAR_TEXTO_ACUM = '';
+  if (btn) { btn.classList.add('grabando'); btn.innerHTML = '&#x23F9; Detener y procesar'; }
+  _dictatStatus('🔴 Escuchando... habla todo lo que necesites. Pulsa Detener cuando termines.', '#c00');
   var rec = new SpeechRecognition();
   _DICTAR_REC = rec;
   rec.lang = 'es-EC';
-  rec.continuous = false;
-  rec.interimResults = false;
+  rec.continuous = true;
+  rec.interimResults = true;
   rec.onresult = function(e) {
-    var texto = e.results[0][0].transcript;
-    _DICTAR_REC = null;
-    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4; Hablar punto'; }
-    _dictatStatus('⏳ Procesando: “' + texto + '”');
-    _estructurarPuntoConIA(texto);
+    var full = '';
+    for (var i = 0; i < e.results.length; i++) {
+      full += e.results[i][0].transcript;
+    }
+    _DICTAR_TEXTO_ACUM = full;
+    _dictatStatus('🔴 “' + full.slice(-100) + (full.length > 100 ? '...' : '') + '”', '#c00');
   };
   rec.onerror = function(ev) {
+    if (ev.error === 'no-speech') return;
     _DICTAR_REC = null;
     if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4; Hablar punto'; }
-    _dictatStatus('⚠️ Error de micr\xF3fono: ' + ev.error, '#c00');
+    if (_DICTAR_TEXTO_ACUM.trim()) {
+      _dictatStatus('⏳ Procesando lo capturado...');
+      var t = _DICTAR_TEXTO_ACUM.trim(); _DICTAR_TEXTO_ACUM = '';
+      _estructurarPuntoConIA(t);
+    } else {
+      _DICTAR_TEXTO_ACUM = '';
+      _dictatStatus('⚠️ Error de micr\xF3fono: ' + ev.error, '#c00');
+    }
   };
   rec.onend = function() {
-    _DICTAR_REC = null;
-    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4; Hablar punto'; }
+    if (!_DICTAR_REC) return;
+    if (_DICTAR_TEXTO_ACUM.trim()) {
+      rec.start();
+    } else {
+      _DICTAR_REC = null;
+      if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4; Hablar punto'; }
+    }
   };
   rec.start();
 }
@@ -2452,36 +2507,18 @@ function _estructurarPuntoConIA(descripcion) {
   var nombreJuan = TECNICOS[1].toLowerCase().split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   if (new RegExp('\\b' + nombreJuan + '\\b', 'i').test(descripcion)) tecDefault = TECNICOS[1];
 
-  var systemMsg = 'Eres un transcriptor de recorridos para PREVIFUEGO (empresa de extintores, Guayaquil, Ecuador).\n'
-    + 'El admin Alejandro te describe UN punto de recorrido en voz. Tu \xFAnica tarea es plasmar EXACTAMENTE lo que dice en formato JSON.\n'
-    + 'REGLA PRINCIPAL: NO agregues, NO inventes, NO asumas nada que el admin no haya dicho expl\xEDcitamente. Si no lo dijo, no va.\n'
-    + 'FORMATO DE RESPUESTA (solo JSON, sin texto extra):\n'
-    + '{“nombre”:”...”,”direccion”:”...”,”mision”:”...”,”nota”:”...”,”urgente”:false}\n\n'
 
-    + '=== NOMBRES DE CLIENTES (solo para ortograf\xEDa correcta) ===\n'
-    + 'KFC, Cebiches de la Rumi\xF1ahui, Menestras del Negro, Tortaman\xEDa, Papa Johns, Empanadas de Paco, '
-    + 'Caj\xFAn Grill, American Deli, Il Capo, Juan Valdez, Baskin Robbins, No\xE9, Dolce Incontro, Casa Res, El Toro Asado, '
-    + 'TropiBurger, Shiatsu, Yatai, Cinnabon, El Espa\xF1ol, Little Italy, Gus, HP Nutrition, Metroburger, Papizzec, Kobe, '
-    + 'Carsague SA, Rychard Lorentzen, Segumar SCI, Importadora Federal, G\xF3mez y G\xF3mez, L\xF3pez y L\xF3pez, '
-    + 'Servintex, SEPRO, Conseg, Panamito, Sumiseg, Oferservi SA, Mantex, Tecsind, Karmoseg, Ventas y Recargas Jurado, '
-    + 'Congas, Produsol, Inmobiliaria Khoury, Korea Motors, Bidokan, Soselec, NovoCentro, Ikura, ICO Internacional, '
-    + 'Layla Maksoud, Arafisa, Interhospital de los Ceibos, Garzota Chifa, Sandra Parrales, Ago SAS, Casares, '
-    + 'Intriseg, Indutores, InduTorres, Dumilesa, Freddy Quezada, Producsol, La Esquina Peruana, Latitud 0, '
-    + 'Innovasafe, T\xEDa Go, VESEIND Recargas, Tractocentro Ecuador, Almax, Oficinas Grupo T\xEDa, Oficinas Grupo KFC, '
-    + 'Garaje (Sucre y Mal\xE9con), Pernos Lumitec, Regalo de Dios, Roberto Camacho, Demaco, Fujifilm, '
-    + 'Joyeri\xEDa Marthita, Aeropuerto Gastroport, FEHIERRO, Aveiga, Obtida, Elinoc, Luis Tierra.\n'
-
-    + '\n=== C\xD3MO COMPLETAR EL JSON ===\n'
-    + '- nombre: nombre exacto del cliente con su ubicaci\xF3n, tal como lo menciona el admin. Capitalizar correctamente. '
-    + 'Ejemplos: "KFC Shell Dur\xE1n", "Menestras del Negro Garzota", "Empanadas de Paco Terminal Terrestre".\n'
-    + '- direccion: direcci\xF3n, sector o mall que el admin mencione expl\xEDcitamente. Si no lo dice, dejar "".\n'
-    + '- mision: transcribir TEXTUALMENTE y en orden lo que el admin dice que hay que hacer, separando cada tarea por \\n. '
-    + 'Si el admin menciona cantidades y tipos de extintor, incluirlos exactamente (ej: "Retirar 1 extintor CO\u2082 50lb y 3 PQS 10lb"). '
-    + 'Si el admin menciona varios locales en un mismo punto, incluir todos con sus tareas. '
-    + 'NO agregar, NO inventar, NO asumir nada que el admin no haya dicho.\n'
-    + '- nota: solo lo que el admin diga como observaci\xF3n, advertencia o informaci\xF3n adicional. Si no dice nada, dejar "".\n'
-    + '- urgente: true solo si el admin lo dice expl\xEDcitamente.\n'
-    + 'IMPORTANTE: usa \\n para saltos de l\xEDnea. Responde SOLO con el JSON, sin texto adicional.';
+  var systemMsg = 'Eres Valeria, asistente de PREVIFUEGO (empresa de extintores, Guayaquil, Ecuador).\n'
+    + 'El admin Alejandro te dicta UN punto del recorrido diario por voz. Tu UNICO trabajo es escribir bonito lo que el dice.\n\n'
+    + 'REGLAS ABSOLUTAS:\n'
+    + '1. SOLO transcribe y organiza lo que el admin DIJO. NO agregues, NO inventes, NO busques informacion adicional.\n'
+    + '2. Si el dice "ir a Menestras del Negro Vina Plaza a dar mantenimiento", eso es TODO lo que pones.\n'
+    + '3. NO sugieras extintores, capacidades, cantidades ni ningun dato que el no haya mencionado.\n'
+    + '4. Si el menciona cantidades o tipos de extintor, incluyelos tal cual los dijo.\n'
+    + '5. Capitaliza nombres propios correctamente y organiza la informacion de forma clara.\n\n'
+    + 'FORMATO DE RESPUESTA (SOLO JSON, sin texto extra):\n'
+    + '{"nombre":"nombre del cliente/lugar","direccion":"ubicacion si la menciono, sino vacio","mision":"lo que dijo que hay que hacer, escrito bonito","nota":"observaciones que haya dicho, sino vacio","urgente":false}\n\n'
+    + 'Usa \\n para saltos de linea en mision si hay varias tareas. urgente=true solo si lo dice explicitamente.';
 
   _llamarGroq([
     { role: 'system', content: systemMsg },
