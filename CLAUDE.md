@@ -19,7 +19,7 @@ PWA para empresa de extintores Previfuego. Permite:
 | `index.html` | Estructura HTML — 3 pantallas: s0 (login), s1 (técnico), sadmin (admin) |
 | `app.js` | Toda la lógica JS (~1100 líneas) |
 | `style.css` | Estilos |
-| `sw.js` | Service Worker, CACHE_VERSION='1.1' |
+| `sw.js` | Service Worker, CACHE_VERSION='5.3' |
 | `manifest.json` | PWA manifest |
 | `icon-192.png` / `icon-512.png` | Íconos generados con Node.js + zlib |
 

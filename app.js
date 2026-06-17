@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = '3.8';
+var APP_VERSION = '3.9';
 
 /* CLIENTES_BD generado desde: BASE_DATOS_KFC_9.xlsx + OTRAS_EMPRESAS.xlsx + MATRIZ_SUSHICORP.xlsx */
 var CLIENTES_BD = [
@@ -363,7 +363,7 @@ var CLIENTES_BD = [
   {nombre:"KOBE PLAZA BATAN",marca:"",mes:"AGOSTO",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
   {nombre:"KOBE MALL DEL SOL",marca:"",mes:"AGOSTO",extintores:2,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
   {nombre:"KOBE MALL DEL NORTE",marca:"",mes:"JULIO",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
-  {nombre:"NOE SAN MARINO",marca:"",mes:"NOVIEMBRE",extintores:5,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "K", "marca": "", "cap": 0}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
+  {nombre:"NOE SAN MARINO",marca:"",mes:"NOVIEMBRE",extintores:5,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "TIPO K", "marca": "", "cap": 0}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
   {nombre:"KOBE PLAZA TIA JOYA",marca:"",mes:"NOVIEMBRE",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
   {nombre:"KOBE BAMBOO PLAZA VIA A LA C",marca:"",mes:"NOVIEMBRE",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"sushi"},
   {nombre:"KOBE RIOC ENTRE RIOS",marca:"",mes:"NOVIEMBRE",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
@@ -1389,124 +1389,6 @@ var MESES_NUM = {'1':'ENERO','2':'FEBRERO','3':'MARZO','4':'ABRIL','5':'MAYO','6
   '01':'ENERO','02':'FEBRERO','03':'MARZO','04':'ABRIL','05':'MAYO','06':'JUNIO',
   '07':'JULIO','08':'AGOSTO','09':'SEPTIEMBRE','10':'OCTUBRE','11':'NOVIEMBRE','12':'DICIEMBRE'};
 
-function parseExcel(buf) {
-  var wb = XLSX.read(buf, { type: 'array' });
-  // Prefer RESUMEN_LOCALES sheet: one row per local, N_EXTINTORES = real count, no TOTAL rows
-  var resumenName = wb.SheetNames.find(function(n) { return /resumen/i.test(n); });
-  if (resumenName) {
-    var ws = wb.Sheets[resumenName];
-    var rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-    rows.forEach(function(r) { r.__sheet = resumenName; r.__isResumen = true; });
-    return rows;
-  }
-  // Fallback: read all sheets as DETALLE (one row per extintor)
-  var allRows = [];
-  wb.SheetNames.forEach(function(sheetName) {
-    var ws = wb.Sheets[sheetName];
-    var rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-    rows.forEach(function(r) { r.__sheet = sheetName; });
-    allRows = allRows.concat(rows);
-  });
-  return allRows;
-}
-
-function parseExcelOtros(buf, mesSeleccionado) {
-  var wb = XLSX.read(buf, { type: 'array' });
-  var sheetTarget = null;
-  // Map abbreviated month names to full names
-  var MESES_ABREV = {
-    'ENE':'ENERO','FEB':'FEBRERO','MAR':'MARZO','ABR':'ABRIL','MAY':'MAYO','JUN':'JUNIO',
-    'JUL':'JULIO','AGO':'AGOSTO','SEP':'SEPTIEMBRE','SEPT':'SEPTIEMBRE','OCT':'OCTUBRE',
-    'NOV':'NOVIEMBRE','DIC':'DICIEMBRE'
-  };
-  wb.SheetNames.forEach(function(name) {
-    var upper = name.trim().toUpperCase();
-    // Normalize by stripping digits/spaces/special chars to get the base word
-    var base = upper.replace(/[^A-ZÁÉÍÓÚÑ]/g, '');
-    var fullName = MESES_ABREV[base] || base;
-    // Also try normalizarMes
-    var normalized = normalizarMes(name.trim());
-    if (upper === mesSeleccionado || normalized === mesSeleccionado ||
-        fullName === mesSeleccionado || upper.indexOf(mesSeleccionado) !== -1 ||
-        mesSeleccionado.indexOf(base) !== -1) {
-      sheetTarget = name;
-    }
-  });
-  var sheetsToRead = sheetTarget ? [sheetTarget] : wb.SheetNames;
-  var clientes = [];
-  var FILAS_BASURA = /^(totales?\b|subtotales?\b|suma\b|parcial\b|cantidad\b|cant\b|tipo\b|extintores?\b|marca\b|descripcion\b|ubicacion\b|item\b|n[°º]|cc\b|\d)/i;
-  sheetsToRead.forEach(function(sheetName) {
-    var ws = wb.Sheets[sheetName];
-    if (!ws) return;
-    var raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-    var nombreActual = '';
-    raw.forEach(function(row) {
-      var colA = String(row[0] || '').trim();
-      var colC = String(row[2] || '').trim();
-      var colD = String(row[3] || '').trim();
-      // Forward-fill client name, but skip garbage names (TOTAL, SUBTOTAL, headers)
-      if (colA && !FILAS_BASURA.test(colA)) nombreActual = colA;
-      if (!nombreActual || FILAS_BASURA.test(nombreActual)) return;
-      if (!colC && !colD) return;
-      // Skip rows where colC looks like a header/garbage
-      if (colC && FILAS_BASURA.test(colC)) return;
-      clientes.push({
-        nombre:       nombreActual,
-        direccion:    String(row[1] || '').trim(),  // UBICACIÓN = col B
-        extintores:   1,                             // each row = 1 extintor
-        capacidadLbs: parseInt(colD) || 0,           // CAPACIDAD in lbs (for display)
-        mes:          sheetTarget ? mesSeleccionado : normalizarMes(sheetName),
-        local:        colC,                          // TIPO (CO2, PQS...)
-        marca:        '',
-        esKfc:        false
-      });
-    });
-  });
-  return clientes;
-}
-
-// Parser for SUSHICORP / NOE / KOBE style Excel
-// Single sheet, columns: CC (col0), UBICACIÓN (col1), TIPO (col2), CAPACIDAD-lbs (col3), ..., Mes de trabajo (col16)
-function parseExcelSushi(buf, mesSeleccionado) {
-  var wb = XLSX.read(buf, { type: 'array' });
-  var ws = wb.Sheets[wb.SheetNames[0]];
-  var raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-  var clientes = [];
-  var FILAS_BASURA = /^(total\b|subtotal\b|suma\b|parcial\b|cantidad\b|cant\b|tipo\b|extintores?\b|marca\b|descripcion\b|item\b|n[°º]|cc\b|ubicacion\b|\d)/i;
-  var nombreActual = '';
-  var mesActual = '';
-  raw.forEach(function(row) {
-    var colA = String(row[0] || '').trim();
-    var colB = String(row[1] || '').trim();
-    var colC = String(row[2] || '').trim();
-    var colD = String(row[3] || '').trim();
-    var colQ = String(row[16] || '').trim(); // "Mes de trabajo"
-    // Update current client name and month from first row of each client block
-    if (colA && !FILAS_BASURA.test(colA)) {
-      nombreActual = colA;
-      var m = normalizarMes(colQ);
-      if (m) mesActual = m;
-    } else if (colQ) {
-      var m2 = normalizarMes(colQ);
-      if (m2) mesActual = m2;
-    }
-    if (!nombreActual || FILAS_BASURA.test(nombreActual)) return;
-    if (!colC && !colD) return;
-    if (mesSeleccionado && mesActual && mesActual !== mesSeleccionado) return;
-    clientes.push({
-      nombre:       nombreActual,
-      direccion:    colB,
-      extintores:   1,
-      capacidadLbs: parseInt(colD) || 0,
-      mes:          mesActual,
-      local:        colC,
-      marca:        '',
-      esKfc:        false
-    });
-  });
-  return clientes;
-}
-
 function normalizarMes(val) {
   // Handle Date objects directly (SheetJS returns date cells as Date objects)
   if (val instanceof Date && !isNaN(val)) {
@@ -1543,112 +1425,6 @@ function normalizarMes(val) {
   return up;
 }
 
-function normalizarCliente(row, esKfc) {
-  var cols = Object.keys(row);
-  function get() {
-    for (var i = 0; i < arguments.length; i++) {
-      var v = row[arguments[i]];
-      if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
-    }
-    return '';
-  }
-  var nombre = get('NOMBRE_LOCAL','CLIENTE','Cliente','NOMBRE','Nombre',
-                   'RAZON SOCIAL','Raz\xF3n Social','RAZON_SOCIAL','RAZ\xD3N SOCIAL',
-                   'EMPRESA','Empresa','ESTABLECIMIENTO','Establecimiento',
-                   'RAZON','Razon','DENOMINACION','Denominacion');
-  if (!nombre) {
-    var nameCols = cols.filter(function(c) {
-      return /nombre|cliente|razon|empresa|local|establec/i.test(c);
-    });
-    if (nameCols.length) nombre = String(row[nameCols[0]] || '').trim();
-  }
-  var dir = get('UBICACI\xD3N','UBICACION','DIRECCION','Direcci\xF3n','DIRECCI\xD3N',
-                'DIR','Direccion','DIREC','direccion','DOMICILIO','Domicilio');
-  var ciudad = get('CIUDAD','Ciudad','ciudad','CANTON','PROVINCIA');
-  var ext = get('N_EXTINTORES','EXTINTORES','Extintores','CAPACIDAD','CANTIDAD','Cantidad',
-                'EXT','N_EXT','NUMERO','N\xFAmero','CANT');
-  // Get mes preserving original value (may be Date object from SheetJS)
-  var mesRaw = (function() {
-    var keys = ['MES_SERVICIO','MES','Mes','mes','MES_CONTRATO','PERIODO','Periodo'];
-    for (var i = 0; i < keys.length; i++) {
-      var v = row[keys[i]];
-      if (v !== undefined && v !== null && v !== '') return v;
-    }
-    // Fallback: use the sheet tab name as month (KFC Excel organizes by sheet, not column)
-    return row.__sheet || '';
-  })();
-  var mes = mesRaw;
-  var local = get('LOCAL','Local','LOCAL_KFC','Sucursal','SUCURSAL','TIPO','Tipo','ZONA','Zona');
-  var marca = get('MARCA','Marca','TIPO_EXT','TIPO EXTINTOR');
-  return {
-    nombre:       nombre,
-    direccion:    (dir || '') + (ciudad ? (dir ? ' — ' : '') + ciudad : ''),
-    extintores:   parseInt(ext) || 0,
-    mes:          normalizarMes(mes),
-    local:        local,
-    marca:        marca,
-    esKfc:        !!esKfc,
-    __isResumen:  !!row.__isResumen
-  };
-}
-
-function _normKey(nombre) {
-  return (nombre || '').toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // strip accents
-    .replace(/[^a-z0-9\s]/g, ' ')                       // punctuation → space
-    .replace(/([a-z])(\d)/g, '$1 $2')                   // "m014" → "m 014", "g48" → "g 48"
-    .replace(/\b0+(\d)/g, '$1')                         // strip leading zeros: "014" → "14"
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-
-function deduplicarClientes(lista) {
-  var mapa = {};
-  var orden = [];
-  lista.forEach(function(c) {
-    if (!c.nombre) return;
-    var key = _normKey(c.nombre);
-    if (!mapa[key]) {
-      mapa[key] = Object.assign({}, c, { tipos: [], extintores: 0, capacidadTotal: 0 });
-      orden.push(key);
-    }
-    // Only add tag if it has a real extintor type (skip brand-only rows from headers/totals)
-    // capacidadLbs = lbs capacity for display (from OTRAS_EMPRESAS/Sushi rows); extintores = count
-    var dispCap = (c.capacidadLbs !== undefined) ? c.capacidadLbs : c.extintores;
-    if (c.local && c.local.trim()) {
-      mapa[key].tipos.push({ tipo: c.local, marca: c.marca || '', cap: dispCap });
-    }
-    if (!mapa[key].direccion && c.direccion) mapa[key].direccion = c.direccion;
-    if (!mapa[key].marcaPrincipal && c.marca) mapa[key].marcaPrincipal = c.marca;
-    if (c.esKfc) {
-      if (c.__isResumen && c.extintores > 0) {
-        // RESUMEN_LOCALES: N_EXTINTORES = real count per local
-        mapa[key].extintores += c.extintores;
-      } else {
-        // DETALLE fallback: each row = 1 extintor
-        mapa[key].extintores += 1;
-      }
-      mapa[key].capacidadTotal += dispCap;
-    } else {
-      // Otras Empresas / Sushicorp: each row = 1 extintor (extintores already = 1)
-      mapa[key].extintores += c.extintores;
-      mapa[key].capacidadTotal += dispCap;
-    }
-  });
-  return orden.map(function(k) {
-    var obj = mapa[k];
-    // Dedup tipos: same tipo+marca+cap can appear multiple times from duplicate Excel rows
-    var tiposVisto = {};
-    obj.tipos = obj.tipos.filter(function(t) {
-      var tk = (t.tipo + '|' + t.marca + '|' + t.cap);
-      if (tiposVisto[tk]) return false;
-      tiposVisto[tk] = true;
-      return true;
-    });
-    return obj;
-  });
-}
 
 /* ===================================================
    UTILITIES
@@ -1894,15 +1670,6 @@ function _mostrarOverlayClientes(show) {
   }
 }
 
-/* Error log — keep last 10 errors in localStorage */
-function _logError(contexto, err) {
-  try {
-    var log = JSON.parse(localStorage.getItem('pf_error_log') || '[]');
-    log.unshift({ ts: new Date().toLocaleString('es-EC'), ctx: contexto, msg: String(err && err.message || err) });
-    if (log.length > 10) log = log.slice(0, 10);
-    localStorage.setItem('pf_error_log', JSON.stringify(log));
-  } catch(e) {}
-}
 
 var _cargandoClientes = false;
 var _cargandoClientesGen = 0;  // Generation counter to discard stale responses
