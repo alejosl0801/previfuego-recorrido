@@ -3202,7 +3202,7 @@ function _ejecutarSubirFichas() {
 =================================================== */
 window.onerror = function(msg, src, line, col, err) {
   console.error('[PF]', msg, src + ':' + line);
-  toast('Error inesperado — recarga la app si algo no funciona', 4000);
+  showToast('Error inesperado — recarga la app si algo no funciona', 4000);
   return true;
 };
 window.addEventListener('unhandledrejection', function(e) {
