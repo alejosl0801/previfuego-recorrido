@@ -1681,7 +1681,7 @@ html.dark .mes-progress { background: #2a2a30; }
   font-size: 0.68rem; font-weight: 700; border-radius: 999px; text-align: center;
 }
 
-/* Groq migration — Valeria proactive suggestion + obs classification */
+/* Valeria proactive suggestion + obs classification */
 .valeria-sugerencia-chip {
   background: #f3e8ff; border: 1px solid #d8b4fe; color: #6b21a8;
   border-radius: 12px; padding: 10px 12px; margin: 0 0 10px;

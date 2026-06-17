@@ -372,7 +372,6 @@ var CLIENTES_BD = [
   {nombre:"KOBE PLANTA",marca:"",mes:"NOVIEMBRE",extintores:16,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 10}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 20}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
 ];
 
-var GROQ_KEY_DEFAULT = '';
 
 /* ===================================================
    CONSTANTS — DROPBOX
@@ -770,36 +769,8 @@ function inspeccionarExcel(path) {
 }
 
 /* ===================================================
-   GROQ KEY — hardcoded default, optional override
+   CHATGPT KEY
 =================================================== */
-function getGroqKey() {
-  return _lsGet('pf_groq_key') || GROQ_KEY_DEFAULT;
-}
-
-function guardarGroqKey() {
-  var input = document.getElementById('cfg-groq-key');
-  if (!input) return;
-  var key = input.value.trim();
-  if (!key) {
-    _lsRemove('pf_groq_key');
-    input.value = '';
-    _actualizarEstadoIA();
-    showToast('Clave Groq eliminada');
-    return;
-  }
-  _lsSet('pf_groq_key', key);
-  input.value = '';
-  _actualizarEstadoIA();
-  if (getRefreshToken()) {
-    dbxDownloadJSON(DBX_CONFIG)
-    .then(function(cfg) { cfg.groq_key = key; return dbxUpload(DBX_CONFIG, JSON.stringify(cfg, null, 2)); })
-    .then(function() { showToast('✅ Clave Groq guardada en Dropbox'); })
-    .catch(function() { showToast('✅ Clave guardada localmente'); });
-  } else {
-    showToast('✅ Clave Groq guardada');
-  }
-}
-
 function guardarOpenAIKey() {
   var input = document.getElementById('cfg-openai-key');
   if (!input) return;
@@ -827,11 +798,8 @@ function guardarOpenAIKey() {
 function _actualizarEstadoIA() {
   var el = document.getElementById('cfg-ia-status');
   if (!el) return;
-  var openai = getOpenAIKey();
-  var groq = getGroqKey();
-  if (openai) { el.textContent = '✅ Usando ChatGPT (OpenAI)'; el.style.color = '#1a7f37'; }
-  else if (groq) { el.textContent = '✅ Usando Groq AI'; el.style.color = '#1a7f37'; }
-  else { el.textContent = '⚠️ Sin clave de IA — ingresa una para activar Valeria'; el.style.color = '#b45309'; }
+  if (getOpenAIKey()) { el.textContent = '✅ ChatGPT configurado'; el.style.color = '#1a7f37'; }
+  else { el.textContent = '⚠️ Sin clave ChatGPT — ingresa una para activar Valeria'; el.style.color = '#b45309'; }
 }
 
 /* Create required Dropbox files on first use so 409 not_found never fires again */
@@ -857,7 +825,6 @@ function sincronizarConfig() {
   if (!getRefreshToken()) return;
   dbxDownloadJSON(DBX_CONFIG)
   .then(function(cfg) {
-    if (cfg.groq_key) _lsSet('pf_groq_key', cfg.groq_key);
     if (cfg.openai_key) _lsSet('pf_openai_key', cfg.openai_key);
     _actualizarEstadoIA();
     _lsSet('pf_last_sync', new Date().toLocaleString('es-EC'));
@@ -866,34 +833,29 @@ function sincronizarConfig() {
 }
 
 /* ===================================================
-   AI API — supports OpenAI (ChatGPT) and Groq
+   AI API — ChatGPT (OpenAI)
 =================================================== */
 function getOpenAIKey() { return _lsGet('pf_openai_key') || ''; }
 
-function _llamarGroq(mensajes, maxTokens, temperatura) {
-  var openaiKey = getOpenAIKey();
-  var groqKey = getGroqKey();
-  if (!openaiKey && !groqKey) return Promise.reject(new Error('Sin clave de IA — ingresa una clave de ChatGPT o Groq en ⚙️ Config'));
-  var useOpenAI = !!openaiKey;
-  var key = useOpenAI ? openaiKey : groqKey;
-  var url = useOpenAI ? 'https://api.openai.com/v1/chat/completions' : 'https://api.groq.com/openai/v1/chat/completions';
-  var model = useOpenAI ? 'gpt-4o-mini' : 'llama-3.3-70b-versatile';
+function _llamarIA(mensajes, maxTokens, temperatura) {
+  var key = getOpenAIKey();
+  if (!key) return Promise.reject(new Error('Sin clave ChatGPT — ingr\xE9sala en ⚙️ Config'));
   var timeoutId;
   var timeoutP = new Promise(function(_, reject) {
     timeoutId = setTimeout(function() { reject(new Error('Tiempo de espera agotado (25s). Intenta de nuevo.')); }, 25000);
   });
   return Promise.race([
-    fetch(url, {
+    fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
       body: JSON.stringify({
-        model: model,
+        model: 'gpt-4o-mini',
         messages: mensajes,
         temperature: temperatura || 0.1,
         max_tokens: maxTokens || 1024
       })
     }).then(function(r) {
-      if (!r.ok) return r.text().then(function(t) { throw new Error((useOpenAI ? 'OpenAI' : 'Groq') + ' HTTP ' + r.status + ': ' + t.slice(0, 200)); });
+      if (!r.ok) return r.text().then(function(t) { throw new Error('ChatGPT HTTP ' + r.status + ': ' + t.slice(0, 200)); });
       return r.json();
     }).catch(function(err) {
       if (err instanceof TypeError || /fetch|network|internet/i.test(err.message)) {
@@ -906,19 +868,19 @@ function _llamarGroq(mensajes, maxTokens, temperatura) {
 }
 
 /* D1 — Auto-resumen diario de la ruta publicada */
-function _resumenDiarioGroq(puntos) {
+function _resumenDiario(puntos) {
   if (!puntos || !puntos.length) return;
   var lista = puntos.map(function(p) {
     return '- ' + p.nombre + (p.esKfc ? ' (KFC)' : '') + ' → ' + (p.tecnico || 'sin asignar');
   }).join('\n');
   var DIAS_SEMANA = ['domingo','lunes','martes','mi\xE9rcoles','jueves','viernes','s\xE1bado'];
   var diaSemana = DIAS_SEMANA[new Date().getDay()];
-  _llamarGroq([
+  _llamarIA([
     { role: 'system', content: 'Eres Valeria, asistente de Previfuego. Resume la ruta del d\xEDa en UNA sola l\xEDnea breve en espa\xF1ol. Ejemplo: "Ruta del lunes: 8 clientes KFC en Guayaquil Norte, t\xE9cnico Ra\xFAl". No agregues nada m\xE1s.' },
     { role: 'user', content: 'D\xEDa: ' + diaSemana + '\nPuntos:\n' + lista }
   ], 256, 0.3)
   .then(function(d) {
-    // Guard: if admin logged out while Groq was processing, VALERIA_MEMORIA was reset to {}.
+    // Guard: if admin logged out while ChatGPT was processing, VALERIA_MEMORIA was reset to {}.
     // Uploading now would overwrite the full memory file with a nearly empty object — data loss.
     if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
     var choice = (d.choices || [])[0] || {};
@@ -955,7 +917,7 @@ function sugerenciaProactiva() {
     return h.fecha + ': ' + (h.clientes || []).join(', ');
   }).join('\n');
 
-  _llamarGroq([
+  _llamarIA([
     { role: 'system', content: 'Eres Valeria, asistente de Previfuego. Bas\xE1ndote en el historial de rutas y los clientes pendientes, sugiere en 1-2 frases qu\xE9 clientes deber\xEDan visitarse hoy. S\xE9 concreto y breve.' },
     { role: 'user', content: '=== HISTORIAL ===\n' + (historialCtx || '(sin historial)') + '\n\n=== PENDIENTES ===\n' + (pendientes || '(ninguno)') }
   ], 512, 0.3)
@@ -977,7 +939,7 @@ function _mostrarSugerenciaChip(texto) {
 /* D3 — Clasificar observaciones de t\xE9cnicos */
 function clasificarObservacion(texto) {
   if (!texto || texto.length <= 20) return Promise.resolve('');
-  return _llamarGroq([
+  return _llamarIA([
     { role: 'system', content: 'Clasifica la siguiente observaci\xF3n de un t\xE9cnico de extintores. Responde \xDANICAMENTE con una de estas tres etiquetas exactas: "⚠️ Problema detectado", "🔧 Requiere seguimiento", "✅ Normal".' },
     { role: 'user', content: texto }
   ], 32, 0)
@@ -1002,7 +964,7 @@ function resumenSeguimientoIA() {
     return '- ' + p.nombre + ' [' + (p.done ? 'LISTO' : (p.enCamino ? 'EN CAMINO' : 'PENDIENTE')) + '] '
       + (p.tecnico || 'sin asignar') + (p.observacion ? ' | Obs: ' + p.observacion : '');
   }).join('\n');
-  _llamarGroq([
+  _llamarIA([
     { role: 'system', content: 'Eres Valeria, asistente de Previfuego. Genera un breve reporte de estado en espa\xF1ol del avance del recorrido del d\xEDa: cu\xE1ntos completados, pendientes, por t\xE9cnico, y resalta observaciones importantes. S\xE9 conciso. Firma como "Valeria 🤖".' },
     { role: 'user', content: 'Fecha: ' + fechaHoy() + '\n\n' + lista }
   ], 1024, 0.3)
@@ -1184,15 +1146,15 @@ function consultarValeria(texto) {
     + '=== CLIENTES DEL MES (con estado de visita y patrones) ===\n' + (clientesCtx || '(sin clientes)') + '\n\n'
     + '=== PREGUNTA DEL ADMINISTRADOR ===\n' + texto;
 
-  _llamarGroq([
+  _llamarIA([
     { role: 'system', content: systemMsg },
     { role: 'user', content: userMsg }
   ], 4096, 0.2)
   .then(function(d) {
     eliminarBurbujaThinking();
-    // Guard: admin may have logged out during the 20s Groq call
+    // Guard: admin may have logged out during the 20s ChatGPT call
     if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
-    if (d.error) throw new Error(d.error.message || 'Error Groq API');
+    if (d.error) throw new Error(d.error.message || 'Error ChatGPT API');
     var choice = (d.choices || [])[0] || {};
     if (choice.finish_reason === 'length') {
       agregarBurbuja('valeria', '⚠️ Respuesta incompleta (l\xEDmite de tokens). Intenta con una instrucci\xF3n m\xE1s corta.');
@@ -2097,7 +2059,7 @@ function iniciarVoz() {
 }
 
 function procesarInstruccionVoz(texto) {
-  agregarBurbuja('valeria', '⏳ Procesando con Groq AI...', 'thinking');
+  agregarBurbuja('valeria', '⏳ Procesando con ChatGPT AI...', 'thinking');
   _ultimaInstruccionVoz = texto;
 
   var clientesCtx = CLIENTES_DISPONIBLES.map(function(c, i) {
@@ -2130,26 +2092,26 @@ function procesarInstruccionVoz(texto) {
     + 'Instrucci\xF3n del administrador: "' + texto + '"\n\n'
     + 'Organiza la ruta seg\xFAn lo que el admin dijo. Responde solo con el array JSON.';
 
-  _llamarGroq([
+  _llamarIA([
     { role: 'system', content: systemMsg },
     { role: 'user', content: userMsg }
   ], 2048, 0.1)
   .then(function(d) {
     eliminarBurbujaThinking();
-    // Guard: admin may have logged out during the 20s Groq call
+    // Guard: admin may have logged out during the 20s ChatGPT call
     if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
-    if (d.error) throw new Error(d.error.message || 'Error Groq API');
+    if (d.error) throw new Error(d.error.message || 'Error ChatGPT API');
     var choice = (d.choices || [])[0] || {};
     var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
     // Parse response: supports [{idx:N, mision:"..."}, ...] or legacy [N, N, ...]
     var arrMatch = text.match(/\[[\s\S]*\]/);
     if (!arrMatch) {
       var partial = text.match(/\[[\s\S]*/);
-      if (!partial) throw new Error('Respuesta inesperada de Groq: ' + text.slice(0, 100));
+      if (!partial) throw new Error('Respuesta inesperada de ChatGPT: ' + text.slice(0, 100));
       arrMatch = [partial[0].replace(/[,\s]+$/, '') + ']'];
     }
     var parsed;
-    try { parsed = JSON.parse(arrMatch[0]); } catch(e) { throw new Error('JSON inv\xe1lido de Groq: ' + arrMatch[0].slice(0, 100)); }
+    try { parsed = JSON.parse(arrMatch[0]); } catch(e) { throw new Error('JSON inv\xe1lido de ChatGPT: ' + arrMatch[0].slice(0, 100)); }
     RUTA_PREVIEW = [];
     parsed.forEach(function(item) {
       var idx = typeof item === 'number' ? item : (item && typeof item.idx === 'number' ? item.idx : -1);
@@ -2171,7 +2133,7 @@ function procesarInstruccionVoz(texto) {
   .catch(function(err) {
     eliminarBurbujaThinking();
     agregarBurbuja('valeria', '❌ Error: ' + String(err));
-    console.error('[PF] Groq error:', err);
+    console.error('[PF] ChatGPT error:', err);
   })
   .finally(function() { _pensandoValeria = false; });
 }
@@ -2520,12 +2482,12 @@ function _estructurarPuntoConIA(descripcion) {
     + '{"nombre":"nombre del cliente/lugar","direccion":"ubicacion si la menciono, sino vacio","mision":"lo que dijo que hay que hacer, escrito bonito","nota":"observaciones que haya dicho, sino vacio","urgente":false}\n\n'
     + 'Usa \\n para saltos de linea en mision si hay varias tareas. urgente=true solo si lo dice explicitamente.';
 
-  _llamarGroq([
+  _llamarIA([
     { role: 'system', content: systemMsg },
     { role: 'user', content: 'Descripci\xF3n del admin: “' + descripcion + '”' }
   ], 800, 0.1)
   .then(function(d) {
-    // Guard: admin may have logged out during the Groq call — don't push into a stale/new session
+    // Guard: admin may have logged out during the ChatGPT call — don't push into a stale/new session
     if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
     var choice = (d.choices || [])[0] || {};
     var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
@@ -2647,7 +2609,7 @@ function publicarRutaPreview() {
     .then(function() {
       mostrarCargando(false);
       actualizarMemoriaValeria(puntos, _ultimaInstruccionVoz);
-      _resumenDiarioGroq(puntos);
+      _resumenDiario(puntos);
       limpiarPreview();
       agregarBurbuja('valeria', '✅ Recorrido publicado para ' + fechaPublicar + ' con ' + puntos.length + ' punto(s). 🚀');
       _initAdminRutaStatus();
