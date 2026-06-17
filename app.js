@@ -2174,7 +2174,8 @@ function renderRutaPreview() {
     var selectOpts = tecNombres.map(function(t) {
       return '<option' + (t === tecnicoHabitual ? ' selected' : '') + '>' + esc(t) + '</option>';
     }).join('');
-    html += '<div class="ruta-preview-item">'
+    html += '<div class="ruta-preview-item" draggable="true" data-rp-idx="' + i + '">'
+      + '<div class="ruta-preview-drag" title="Arrastra para reordenar">&#x2630;</div>'
       + '<div class="ruta-preview-num">' + (i + 1) + '</div>'
       + '<div class="ruta-preview-info" style="flex:1;min-width:0">'
       +   '<div class="cliente-nombre">' + badge + esc(c.nombre) + (c.local ? ' \xB7 ' + esc(c.local) : '') + '</div>'
@@ -2192,8 +2193,132 @@ function renderRutaPreview() {
       + '</div>';
   });
   lista.innerHTML = html;
+  _initPreviewDragDrop(lista);
   wrap.style.display = 'flex';
   setTimeout(function() { if (wrap.scrollIntoView) wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
+}
+
+var _rpDragIdx = -1;
+function _initPreviewDragDrop(lista) {
+  var items = lista.querySelectorAll('.ruta-preview-item');
+  items.forEach(function(el) {
+    el.addEventListener('dragstart', function(e) {
+      _rpDragIdx = parseInt(el.getAttribute('data-rp-idx'));
+      el.classList.add('rp-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    el.addEventListener('dragend', function() {
+      el.classList.remove('rp-dragging');
+      _rpDragIdx = -1;
+      lista.querySelectorAll('.rp-drag-over').forEach(function(x) { x.classList.remove('rp-drag-over'); });
+    });
+    el.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      el.classList.add('rp-drag-over');
+    });
+    el.addEventListener('dragleave', function() {
+      el.classList.remove('rp-drag-over');
+    });
+    el.addEventListener('drop', function(e) {
+      e.preventDefault();
+      var dropIdx = parseInt(el.getAttribute('data-rp-idx'));
+      if (_rpDragIdx < 0 || _rpDragIdx === dropIdx) return;
+      var moved = RUTA_PREVIEW.splice(_rpDragIdx, 1)[0];
+      RUTA_PREVIEW.splice(dropIdx, 0, moved);
+      renderRutaPreview();
+      showToast('Punto movido a posici\xF3n ' + (dropIdx + 1));
+    });
+  });
+  // Touch drag support for mobile
+  var touchIdx = -1;
+  var touchClone = null;
+  items.forEach(function(el) {
+    var dragHandle = el.querySelector('.ruta-preview-drag');
+    if (!dragHandle) return;
+    dragHandle.addEventListener('touchstart', function(e) {
+      touchIdx = parseInt(el.getAttribute('data-rp-idx'));
+      el.classList.add('rp-dragging');
+      touchClone = el.cloneNode(true);
+      touchClone.classList.add('rp-touch-ghost');
+      touchClone.style.position = 'fixed';
+      touchClone.style.zIndex = '9999';
+      touchClone.style.pointerEvents = 'none';
+      touchClone.style.width = el.offsetWidth + 'px';
+      touchClone.style.opacity = '0.8';
+      document.body.appendChild(touchClone);
+      _positionTouchGhost(touchClone, e.touches[0]);
+    }, { passive: true });
+    dragHandle.addEventListener('touchmove', function(e) {
+      if (touchIdx < 0 || !touchClone) return;
+      e.preventDefault();
+      _positionTouchGhost(touchClone, e.touches[0]);
+      var overEl = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+      if (overEl) overEl = overEl.closest('.ruta-preview-item');
+      lista.querySelectorAll('.rp-drag-over').forEach(function(x) { x.classList.remove('rp-drag-over'); });
+      if (overEl && overEl !== el) overEl.classList.add('rp-drag-over');
+    }, { passive: false });
+    dragHandle.addEventListener('touchend', function(e) {
+      if (touchClone) { touchClone.remove(); touchClone = null; }
+      el.classList.remove('rp-dragging');
+      lista.querySelectorAll('.rp-drag-over').forEach(function(x) { x.classList.remove('rp-drag-over'); });
+      if (touchIdx < 0) return;
+      var endTouch = e.changedTouches[0];
+      var overEl = document.elementFromPoint(endTouch.clientX, endTouch.clientY);
+      if (overEl) overEl = overEl.closest('.ruta-preview-item');
+      if (overEl) {
+        var dropIdx = parseInt(overEl.getAttribute('data-rp-idx'));
+        if (!isNaN(dropIdx) && dropIdx !== touchIdx) {
+          var moved = RUTA_PREVIEW.splice(touchIdx, 1)[0];
+          RUTA_PREVIEW.splice(dropIdx, 0, moved);
+          renderRutaPreview();
+          showToast('Punto movido a posici\xF3n ' + (dropIdx + 1));
+        }
+      }
+      touchIdx = -1;
+    });
+  });
+}
+function _positionTouchGhost(ghost, touch) {
+  ghost.style.left = (touch.clientX - ghost.offsetWidth / 2) + 'px';
+  ghost.style.top = (touch.clientY - 30) + 'px';
+}
+
+function copiarRutaWhatsApp() {
+  if (!RUTA_PREVIEW.length) { showToast('No hay ruta para copiar'); return; }
+  var lineas = ['*🔥 RECORRIDO PREVIFUEGO — ' + fechaHoy() + '*', ''];
+  RUTA_PREVIEW.forEach(function(c, i) {
+    var tecEl = document.getElementById('rtecnico-' + i);
+    var notaEl = document.getElementById('rnota-' + i);
+    var tecnico = tecEl ? tecEl.value : '';
+    var nota = notaEl ? notaEl.value.trim() : '';
+    var linea = (i + 1) + '. ' + c.nombre;
+    if (c.direccion) linea += ' — ' + c.direccion;
+    if (tecnico) linea += ' 👷 ' + tecnico;
+    if (nota) linea += ' 📌 ' + nota;
+    lineas.push(linea);
+  });
+  lineas.push('');
+  lineas.push('Total: ' + RUTA_PREVIEW.length + ' punto(s)');
+  var texto = lineas.join('\n');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texto).then(function() {
+      showToast('✅ Ruta copiada — p\xE9gala en WhatsApp');
+    }).catch(function() {
+      _copiarFallback(texto);
+    });
+  } else {
+    _copiarFallback(texto);
+  }
+}
+function _copiarFallback(texto) {
+  var ta = document.createElement('textarea');
+  ta.value = texto;
+  ta.style.cssText = 'position:fixed;left:-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); showToast('✅ Ruta copiada'); } catch(e) { showToast('No se pudo copiar'); }
+  ta.remove();
 }
 
 function quitarPuntoPreview(i) {
