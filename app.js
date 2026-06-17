@@ -2102,15 +2102,23 @@ function procesarInstruccionVoz(texto) {
     return h.fecha + ': ' + (h.clientes || []).join(', ');
   }).join('\n');
 
-  var systemMsg = 'Eres Valeria, asistente de rutas para Previfuego. '
-    + 'Responde \xDANICAMENTE con un array JSON de \xEDndices num\xE9ricos. Ejemplo: [0, 3, 7]. '
-    + 'No incluyas ning\xFAn texto adicional.';
+  var systemMsg = 'Eres Valeria, asistente de rutas para Previfuego (empresa de extintores).\n'
+    + 'Tu trabajo es organizar y escribir bonito lo que el admin te dice por voz.\n'
+    + 'Responde \xDANICAMENTE con un array JSON. Cada elemento: {"idx": N\xFAmero, "mision": "texto"}\n'
+    + 'Ejemplo: [{"idx":0,"mision":"Retirar 3 extintores CO2 50lb"},{"idx":5,"mision":"Cambiar l\xe1mpara de emergencia"}]\n\n'
+    + 'REGLAS:\n'
+    + '- idx = \xEDndice del cliente en la lista de abajo\n'
+    + '- mision = transcribir EXACTAMENTE lo que el admin dijo que hay que hacer en ese punto. Redactar de forma clara y profesional.\n'
+    + '- NO agregues detalles de extintores por tu cuenta. Solo incluye lo que el admin dijo expl\xEDcitamente.\n'
+    + '- Si el admin no especifica misi\xF3n para un punto, pon "Mantenimiento de extintores"\n'
+    + '- Si el admin menciona un cliente que no est\xe1 en la lista, b\xFAscalo por nombre similar\n'
+    + 'Responde SOLO con el JSON, sin texto adicional.';
 
   var userMsg = 'Fecha actual: ' + fechaHoy() + '\n\n'
     + '=== HISTORIAL RECIENTE ===\n' + (historialCtx || '(sin historial)') + '\n\n'
     + '=== CLIENTES DISPONIBLES ===\n' + clientesCtx + '\n\n'
     + 'Instrucci\xF3n del administrador: "' + texto + '"\n\n'
-    + 'Selecciona los clientes para el recorrido seg\xFAn la instrucci\xF3n y responde solo con el array JSON de \xEDndices.';
+    + 'Organiza la ruta seg\xFAn lo que el admin dijo. Responde solo con el array JSON.';
 
   _llamarGroq([
     { role: 'system', content: systemMsg },
@@ -2123,20 +2131,23 @@ function procesarInstruccionVoz(texto) {
     if (d.error) throw new Error(d.error.message || 'Error Groq API');
     var choice = (d.choices || [])[0] || {};
     var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
-    // Robust array parse: match full array, or a truncated one and salvage it
-    var match = text.match(/\[[\d,\s-]*\]/);
-    var arrStr;
-    if (match) {
-      arrStr = match[0];
-    } else {
-      var partial = text.match(/\[[\d,\s-]*/);
+    // Parse response: supports [{idx:N, mision:"..."}, ...] or legacy [N, N, ...]
+    var arrMatch = text.match(/\[[\s\S]*\]/);
+    if (!arrMatch) {
+      var partial = text.match(/\[[\s\S]*/);
       if (!partial) throw new Error('Respuesta inesperada de Groq: ' + text.slice(0, 100));
-      arrStr = partial[0].replace(/[,\s]+$/, '') + ']';
+      arrMatch = [partial[0].replace(/[,\s]+$/, '') + ']'];
     }
-    var indices = JSON.parse(arrStr);
-    RUTA_PREVIEW = indices
-      .filter(function(i) { return Number.isInteger(i) && i >= 0 && i < CLIENTES_DISPONIBLES.length; })
-      .map(function(i) { return Object.assign({}, CLIENTES_DISPONIBLES[i]); });
+    var parsed;
+    try { parsed = JSON.parse(arrMatch[0]); } catch(e) { throw new Error('JSON inv\xe1lido de Groq: ' + arrMatch[0].slice(0, 100)); }
+    RUTA_PREVIEW = [];
+    parsed.forEach(function(item) {
+      var idx = typeof item === 'number' ? item : (item && typeof item.idx === 'number' ? item.idx : -1);
+      if (idx < 0 || idx >= CLIENTES_DISPONIBLES.length) return;
+      var c = Object.assign({}, CLIENTES_DISPONIBLES[idx]);
+      if (item && item.mision) c.mision = item.mision;
+      RUTA_PREVIEW.push(c);
+    });
     if (!RUTA_PREVIEW.length) {
       agregarBurbuja('valeria', '⚠️ No encontr\xE9 clientes para esa instrucci\xF3n.');
       return;
@@ -2594,7 +2605,7 @@ function publicarRutaPreview() {
     var priorityEl = document.getElementById('rpriority-' + i);
     return {
       nombre: c.nombre, direccion: c.direccion, extintores: c.extintores,
-      local: c.local || '', esKfc: c.esKfc || false, mision: (c.tipos && c.tipos.length ? c.tipos.map(function(t){return t.tipo+(t.cap?' '+t.cap+'lbs':'');}).join(', ') : 'Mantenimiento'),
+      local: c.local || '', esKfc: c.esKfc || false, mision: c.mision || 'Mantenimiento',
       tecnico: tecnicoEl ? tecnicoEl.value : USUARIOS.raul.nombre,
       nota: notaEl ? notaEl.value.trim() : '',
       urgente: priorityEl ? priorityEl.checked : false,
@@ -2642,11 +2653,28 @@ function _poblarFiltroTecnicos() {
   if (prev && nombres.indexOf(prev) !== -1) sel.value = prev;
 }
 
+var _segFechaSeleccionada = '';
+
 function iniciarSeguimiento() {
   detenerSeguimiento();
   _poblarFiltroTecnicos();
+  var fechaInput = document.getElementById('seg-fecha');
+  if (fechaInput) {
+    var hoy = new Date();
+    var isoHoy = hoy.getFullYear() + '-' + String(hoy.getMonth()+1).padStart(2,'0') + '-' + String(hoy.getDate()).padStart(2,'0');
+    fechaInput.value = isoHoy;
+    _segFechaSeleccionada = fechaHoy();
+  }
   pfRenderSeguimiento();
   _seguimientoInterval = setInterval(pfRenderSeguimiento, _seguimientoIntervaloSeg * 1000);
+}
+
+function cambiarFechaSeguimiento() {
+  var fechaInput = document.getElementById('seg-fecha');
+  if (!fechaInput || !fechaInput.value) return;
+  var partes = fechaInput.value.split('-');
+  _segFechaSeleccionada = partes[2] + '/' + partes[1] + '/' + partes[0];
+  pfRenderSeguimiento();
 }
 
 function detenerSeguimiento() {
@@ -2664,8 +2692,9 @@ function cambiarIntervaloSeguimiento() {
 function pfRenderSeguimiento() {
   dbxDownloadJSON(DBX_RECORRIDOS)
   .then(function(recorridos) {
-    var hoy = recorridos[fechaHoy()];
-    _segPuntosCache = hoy && hoy.puntos ? hoy.puntos : [];
+    var fechaBuscar = _segFechaSeleccionada || fechaHoy();
+    var data = recorridos[fechaBuscar];
+    _segPuntosCache = data && data.puntos ? data.puntos : [];
     aplicarFiltroSeguimiento();
     var nota = document.querySelector('.auto-refresh-note');
     if (nota) {
@@ -3059,6 +3088,33 @@ function marcarListo(idx, observacion) {
     }, 8000);
   }
   subirFichas();
+  // Auto-scroll to next pending point
+  _scrollAlSiguientePendiente(idx);
+}
+
+function _scrollAlSiguientePendiente(idxCompletado) {
+  var siguiente = -1;
+  for (var j = idxCompletado + 1; j < PUNTOS.length; j++) {
+    if (!PUNTOS[j].done) { siguiente = j; break; }
+  }
+  if (siguiente === -1) {
+    for (var k = 0; k < idxCompletado; k++) {
+      if (!PUNTOS[k].done) { siguiente = k; break; }
+    }
+  }
+  if (siguiente === -1) {
+    var pendientes = PUNTOS.filter(function(p) { return !p.done; }).length;
+    if (pendientes === 0) showToast('🎉 ¡Todos los puntos completados!');
+    return;
+  }
+  setTimeout(function() {
+    var card = document.getElementById('punto-card-' + siguiente);
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.classList.add('punto-card-highlight');
+      setTimeout(function() { card.classList.remove('punto-card-highlight'); }, 2000);
+    }
+  }, 300);
 }
 
 function deshacerListo() {
