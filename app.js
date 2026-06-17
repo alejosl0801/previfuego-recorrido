@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = '3.7';
+var APP_VERSION = '3.8';
 
 /* CLIENTES_BD generado desde: BASE_DATOS_KFC_9.xlsx + OTRAS_EMPRESAS.xlsx + MATRIZ_SUSHICORP.xlsx */
 var CLIENTES_BD = [
@@ -410,9 +410,11 @@ var _undoData = null;
 var _guardarVisitasTimer = null;
 var _segPuntosCache = [];
 var _obsClasifCache = {};
-var _fontSizeDelta = parseInt(localStorage.getItem('pf_font_delta') || '0');
+var _fontSizeDelta = parseInt(localStorage.getItem('pf_font_delta') || '0') || 0;
 var _darkMode = localStorage.getItem('pf_dark') === '1';
 var _ultimaInstruccionVoz = '';
+var _pensandoValeria = false;  // Guard against concurrent Valeria AI calls
+var _sincronizarValeriaP = Promise.resolve();  // Track in-flight Valeria sync
 var _chipHistorial = [];
 var _clientesFiltro = '';
 var _clientesQuickFilter = 'todos';
@@ -466,6 +468,8 @@ window.addEventListener('online', function() {
   var b = document.getElementById('offline-banner');
   if (b) b.classList.add('hidden');
   showToast('✅ Conexi\xF3n restaurada');
+  // Retry pending tech progress upload if it stalled while offline
+  if (USUARIO_ACTUAL && !USUARIOS[USUARIO_ACTUAL].esAdmin && PUNTOS.length) subirFichas();
 });
 
 /* ===================================================
@@ -480,7 +484,7 @@ function getRefreshToken() {
 }
 
 function isTokenExpired() {
-  var exp = parseInt(localStorage.getItem('pf_dbx_token_exp') || '0');
+  var exp = parseInt(localStorage.getItem('pf_dbx_token_exp') || '0') || 0;
   return Date.now() > exp - 60000;
 }
 
@@ -494,7 +498,10 @@ function refreshAccessToken() {
       + '&refresh_token=' + encodeURIComponent(rt)
       + '&client_id=' + DBX_APP_KEY
   })
-  .then(function(r) { return r.json(); })
+  .then(function(r) {
+    if (!r.ok && r.status >= 500) throw new Error('Dropbox token endpoint error ' + r.status + ' — intenta de nuevo');
+    return r.json();
+  })
   .then(function(d) {
     if (d.error === 'invalid_grant' || d.error === 'expired_token') {
       localStorage.removeItem('pf_dbx_refresh_token');
@@ -651,7 +658,10 @@ function verificarConexion() {
       headers: { 'Authorization': 'Bearer ' + token }
     });
   })
-  .then(function(r) { return r.json(); })
+  .then(function(r) {
+    if (!r.ok) return r.json().then(function(d) { throw new Error('HTTP ' + r.status + ': ' + (d.error_summary || JSON.stringify(d))); });
+    return r.json();
+  })
   .then(function(d) {
     if (debug) debug.textContent = '✅ Conectado como: ' + (d.email || (d.name && d.name.display_name) || 'OK');
     showToast('✅ Conexi\xF3n OK');
@@ -730,6 +740,7 @@ function guardarNombresTecnicos() {
     localStorage.setItem('pf_nombre_juan', rJuan.value.trim());
     USUARIOS.juan.nombre = rJuan.value.trim();
   }
+  _poblarFiltroTecnicos();  // Refresh seg filter if seguimiento tab is open
   showToast('✅ Nombres guardados');
 }
 
@@ -878,6 +889,9 @@ function _resumenDiarioGroq(puntos) {
     { role: 'user', content: 'D\xEDa: ' + diaSemana + '\nPuntos:\n' + lista }
   ], 256, 0.3)
   .then(function(d) {
+    // Guard: if admin logged out while Groq was processing, VALERIA_MEMORIA was reset to {}.
+    // Uploading now would overwrite the full memory file with a nearly empty object — data loss.
+    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
     var choice = (d.choices || [])[0] || {};
     var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
     if (!text) return;
@@ -964,11 +978,13 @@ function resumenSeguimientoIA() {
     { role: 'user', content: 'Fecha: ' + fechaHoy() + '\n\n' + lista }
   ], 1024, 0.3)
   .then(function(d) {
+    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
     var choice = (d.choices || [])[0] || {};
     var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
     pfModal('📊 Resumen IA del d\xEDa', text || 'Sin respuesta.');
   })
   .catch(function(err) {
+    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
     pfModal('Error', 'No se pudo generar el resumen: ' + String(err));
   });
 }
@@ -978,7 +994,7 @@ function resumenSeguimientoIA() {
 =================================================== */
 function sincronizarValeria() {
   if (!getRefreshToken()) return;
-  dbxDownloadJSON(DBX_VALERIA)
+  _sincronizarValeriaP = dbxDownloadJSON(DBX_VALERIA)
   .then(function(mem) {
     VALERIA_MEMORIA = mem || {};
     if (!VALERIA_MEMORIA.historial_rutas) VALERIA_MEMORIA.historial_rutas = [];
@@ -991,6 +1007,12 @@ function sincronizarValeria() {
 }
 
 function actualizarMemoriaValeria(puntos, instruccion) {
+  // Wait for any in-flight sincronizarValeria download to finish — prevents overwrite race
+  _sincronizarValeriaP.then(function() { _doActualizarMemoriaValeria(puntos, instruccion); });
+}
+function _doActualizarMemoriaValeria(puntos, instruccion) {
+  // Guard: if admin logged out while sincronizarValeria promise was pending, VALERIA_MEMORIA is {}
+  if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
   if (!VALERIA_MEMORIA.historial_rutas) VALERIA_MEMORIA.historial_rutas = [];
   if (!VALERIA_MEMORIA.patrones_cliente) VALERIA_MEMORIA.patrones_cliente = {};
 
@@ -1139,6 +1161,8 @@ function consultarValeria(texto) {
   ], 4096, 0.2)
   .then(function(d) {
     eliminarBurbujaThinking();
+    // Guard: admin may have logged out during the 20s Groq call
+    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
     if (d.error) throw new Error(d.error.message || 'Error Groq API');
     var choice = (d.choices || [])[0] || {};
     if (choice.finish_reason === 'length') {
@@ -1170,20 +1194,24 @@ function consultarValeria(texto) {
     eliminarBurbujaThinking();
     agregarBurbuja('valeria', '❌ Error al consultar: ' + String(err));
     console.error('[PF] consultarValeria error:', err);
-  });
+  })
+  .finally(function() { _pensandoValeria = false; });
 }
 
 function enviarMensajeValeria() {
+  if (_pensandoValeria) return;
   var input = document.getElementById('valeria-input');
   if (!input) return;
   var texto = input.value.trim();
   if (!texto) return;
+  _pensandoValeria = true;
   input.value = '';
   agregarBurbuja('usuario', texto);
   _agregarChipHistorial(texto);
 
   if (!CLIENTES_DISPONIBLES.length) {
     agregarBurbuja('valeria', '⚠️ Primero carga los clientes desde el tab Clientes.');
+    _pensandoValeria = false;
     return;
   }
 
@@ -1203,6 +1231,7 @@ function valeriaTecla(e) {
 
 function agregarBurbuja(quien, texto, clase) {
   VALERIA_CHAT.push({ quien: quien, texto: texto, clase: clase || '' });
+  if (VALERIA_CHAT.length > 100) VALERIA_CHAT = VALERIA_CHAT.slice(-100);
   renderChat();
 }
 
@@ -1237,6 +1266,7 @@ function copiarInstruccionClaude(idx) {
   var b = VALERIA_CHAT[idx];
   if (!b || !b.texto) return;
   var inicio = b.texto.indexOf('--- INSTRUCCIÓN PARA CLAUDE ---');
+  if (inicio === -1) return;  // Stale index — bubble no longer contains instruction
   var fin = b.texto.indexOf('--- FIN INSTRUCCIÓN ---');
   var instruccion = fin > inicio
     ? b.texto.slice(inicio, fin + '--- FIN INSTRUCCIÓN ---'.length)
@@ -1658,10 +1688,12 @@ function mostrarCargando(show) {
 
 function pfModal(titulo, msg) {
   var overlay = document.getElementById('modal-overlay');
-  if (!overlay) return;
-  document.getElementById('modal-title').textContent = titulo;
-  document.getElementById('modal-msg').innerHTML = esc(msg).replace(/\n/g, '<br>');
-  var actEl = document.getElementById('modal-actions');
+  var titleEl = document.getElementById('modal-title');
+  var msgEl   = document.getElementById('modal-msg');
+  var actEl   = document.getElementById('modal-actions');
+  if (!overlay || !titleEl || !msgEl || !actEl) return;
+  titleEl.textContent = titulo;
+  msgEl.innerHTML = esc(msg).replace(/\n/g, '<br>');
   actEl.innerHTML = '';
   var btn = document.createElement('button');
   btn.className = 'btn-primary';
@@ -1674,10 +1706,12 @@ function pfModal(titulo, msg) {
 
 function pfConfirm(titulo, msg, cb) {
   var overlay = document.getElementById('modal-overlay');
-  if (!overlay) return;
-  document.getElementById('modal-title').textContent = titulo;
-  document.getElementById('modal-msg').innerHTML = esc(msg).replace(/\n/g, '<br>');
-  var actEl = document.getElementById('modal-actions');
+  var titleEl = document.getElementById('modal-title');
+  var msgEl   = document.getElementById('modal-msg');
+  var actEl   = document.getElementById('modal-actions');
+  if (!overlay || !titleEl || !msgEl || !actEl) return;
+  titleEl.textContent = titulo;
+  msgEl.innerHTML = esc(msg).replace(/\n/g, '<br>');
   actEl.innerHTML = '';
   var btnCancel = document.createElement('button');
   btnCancel.className = 'btn-ghost';
@@ -1768,6 +1802,16 @@ function logout() {
   if (_undoTimer) { clearTimeout(_undoTimer); _undoTimer = null; }
   if (_guardarVisitasTimer) { clearTimeout(_guardarVisitasTimer); _guardarVisitasTimer = null; }
   if (_filtroClientesTimer) { clearTimeout(_filtroClientesTimer); _filtroClientesTimer = null; }
+  if (_subirFichasTimer) { clearTimeout(_subirFichasTimer); _subirFichasTimer = null; }
+  if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
+  _toastQueue = []; _toastShowing = false;
+  _pensandoValeria = false;
+  _sincronizarValeriaP = Promise.resolve();
+  _subirFichasPending = false;
+  _subirFichasReintentos = 0;
+  _cargandoClientes = false;
+  _cargandoClientesGen++;  // Invalidate any in-flight cargarClientes response
+  _mesUltimoCargado = '';
   USUARIO_ACTUAL = null;
   PUNTOS = [];
   CLIENTES_DISPONIBLES = [];
@@ -1779,6 +1823,8 @@ function logout() {
   _chipHistorial = [];
   _clientesFiltro = '';
   _clientesQuickFilter = 'todos';
+  _obsClasifCache = {};
+  _segPuntosCache = [];
   localStorage.removeItem('pf_usuario');
   switchTab('clientes');
   showScreen('s0');
@@ -1875,7 +1921,7 @@ function cargarClientes() {
   _cargandoClientes = true;
   _cargandoClientesGen++;
   var genActual = _cargandoClientesGen;
-  var _lockTimeout = setTimeout(function() { _cargandoClientes = false; }, 15000);
+  var _lockTimeout = setTimeout(function() { if (genActual === _cargandoClientesGen) _cargandoClientes = false; }, 15000);
 
   if (mes !== _mesUltimoCargado && _mesUltimoCargado !== '') {
     _clientesFiltro = '';
@@ -1961,9 +2007,10 @@ function _guardarVisitas() {
   if (!getRefreshToken()) return;
   if (_guardarVisitasTimer) clearTimeout(_guardarVisitasTimer);
   var clave = _claveMesActual();
+  var snapshot = JSON.parse(JSON.stringify(VISITAS_MES));  // Capture now — VISITAS_MES may reset if user switches months before timer fires
   _guardarVisitasTimer = setTimeout(function() {
     dbxDownloadJSON(DBX_VISITAS)
-    .then(function(data) { data[clave] = VISITAS_MES; return dbxUpload(DBX_VISITAS, JSON.stringify(data, null, 2)); })
+    .then(function(data) { data[clave] = snapshot; return dbxUpload(DBX_VISITAS, JSON.stringify(data, null, 2)); })
     .catch(function(e) { console.error('[PF] guardarVisitas error:', e); });
   }, 500);
 }
@@ -2011,7 +2058,9 @@ function exportarVisitados() {
   var texto = 'Clientes visitados ' + _claveMesActual() + ':\n'
     + visitados.map(function(c) { return '- ' + c.nombre + ' (' + (VISITAS_MES[c.nombre].fecha || '') + ')'; }).join('\n');
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(texto).then(function() { showToast('✅ Lista copiada al portapapeles'); });
+    navigator.clipboard.writeText(texto)
+      .then(function() { showToast('✅ Lista copiada al portapapeles'); })
+      .catch(function() { pfModal('Lista visitados', texto); });
   } else {
     pfModal('Lista visitados', texto);
   }
@@ -2211,6 +2260,8 @@ function iniciarVoz() {
     if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '🎤'; }
     return;
   }
+  // Abort dictation mic if active
+  if (_DICTAR_REC) { try { _DICTAR_REC.abort(); } catch(e) {} _DICTAR_REC = null; }
   if (btn) { btn.classList.add('grabando'); btn.innerHTML = '⏹'; }
 
   var rec = new SpeechRecognition();
@@ -2228,6 +2279,8 @@ function iniciarVoz() {
     agregarBurbuja('usuario', texto + (conf ? ' (' + conf + '% confianza)' : ''));
     _agregarChipHistorial(texto);
     _ultimaInstruccionVoz = texto;
+    if (_pensandoValeria) { agregarBurbuja('valeria', '⏳ Espera, aún estoy procesando la instrucción anterior...'); return; }
+    _pensandoValeria = true;
     if (_esConsultaValeria(texto)) {
       consultarValeria(texto);
     } else {
@@ -2278,6 +2331,8 @@ function procesarInstruccionVoz(texto) {
   ], 2048, 0.1)
   .then(function(d) {
     eliminarBurbujaThinking();
+    // Guard: admin may have logged out during the 20s Groq call
+    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
     if (d.error) throw new Error(d.error.message || 'Error Groq API');
     var choice = (d.choices || [])[0] || {};
     var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
@@ -2309,7 +2364,8 @@ function procesarInstruccionVoz(texto) {
     eliminarBurbujaThinking();
     agregarBurbuja('valeria', '❌ Error: ' + String(err));
     console.error('[PF] Groq error:', err);
-  });
+  })
+  .finally(function() { _pensandoValeria = false; });
 }
 
 function renderRutaPreview() {
@@ -2374,6 +2430,8 @@ var _DICTAR_PUNTOS = [];  // Array of structured point objects
 var _DICTAR_REC = null;   // Active SpeechRecognition
 
 function abrirModoRecorrido() {
+  // Abort Valeria mic if active before switching to dictation mode
+  if (_currentRec) { try { _currentRec.abort(); } catch(e) {} _currentRec = null; var bm = document.getElementById('btn-mic'); if (bm) { bm.classList.remove('grabando'); bm.innerHTML = '🎤'; } }
   var panelChat = document.getElementById('modo-chat-valeria');
   var panelDictar = document.getElementById('modo-recorrido-panel');
   if (panelChat) panelChat.style.display = 'none';
@@ -2488,7 +2546,7 @@ function _estructurarPuntoConIA(descripcion) {
   var num = _DICTAR_PUNTOS.length + 1;
   var tecDefault = USUARIOS.raul.nombre;
   // Detect if admin mentions the second technician by name
-  var nombreJuan = USUARIOS.juan.nombre.toLowerCase().split(/\s+/)[0];
+  var nombreJuan = USUARIOS.juan.nombre.toLowerCase().split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   if (new RegExp('\\b' + nombreJuan + '\\b', 'i').test(descripcion)) tecDefault = USUARIOS.juan.nombre;
 
   var systemMsg = 'Eres un transcriptor de recorridos para PREVIFUEGO (empresa de extintores, Guayaquil, Ecuador).\n'
@@ -2527,6 +2585,8 @@ function _estructurarPuntoConIA(descripcion) {
     { role: 'user', content: 'Descripci\xF3n del admin: “' + descripcion + '”' }
   ], 800, 0.1)
   .then(function(d) {
+    // Guard: admin may have logged out during the Groq call — don't push into a stale/new session
+    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
     var choice = (d.choices || [])[0] || {};
     var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
     // Extract JSON from response
@@ -2817,6 +2877,7 @@ function renderTablaSeguimiento(puntos) {
    T\xC9CNICO
 =================================================== */
 function cargarRecorrido() {
+  if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL]) return;
   showScreen('s1');
   mostrarCargando(true);
   var vacio = document.getElementById('s1-vacio');
@@ -2875,7 +2936,7 @@ function mostrarVacio(msg) {
 function procesarPuntos(arr) {
   var estadoGuardado = {};
   try { var raw = localStorage.getItem('pf_estado_' + fechaHoy()); if (raw) estadoGuardado = JSON.parse(raw); } catch(e) {}
-  PUNTOS = arr.map(function(p, i) {
+  PUNTOS = (Array.isArray(arr) ? arr : []).map(function(p, i) {
     // Compound key matches _guardarEstadoLocal; fall back to bare name for old format
     var clave = (p.nombre || '') + '\x00' + i;
     var e = estadoGuardado[clave] || estadoGuardado[p.nombre || i];
@@ -3029,11 +3090,13 @@ function abrirMarcarListo(idx) {
   var p = PUNTOS[idx];
   if (!p) return;
   var overlay = document.getElementById('modal-overlay');
-  if (!overlay) { marcarListo(idx, ''); return; }
-  document.getElementById('modal-title').textContent = '✅ Completar: ' + p.nombre;
-  document.getElementById('modal-msg').innerHTML = '<div style="margin-bottom:10px;font-size:0.9rem;color:#555">Observaci\xF3n opcional:</div>'
+  var titleEl2 = document.getElementById('modal-title');
+  var msgEl2   = document.getElementById('modal-msg');
+  var actEl    = document.getElementById('modal-actions');
+  if (!overlay || !titleEl2 || !msgEl2 || !actEl) { marcarListo(idx, ''); return; }
+  titleEl2.textContent = '✅ Completar: ' + p.nombre;
+  msgEl2.innerHTML = '<div style="margin-bottom:10px;font-size:0.9rem;color:#555">Observaci\xF3n opcional:</div>'
     + '<textarea id="obs-input" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:10px;font-size:0.9rem;min-height:80px;resize:vertical;font-family:inherit" placeholder="\xBFAlguna observaci\xF3n?"></textarea>';
-  var actEl = document.getElementById('modal-actions');
   actEl.innerHTML = '';
   var btnCancel = document.createElement('button');
   btnCancel.className = 'btn-ghost';
@@ -3130,7 +3193,7 @@ function subirFichas() {
 }
 
 function _ejecutarSubirFichas() {
-  if (_subirFichasPending) return;
+  if (_subirFichasPending) { subirFichas(); return; }  // Reschedule if upload still in flight
   _subirFichasPending = true;
   var tecnico  = USUARIO_ACTUAL ? USUARIOS[USUARIO_ACTUAL].nombre : '';
   var fechaSubir = fechaHoy();
@@ -3141,7 +3204,7 @@ function _ejecutarSubirFichas() {
   .then(function(recorridos) {
     var hoy = recorridos[fechaSubir];
     // dbxDownloadJSON returns {} for "file not found" — hoy absent = no route published yet, skip silently
-    if (!hoy) { var e = new Error('Sin recorrido hoy'); e.noRetry = true; throw e; }
+    if (!hoy || !hoy.puntos) { var e = new Error('Sin recorrido hoy'); e.noRetry = true; throw e; }
     hoy.puntos = hoy.puntos.map(function(p) {
       if (p.tecnico !== tecnico) return p;
       var match = snapshot.filter(function(s) { return s.nombre === p.nombre; })[0];
@@ -3159,7 +3222,7 @@ function _ejecutarSubirFichas() {
     _subirFichasReintentos++;
     if (_subirFichasReintentos <= 3) {
       showToast('⚠️ No se pudo sincronizar. Reintentando (' + _subirFichasReintentos + '/3)...');
-      setTimeout(_ejecutarSubirFichas, 5000 * _subirFichasReintentos);
+      _subirFichasTimer = setTimeout(_ejecutarSubirFichas, 5000 * _subirFichasReintentos);
     } else {
       showToast('❌ Sin conexi\xF3n — tu avance qued\xF3 guardado en el tel\xE9fono. Pulsa ↻ cuando vuelva el internet.');
     }
@@ -3185,6 +3248,26 @@ document.addEventListener('DOMContentLoaded', function() {
       if (fab) fab.classList.toggle('hidden', tabClientes.scrollTop < 200);
     });
   }
+
+  // Clean up old per-day localStorage entries (older than 7 days)
+  try {
+    var ahora = Date.now();
+    var siete = 7 * 24 * 60 * 60 * 1000;
+    for (var li = localStorage.length - 1; li >= 0; li--) {
+      var lk = localStorage.key(li);
+      if (!lk) continue;
+      if (lk.startsWith('pf_estado_') || lk.startsWith('pf_puntos_')) {
+        // Key suffix is DD/MM/YYYY
+        var partes = lk.split('_').slice(-1)[0].split('/');
+        if (partes.length === 3) {
+          var fechaEntry = new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
+          if (!isNaN(fechaEntry.getTime()) && ahora - fechaEntry.getTime() > siete) {
+            localStorage.removeItem(lk);
+          }
+        }
+      }
+    }
+  } catch(e) {}
 
   var oauthInProgress = handleOAuthCallback();
   if (!oauthInProgress) {
