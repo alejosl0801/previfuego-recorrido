@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = '3.8';
+var APP_VERSION = '3.9';
 
 /* CLIENTES_BD generado desde: BASE_DATOS_KFC_9.xlsx + OTRAS_EMPRESAS.xlsx + MATRIZ_SUSHICORP.xlsx */
 var CLIENTES_BD = [
@@ -363,7 +363,7 @@ var CLIENTES_BD = [
   {nombre:"KOBE PLAZA BATAN",marca:"",mes:"AGOSTO",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
   {nombre:"KOBE MALL DEL SOL",marca:"",mes:"AGOSTO",extintores:2,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
   {nombre:"KOBE MALL DEL NORTE",marca:"",mes:"JULIO",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
-  {nombre:"NOE SAN MARINO",marca:"",mes:"NOVIEMBRE",extintores:5,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "K", "marca": "", "cap": 0}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
+  {nombre:"NOE SAN MARINO",marca:"",mes:"NOVIEMBRE",extintores:5,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "TIPO K", "marca": "", "cap": 0}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
   {nombre:"KOBE PLAZA TIA JOYA",marca:"",mes:"NOVIEMBRE",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
   {nombre:"KOBE BAMBOO PLAZA VIA A LA C",marca:"",mes:"NOVIEMBRE",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}],esKfc:false,fuente:"sushi"},
   {nombre:"KOBE RIOC ENTRE RIOS",marca:"",mes:"NOVIEMBRE",extintores:3,tipos:[{"tipo": "CO2", "marca": "", "cap": 50}, {"tipo": "CO2", "marca": "", "cap": 5}, {"tipo": "PQS", "marca": "", "cap": 10}],esKfc:false,fuente:"sushi"},
@@ -384,9 +384,13 @@ var DBX_CONFIG     = '/Previfuego/config.json';
 var DBX_VISITAS    = '/Previfuego/visitas.json';
 var DBX_VALERIA    = '/Previfuego/valeria_memoria.json';
 
-var DBX_KFC_PATH   = localStorage.getItem('pf_path_kfc')   || '/Previfuego/' + new Date().getFullYear() + '/BASE_DATOS_KFC (8).xlsx';
-var DBX_OTROS_PATH = localStorage.getItem('pf_path_otros') || '/Previfuego/PRESUPUESTOS/OTRAS_EMPRESAS.xlsx';
-var DBX_SUSHI_PATH = localStorage.getItem('pf_path_sushi') || '/Previfuego/PRESUPUESTOS/MATRIZ_SUSHICORP.xlsx';
+function _lsGet(k, def) { try { return localStorage.getItem(k); } catch(e) { return def || null; } }
+function _lsSet(k, v) { try { localStorage.setItem(k, v); } catch(e) {} }
+function _lsRemove(k) { try { localStorage.removeItem(k); } catch(e) {} }
+
+var DBX_KFC_PATH   = _lsGet('pf_path_kfc')   || '/Previfuego/' + new Date().getFullYear() + '/BASE_DATOS_KFC (8).xlsx';
+var DBX_OTROS_PATH = _lsGet('pf_path_otros') || '/Previfuego/PRESUPUESTOS/OTRAS_EMPRESAS.xlsx';
+var DBX_SUSHI_PATH = _lsGet('pf_path_sushi') || '/Previfuego/PRESUPUESTOS/MATRIZ_SUSHICORP.xlsx';
 
 /* ===================================================
    STATE
@@ -410,8 +414,8 @@ var _undoData = null;
 var _guardarVisitasTimer = null;
 var _segPuntosCache = [];
 var _obsClasifCache = {};
-var _fontSizeDelta = parseInt(localStorage.getItem('pf_font_delta') || '0') || 0;
-var _darkMode = localStorage.getItem('pf_dark') === '1';
+var _fontSizeDelta = parseInt(_lsGet('pf_font_delta', '0') || '0') || 0;
+var _darkMode = _lsGet('pf_dark') === '1';
 var _ultimaInstruccionVoz = '';
 var _pensandoValeria = false;  // Guard against concurrent Valeria AI calls
 var _sincronizarValeriaP = Promise.resolve();  // Track in-flight Valeria sync
@@ -445,14 +449,14 @@ var USUARIOS = {
 
 function toggleDarkMode() {
   _darkMode = !_darkMode;
-  localStorage.setItem('pf_dark', _darkMode ? '1' : '0');
+  _lsSet('pf_dark', _darkMode ? '1' : '0');
   document.documentElement.classList.toggle('dark', _darkMode);
   showToast(_darkMode ? 'Modo oscuro activado' : 'Modo claro activado');
 }
 
 function cambiarFuente(delta) {
   _fontSizeDelta = Math.max(-4, Math.min(8, _fontSizeDelta + delta));
-  localStorage.setItem('pf_font_delta', String(_fontSizeDelta));
+  _lsSet('pf_font_delta', String(_fontSizeDelta));
   document.documentElement.style.fontSize = (16 + _fontSizeDelta) + 'px';
   showToast('Tama\xF1o: ' + (16 + _fontSizeDelta) + 'px');
 }
@@ -476,15 +480,15 @@ window.addEventListener('online', function() {
    OAUTH PKCE — DROPBOX
 =================================================== */
 function getAccessToken() {
-  return localStorage.getItem('pf_dbx_access_token') || '';
+  return _lsGet('pf_dbx_access_token') || '';
 }
 
 function getRefreshToken() {
-  return localStorage.getItem('pf_dbx_refresh_token') || '';
+  return _lsGet('pf_dbx_refresh_token') || '';
 }
 
 function isTokenExpired() {
-  var exp = parseInt(localStorage.getItem('pf_dbx_token_exp') || '0') || 0;
+  var exp = parseInt(_lsGet('pf_dbx_token_exp') || '0') || 0;
   return Date.now() > exp - 60000;
 }
 
@@ -504,16 +508,16 @@ function refreshAccessToken() {
   })
   .then(function(d) {
     if (d.error === 'invalid_grant' || d.error === 'expired_token') {
-      localStorage.removeItem('pf_dbx_refresh_token');
-      localStorage.removeItem('pf_dbx_access_token');
+      _lsRemove('pf_dbx_refresh_token');
+      _lsRemove('pf_dbx_access_token');
       pfModal('Sesi\xF3n Dropbox expirada', 'La conexi\xF3n con Dropbox expir\xF3. Ve a Config → Conectar con Dropbox para reconectar.');
       throw new Error('Sesi\xF3n Dropbox expirada — reconecta en Config');
     }
     if (d.error) throw new Error(d.error_description || d.error);
-    localStorage.setItem('pf_dbx_access_token', d.access_token);
-    if (d.refresh_token) localStorage.setItem('pf_dbx_refresh_token', d.refresh_token);
+    _lsSet('pf_dbx_access_token', d.access_token);
+    if (d.refresh_token) _lsSet('pf_dbx_refresh_token', d.refresh_token);
     if (d.expires_in) {
-      localStorage.setItem('pf_dbx_token_exp', String(Date.now() + d.expires_in * 1000));
+      _lsSet('pf_dbx_token_exp', String(Date.now() + d.expires_in * 1000));
     }
     return d.access_token;
   });
@@ -545,7 +549,7 @@ function generateCodeChallenge(verifier) {
 
 function iniciarOAuth() {
   var verifier = generateCodeVerifier();
-  localStorage.setItem('pf_dbx_verifier', verifier);
+  _lsSet('pf_dbx_verifier', verifier);
   generateCodeChallenge(verifier).then(function(challenge) {
     window.location.href = 'https://www.dropbox.com/oauth2/authorize'
       + '?client_id=' + DBX_APP_KEY
@@ -554,6 +558,8 @@ function iniciarOAuth() {
       + '&code_challenge=' + challenge
       + '&code_challenge_method=S256'
       + '&token_access_type=offline';
+  }).catch(function(err) {
+    pfModal('Error', 'Tu navegador no soporta la autenticación segura (crypto.subtle). Usa Chrome o Safari actualizado.');
   });
 }
 
@@ -562,7 +568,7 @@ function handleOAuthCallback() {
   var code = params.get('code');
   if (!code) return false;
   history.replaceState({}, '', window.location.pathname);
-  var verifier = localStorage.getItem('pf_dbx_verifier');
+  var verifier = _lsGet('pf_dbx_verifier');
   if (!verifier) {
     pfModal('Error OAuth', 'La sesi\xF3n de autorización expir\xF3 o fue iniciada en otro dispositivo. Intenta conectar Dropbox de nuevo desde ⚙️ Config.');
     return false;
@@ -580,16 +586,16 @@ function handleOAuthCallback() {
   .then(function(r) { return r.json(); })
   .then(function(d) {
     mostrarCargando(false);
-    localStorage.removeItem('pf_dbx_verifier');
+    _lsRemove('pf_dbx_verifier');
     if (d.error) { pfModal('Error al conectar Dropbox', d.error_description || d.error); return; }
-    localStorage.setItem('pf_dbx_access_token', d.access_token);
-    if (d.refresh_token) localStorage.setItem('pf_dbx_refresh_token', d.refresh_token);
-    if (d.expires_in) localStorage.setItem('pf_dbx_token_exp', String(Date.now() + d.expires_in * 1000));
+    _lsSet('pf_dbx_access_token', d.access_token);
+    if (d.refresh_token) _lsSet('pf_dbx_refresh_token', d.refresh_token);
+    if (d.expires_in) _lsSet('pf_dbx_token_exp', String(Date.now() + d.expires_in * 1000));
     showToast('✅ Dropbox conectado correctamente');
     actualizarEstadoConexion();
     _inicializarArchivosDropbox();
     // Resume session: without this the user lands stuck on the login screen after the OAuth redirect
-    var savedUser = localStorage.getItem('pf_usuario');
+    var savedUser = _lsGet('pf_usuario');
     if (savedUser && USUARIOS[savedUser]) login(savedUser);
   })
   .catch(function(err) { mostrarCargando(false); pfModal('Error OAuth', String(err)); });
@@ -629,20 +635,20 @@ function actualizarEstadoConexion() {
 
   var lastSync = document.getElementById('cfg-last-sync');
   if (lastSync) {
-    var ts = localStorage.getItem('pf_last_sync');
+    var ts = _lsGet('pf_last_sync');
     lastSync.textContent = ts ? '\xDAltima sync: ' + ts : '\xDAltima sync: —';
   }
 
   var rRaul = document.getElementById('cfg-nombre-raul');
   var rJuan = document.getElementById('cfg-nombre-juan');
-  if (rRaul) rRaul.value = localStorage.getItem('pf_nombre_raul') || 'Ra\xFAl';
-  if (rJuan) rJuan.value = localStorage.getItem('pf_nombre_juan') || 'Juan';
+  if (rRaul) rRaul.value = _lsGet('pf_nombre_raul') || 'Ra\xFAl';
+  if (rJuan) rJuan.value = _lsGet('pf_nombre_juan') || 'Juan';
 }
 
 function desconectarDropbox() {
-  localStorage.removeItem('pf_dbx_access_token');
-  localStorage.removeItem('pf_dbx_refresh_token');
-  localStorage.removeItem('pf_dbx_token_exp');
+  _lsRemove('pf_dbx_access_token');
+  _lsRemove('pf_dbx_refresh_token');
+  _lsRemove('pf_dbx_token_exp');
   actualizarEstadoConexion();
   showToast('Dropbox desconectado');
 }
@@ -673,10 +679,10 @@ function verificarConexion() {
 
 function limpiarCache() {
   pfConfirm('Limpiar cach\xE9', '\xBFEliminar cach\xE9 local de clientes y puntos?', function() {
-    localStorage.removeItem('pf_clientes_cache');
+    _lsRemove('pf_clientes_cache');
     var hoy = fechaHoy();
-    localStorage.removeItem('pf_puntos_' + hoy);
-    localStorage.removeItem('pf_estado_' + hoy);
+    _lsRemove('pf_puntos_' + hoy);
+    _lsRemove('pf_estado_' + hoy);
     showToast('✅ Cach\xE9 eliminada');
   });
 }
@@ -709,7 +715,7 @@ function guardarPathKfc() {
   var val = document.getElementById('cfg-path-kfc');
   if (!val) return;
   DBX_KFC_PATH = val.value.trim();
-  localStorage.setItem('pf_path_kfc', DBX_KFC_PATH);
+  _lsSet('pf_path_kfc', DBX_KFC_PATH);
   showToast('✅ Path KFC guardado');
 }
 
@@ -717,7 +723,7 @@ function guardarPathOtros() {
   var val = document.getElementById('cfg-path-otros');
   if (!val) return;
   DBX_OTROS_PATH = val.value.trim();
-  localStorage.setItem('pf_path_otros', DBX_OTROS_PATH);
+  _lsSet('pf_path_otros', DBX_OTROS_PATH);
   showToast('✅ Path Otras Empresas guardado');
 }
 
@@ -725,7 +731,7 @@ function guardarPathSushi() {
   var val = document.getElementById('cfg-path-sushi');
   if (!val) return;
   DBX_SUSHI_PATH = val.value.trim();
-  localStorage.setItem('pf_path_sushi', DBX_SUSHI_PATH);
+  _lsSet('pf_path_sushi', DBX_SUSHI_PATH);
   showToast('✅ Path Sushicorp guardado');
 }
 
@@ -733,11 +739,11 @@ function guardarNombresTecnicos() {
   var rNaul = document.getElementById('cfg-nombre-raul');
   var rJuan = document.getElementById('cfg-nombre-juan');
   if (rNaul && rNaul.value.trim()) {
-    localStorage.setItem('pf_nombre_raul', rNaul.value.trim());
+    _lsSet('pf_nombre_raul', rNaul.value.trim());
     USUARIOS.raul.nombre = rNaul.value.trim();
   }
   if (rJuan && rJuan.value.trim()) {
-    localStorage.setItem('pf_nombre_juan', rJuan.value.trim());
+    _lsSet('pf_nombre_juan', rJuan.value.trim());
     USUARIOS.juan.nombre = rJuan.value.trim();
   }
   _poblarFiltroTecnicos();  // Refresh seg filter if seguimiento tab is open
@@ -786,7 +792,7 @@ function inspeccionarExcel(path) {
    GROQ KEY — hardcoded default, optional override
 =================================================== */
 function getGroqKey() {
-  return localStorage.getItem('pf_groq_key') || GROQ_KEY_DEFAULT;
+  return _lsGet('pf_groq_key') || GROQ_KEY_DEFAULT;
 }
 
 function guardarGroqKey() {
@@ -794,14 +800,14 @@ function guardarGroqKey() {
   if (!input) return;
   var key = input.value.trim();
   if (!key) {
-    localStorage.removeItem('pf_groq_key');
+    _lsRemove('pf_groq_key');
     input.value = '';
     var gs0 = document.getElementById('cfg-groq-status');
     if (gs0) gs0.textContent = '⚠️ Sin clave Groq — ingresa una para activar Valeria';
     showToast('Clave Groq eliminada');
     return;
   }
-  localStorage.setItem('pf_groq_key', key);
+  _lsSet('pf_groq_key', key);
   input.value = '';
   var groqStatus = document.getElementById('cfg-groq-status');
   if (groqStatus) groqStatus.textContent = '✅ Groq AI configurado (clave personalizada)';
@@ -839,9 +845,9 @@ function sincronizarConfig() {
   dbxDownloadJSON(DBX_CONFIG)
   .then(function(cfg) {
     if (cfg.groq_key) {
-      localStorage.setItem('pf_groq_key', cfg.groq_key);
+      _lsSet('pf_groq_key', cfg.groq_key);
     }
-    localStorage.setItem('pf_last_sync', new Date().toLocaleString('es-EC'));
+    _lsSet('pf_last_sync', new Date().toLocaleString('es-EC'));
   })
   .catch(function() {});
 }
@@ -914,7 +920,7 @@ function _resumenDiarioGroq(puntos) {
 function sugerenciaProactiva() {
   if (!CLIENTES_DISPONIBLES.length) return;
   if (!VALERIA_MEMORIA.historial_rutas || !VALERIA_MEMORIA.historial_rutas.length) return;
-  var ultima = parseInt(localStorage.getItem('pf_ultima_sugerencia') || '0') || 0;
+  var ultima = parseInt(_lsGet('pf_ultima_sugerencia') || '0') || 0;
   if (Date.now() - ultima < 4 * 60 * 60 * 1000) return;
 
   var pendientes = CLIENTES_DISPONIBLES.filter(function(c) {
@@ -933,7 +939,7 @@ function sugerenciaProactiva() {
   .then(function(d) {
     var choice = (d.choices || [])[0] || {};
     var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
-    if (text) { localStorage.setItem('pf_ultima_sugerencia', String(Date.now())); _mostrarSugerenciaChip(text); }
+    if (text) { _lsSet('pf_ultima_sugerencia', String(Date.now())); _mostrarSugerenciaChip(text); }
   })
   .catch(function(e) { console.error('[PF] sugerenciaProactiva error:', e); });
 }
@@ -1389,124 +1395,6 @@ var MESES_NUM = {'1':'ENERO','2':'FEBRERO','3':'MARZO','4':'ABRIL','5':'MAYO','6
   '01':'ENERO','02':'FEBRERO','03':'MARZO','04':'ABRIL','05':'MAYO','06':'JUNIO',
   '07':'JULIO','08':'AGOSTO','09':'SEPTIEMBRE','10':'OCTUBRE','11':'NOVIEMBRE','12':'DICIEMBRE'};
 
-function parseExcel(buf) {
-  var wb = XLSX.read(buf, { type: 'array' });
-  // Prefer RESUMEN_LOCALES sheet: one row per local, N_EXTINTORES = real count, no TOTAL rows
-  var resumenName = wb.SheetNames.find(function(n) { return /resumen/i.test(n); });
-  if (resumenName) {
-    var ws = wb.Sheets[resumenName];
-    var rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-    rows.forEach(function(r) { r.__sheet = resumenName; r.__isResumen = true; });
-    return rows;
-  }
-  // Fallback: read all sheets as DETALLE (one row per extintor)
-  var allRows = [];
-  wb.SheetNames.forEach(function(sheetName) {
-    var ws = wb.Sheets[sheetName];
-    var rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
-    rows.forEach(function(r) { r.__sheet = sheetName; });
-    allRows = allRows.concat(rows);
-  });
-  return allRows;
-}
-
-function parseExcelOtros(buf, mesSeleccionado) {
-  var wb = XLSX.read(buf, { type: 'array' });
-  var sheetTarget = null;
-  // Map abbreviated month names to full names
-  var MESES_ABREV = {
-    'ENE':'ENERO','FEB':'FEBRERO','MAR':'MARZO','ABR':'ABRIL','MAY':'MAYO','JUN':'JUNIO',
-    'JUL':'JULIO','AGO':'AGOSTO','SEP':'SEPTIEMBRE','SEPT':'SEPTIEMBRE','OCT':'OCTUBRE',
-    'NOV':'NOVIEMBRE','DIC':'DICIEMBRE'
-  };
-  wb.SheetNames.forEach(function(name) {
-    var upper = name.trim().toUpperCase();
-    // Normalize by stripping digits/spaces/special chars to get the base word
-    var base = upper.replace(/[^A-ZÁÉÍÓÚÑ]/g, '');
-    var fullName = MESES_ABREV[base] || base;
-    // Also try normalizarMes
-    var normalized = normalizarMes(name.trim());
-    if (upper === mesSeleccionado || normalized === mesSeleccionado ||
-        fullName === mesSeleccionado || upper.indexOf(mesSeleccionado) !== -1 ||
-        mesSeleccionado.indexOf(base) !== -1) {
-      sheetTarget = name;
-    }
-  });
-  var sheetsToRead = sheetTarget ? [sheetTarget] : wb.SheetNames;
-  var clientes = [];
-  var FILAS_BASURA = /^(totales?\b|subtotales?\b|suma\b|parcial\b|cantidad\b|cant\b|tipo\b|extintores?\b|marca\b|descripcion\b|ubicacion\b|item\b|n[°º]|cc\b|\d)/i;
-  sheetsToRead.forEach(function(sheetName) {
-    var ws = wb.Sheets[sheetName];
-    if (!ws) return;
-    var raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-    var nombreActual = '';
-    raw.forEach(function(row) {
-      var colA = String(row[0] || '').trim();
-      var colC = String(row[2] || '').trim();
-      var colD = String(row[3] || '').trim();
-      // Forward-fill client name, but skip garbage names (TOTAL, SUBTOTAL, headers)
-      if (colA && !FILAS_BASURA.test(colA)) nombreActual = colA;
-      if (!nombreActual || FILAS_BASURA.test(nombreActual)) return;
-      if (!colC && !colD) return;
-      // Skip rows where colC looks like a header/garbage
-      if (colC && FILAS_BASURA.test(colC)) return;
-      clientes.push({
-        nombre:       nombreActual,
-        direccion:    String(row[1] || '').trim(),  // UBICACIÓN = col B
-        extintores:   1,                             // each row = 1 extintor
-        capacidadLbs: parseInt(colD) || 0,           // CAPACIDAD in lbs (for display)
-        mes:          sheetTarget ? mesSeleccionado : normalizarMes(sheetName),
-        local:        colC,                          // TIPO (CO2, PQS...)
-        marca:        '',
-        esKfc:        false
-      });
-    });
-  });
-  return clientes;
-}
-
-// Parser for SUSHICORP / NOE / KOBE style Excel
-// Single sheet, columns: CC (col0), UBICACIÓN (col1), TIPO (col2), CAPACIDAD-lbs (col3), ..., Mes de trabajo (col16)
-function parseExcelSushi(buf, mesSeleccionado) {
-  var wb = XLSX.read(buf, { type: 'array' });
-  var ws = wb.Sheets[wb.SheetNames[0]];
-  var raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-  var clientes = [];
-  var FILAS_BASURA = /^(total\b|subtotal\b|suma\b|parcial\b|cantidad\b|cant\b|tipo\b|extintores?\b|marca\b|descripcion\b|item\b|n[°º]|cc\b|ubicacion\b|\d)/i;
-  var nombreActual = '';
-  var mesActual = '';
-  raw.forEach(function(row) {
-    var colA = String(row[0] || '').trim();
-    var colB = String(row[1] || '').trim();
-    var colC = String(row[2] || '').trim();
-    var colD = String(row[3] || '').trim();
-    var colQ = String(row[16] || '').trim(); // "Mes de trabajo"
-    // Update current client name and month from first row of each client block
-    if (colA && !FILAS_BASURA.test(colA)) {
-      nombreActual = colA;
-      var m = normalizarMes(colQ);
-      if (m) mesActual = m;
-    } else if (colQ) {
-      var m2 = normalizarMes(colQ);
-      if (m2) mesActual = m2;
-    }
-    if (!nombreActual || FILAS_BASURA.test(nombreActual)) return;
-    if (!colC && !colD) return;
-    if (mesSeleccionado && mesActual && mesActual !== mesSeleccionado) return;
-    clientes.push({
-      nombre:       nombreActual,
-      direccion:    colB,
-      extintores:   1,
-      capacidadLbs: parseInt(colD) || 0,
-      mes:          mesActual,
-      local:        colC,
-      marca:        '',
-      esKfc:        false
-    });
-  });
-  return clientes;
-}
-
 function normalizarMes(val) {
   // Handle Date objects directly (SheetJS returns date cells as Date objects)
   if (val instanceof Date && !isNaN(val)) {
@@ -1543,112 +1431,6 @@ function normalizarMes(val) {
   return up;
 }
 
-function normalizarCliente(row, esKfc) {
-  var cols = Object.keys(row);
-  function get() {
-    for (var i = 0; i < arguments.length; i++) {
-      var v = row[arguments[i]];
-      if (v !== undefined && v !== null && String(v).trim() !== '') return String(v).trim();
-    }
-    return '';
-  }
-  var nombre = get('NOMBRE_LOCAL','CLIENTE','Cliente','NOMBRE','Nombre',
-                   'RAZON SOCIAL','Raz\xF3n Social','RAZON_SOCIAL','RAZ\xD3N SOCIAL',
-                   'EMPRESA','Empresa','ESTABLECIMIENTO','Establecimiento',
-                   'RAZON','Razon','DENOMINACION','Denominacion');
-  if (!nombre) {
-    var nameCols = cols.filter(function(c) {
-      return /nombre|cliente|razon|empresa|local|establec/i.test(c);
-    });
-    if (nameCols.length) nombre = String(row[nameCols[0]] || '').trim();
-  }
-  var dir = get('UBICACI\xD3N','UBICACION','DIRECCION','Direcci\xF3n','DIRECCI\xD3N',
-                'DIR','Direccion','DIREC','direccion','DOMICILIO','Domicilio');
-  var ciudad = get('CIUDAD','Ciudad','ciudad','CANTON','PROVINCIA');
-  var ext = get('N_EXTINTORES','EXTINTORES','Extintores','CAPACIDAD','CANTIDAD','Cantidad',
-                'EXT','N_EXT','NUMERO','N\xFAmero','CANT');
-  // Get mes preserving original value (may be Date object from SheetJS)
-  var mesRaw = (function() {
-    var keys = ['MES_SERVICIO','MES','Mes','mes','MES_CONTRATO','PERIODO','Periodo'];
-    for (var i = 0; i < keys.length; i++) {
-      var v = row[keys[i]];
-      if (v !== undefined && v !== null && v !== '') return v;
-    }
-    // Fallback: use the sheet tab name as month (KFC Excel organizes by sheet, not column)
-    return row.__sheet || '';
-  })();
-  var mes = mesRaw;
-  var local = get('LOCAL','Local','LOCAL_KFC','Sucursal','SUCURSAL','TIPO','Tipo','ZONA','Zona');
-  var marca = get('MARCA','Marca','TIPO_EXT','TIPO EXTINTOR');
-  return {
-    nombre:       nombre,
-    direccion:    (dir || '') + (ciudad ? (dir ? ' — ' : '') + ciudad : ''),
-    extintores:   parseInt(ext) || 0,
-    mes:          normalizarMes(mes),
-    local:        local,
-    marca:        marca,
-    esKfc:        !!esKfc,
-    __isResumen:  !!row.__isResumen
-  };
-}
-
-function _normKey(nombre) {
-  return (nombre || '').toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')   // strip accents
-    .replace(/[^a-z0-9\s]/g, ' ')                       // punctuation → space
-    .replace(/([a-z])(\d)/g, '$1 $2')                   // "m014" → "m 014", "g48" → "g 48"
-    .replace(/\b0+(\d)/g, '$1')                         // strip leading zeros: "014" → "14"
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-
-function deduplicarClientes(lista) {
-  var mapa = {};
-  var orden = [];
-  lista.forEach(function(c) {
-    if (!c.nombre) return;
-    var key = _normKey(c.nombre);
-    if (!mapa[key]) {
-      mapa[key] = Object.assign({}, c, { tipos: [], extintores: 0, capacidadTotal: 0 });
-      orden.push(key);
-    }
-    // Only add tag if it has a real extintor type (skip brand-only rows from headers/totals)
-    // capacidadLbs = lbs capacity for display (from OTRAS_EMPRESAS/Sushi rows); extintores = count
-    var dispCap = (c.capacidadLbs !== undefined) ? c.capacidadLbs : c.extintores;
-    if (c.local && c.local.trim()) {
-      mapa[key].tipos.push({ tipo: c.local, marca: c.marca || '', cap: dispCap });
-    }
-    if (!mapa[key].direccion && c.direccion) mapa[key].direccion = c.direccion;
-    if (!mapa[key].marcaPrincipal && c.marca) mapa[key].marcaPrincipal = c.marca;
-    if (c.esKfc) {
-      if (c.__isResumen && c.extintores > 0) {
-        // RESUMEN_LOCALES: N_EXTINTORES = real count per local
-        mapa[key].extintores += c.extintores;
-      } else {
-        // DETALLE fallback: each row = 1 extintor
-        mapa[key].extintores += 1;
-      }
-      mapa[key].capacidadTotal += dispCap;
-    } else {
-      // Otras Empresas / Sushicorp: each row = 1 extintor (extintores already = 1)
-      mapa[key].extintores += c.extintores;
-      mapa[key].capacidadTotal += dispCap;
-    }
-  });
-  return orden.map(function(k) {
-    var obj = mapa[k];
-    // Dedup tipos: same tipo+marca+cap can appear multiple times from duplicate Excel rows
-    var tiposVisto = {};
-    obj.tipos = obj.tipos.filter(function(t) {
-      var tk = (t.tipo + '|' + t.marca + '|' + t.cap);
-      if (tiposVisto[tk]) return false;
-      tiposVisto[tk] = true;
-      return true;
-    });
-    return obj;
-  });
-}
 
 /* ===================================================
    UTILITIES
@@ -1763,13 +1545,13 @@ function showScreen(id) {
 
 function login(usuario) {
   if (!USUARIOS[usuario]) return;
-  var savedRaul = localStorage.getItem('pf_nombre_raul');
-  var savedJuan = localStorage.getItem('pf_nombre_juan');
+  var savedRaul = _lsGet('pf_nombre_raul');
+  var savedJuan = _lsGet('pf_nombre_juan');
   if (savedRaul) USUARIOS.raul.nombre = savedRaul;
   if (savedJuan) USUARIOS.juan.nombre = savedJuan;
 
   USUARIO_ACTUAL = usuario;
-  localStorage.setItem('pf_usuario', usuario);
+  _lsSet('pf_usuario', usuario);
   if (USUARIOS[usuario].esAdmin) {
     var fechaEl = document.getElementById('admin-fecha');
     if (fechaEl) fechaEl.textContent = fechaHoy();
@@ -1825,7 +1607,7 @@ function logout() {
   _clientesQuickFilter = 'todos';
   _obsClasifCache = {};
   _segPuntosCache = [];
-  localStorage.removeItem('pf_usuario');
+  _lsRemove('pf_usuario');
   switchTab('clientes');
   showScreen('s0');
 }
@@ -1894,15 +1676,6 @@ function _mostrarOverlayClientes(show) {
   }
 }
 
-/* Error log — keep last 10 errors in localStorage */
-function _logError(contexto, err) {
-  try {
-    var log = JSON.parse(localStorage.getItem('pf_error_log') || '[]');
-    log.unshift({ ts: new Date().toLocaleString('es-EC'), ctx: contexto, msg: String(err && err.message || err) });
-    if (log.length > 10) log = log.slice(0, 10);
-    localStorage.setItem('pf_error_log', JSON.stringify(log));
-  } catch(e) {}
-}
 
 var _cargandoClientes = false;
 var _cargandoClientesGen = 0;  // Generation counter to discard stale responses
@@ -2890,12 +2663,12 @@ function cargarRecorrido() {
     if (!hoy || !hoy.puntos || !hoy.puntos.length) { cargarRecorridoLocal(); return; }
     var misPuntos = hoy.puntos.filter(function(p) { return p.tecnico === tecnico; });
     if (!misPuntos.length) { mostrarVacio('No tienes puntos asignados para hoy.'); return; }
-    localStorage.setItem('pf_puntos_' + fechaHoy(), JSON.stringify(misPuntos));
+    _lsSet('pf_puntos_' + fechaHoy(), JSON.stringify(misPuntos));
     procesarPuntos(misPuntos);
   })
   .catch(function() {
     mostrarCargando(false);
-    var guardados = localStorage.getItem('pf_puntos_' + fechaHoy());
+    var guardados = _lsGet('pf_puntos_' + fechaHoy());
     if (guardados) {
       try {
         var arr = JSON.parse(guardados);
@@ -2908,7 +2681,7 @@ function cargarRecorrido() {
 }
 
 function cargarRecorridoLocal() {
-  var guardados = localStorage.getItem('pf_puntos_' + fechaHoy());
+  var guardados = _lsGet('pf_puntos_' + fechaHoy());
   if (!guardados) { mostrarVacio(); return; }
   try {
     var arr = JSON.parse(guardados);
@@ -2935,7 +2708,7 @@ function mostrarVacio(msg) {
 
 function procesarPuntos(arr) {
   var estadoGuardado = {};
-  try { var raw = localStorage.getItem('pf_estado_' + fechaHoy()); if (raw) estadoGuardado = JSON.parse(raw); } catch(e) {}
+  try { var raw = _lsGet('pf_estado_' + fechaHoy()); if (raw) estadoGuardado = JSON.parse(raw); } catch(e) {}
   PUNTOS = (Array.isArray(arr) ? arr : []).map(function(p, i) {
     // Compound key matches _guardarEstadoLocal; fall back to bare name for old format
     var clave = (p.nombre || '') + '\x00' + i;
@@ -3177,7 +2950,7 @@ function _guardarEstadoLocal() {
     var clave = (p.nombre || '') + '\x00' + i;
     estado[clave] = { done: p.done, hora: p.horaCompletado, enCamino: p.enCamino, observacion: p.observacion };
   });
-  localStorage.setItem('pf_estado_' + fechaHoy(), JSON.stringify(estado));
+  _lsSet('pf_estado_' + fechaHoy(), JSON.stringify(estado));
 }
 
 function recargarRecorrido() { cargarRecorrido(); }
@@ -3230,6 +3003,19 @@ function _ejecutarSubirFichas() {
 }
 
 /* ===================================================
+   GLOBAL ERROR HANDLER
+=================================================== */
+window.onerror = function(msg, src, line, col, err) {
+  console.error('[PF]', msg, src + ':' + line);
+  toast('Error inesperado — recarga la app si algo no funciona', 4000);
+  return true;
+};
+window.addEventListener('unhandledrejection', function(e) {
+  console.error('[PF] Unhandled rejection:', e.reason);
+  e.preventDefault();
+});
+
+/* ===================================================
    INIT
 =================================================== */
 document.addEventListener('DOMContentLoaded', function() {
@@ -3262,7 +3048,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (partes.length === 3) {
           var fechaEntry = new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
           if (!isNaN(fechaEntry.getTime()) && ahora - fechaEntry.getTime() > siete) {
-            localStorage.removeItem(lk);
+            _lsRemove(lk);
           }
         }
       }
@@ -3271,7 +3057,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   var oauthInProgress = handleOAuthCallback();
   if (!oauthInProgress) {
-    var savedUser = localStorage.getItem('pf_usuario');
+    var savedUser = _lsGet('pf_usuario');
     if (savedUser && USUARIOS[savedUser]) login(savedUser);
   }
   if ('serviceWorker' in navigator) {

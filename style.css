@@ -61,6 +61,34 @@ html.dark .mes-archivos code { background: #2a2a2a; }
 html.dark .progress-bar-wrap { background: #1e1e1e; border-bottom-color: #333; }
 html.dark .no-clientes { color: #888; }
 html.dark .seg-toolbar { background: #1a1a1a; }
+html.dark .punto-card.en-camino { background: #2a1e14; border-color: #f97316; }
+html.dark .punto-card-dir { color: #999; }
+html.dark .punto-card-mision { color: #f87171; }
+html.dark .punto-card-nota { color: #fbbf24; }
+html.dark .punto-card-obs { color: #999; }
+html.dark .progress-info span { color: #bbb; }
+html.dark .progress-track { background: #333; }
+html.dark .form-group label { color: #aaa; }
+html.dark .form-group select { background: #2a2a2a; color: #e8e8e8; border-color: #444; }
+html.dark .seg-filtro-select { background: #2a2a2a; color: #e8e8e8; border-color: #444; }
+html.dark .seg-counter-name { color: #aaa; }
+html.dark .badge-done { background: #14532d; color: #86efac; }
+html.dark .badge-pending { background: #713f12; color: #fde68a; }
+html.dark .badge-en-camino { background: #7c2d12; color: #fed7aa; }
+html.dark .tecnico-tag { background: #2a2a2a; color: #aaa; }
+html.dark .config-section h3 { color: #e8e8e8; }
+html.dark .valeria-input-row { background: #1e1e1e; border-top-color: #333; }
+html.dark .admin-publish-wrap { background: rgba(30,30,30,.97); }
+html.dark .qf-btn { background: #2a2a2a; color: #aaa; border-color: #444; }
+html.dark .btn-en-camino { background: #2a1e14; color: #f97316; border-color: #f97316; }
+html.dark .btn-icon-admin { background: #2a2a2a; border-color: #444; color: #aaa; }
+html.dark .obs-clasif-badge { background: #1e293b; color: #94a3b8; }
+html.dark .valeria-sugerencia-chip { background: #2d1f5e; color: #c4b5fd; }
+html.dark .ruta-preview { border-top-color: #333; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
 
 @media (prefers-color-scheme: dark) {
   html:not(.dark) body { /* respect manual toggle over system */ }
@@ -857,7 +885,9 @@ html.dark .seg-toolbar { background: #1a1a1a; }
 #seg-tabla-wrap {
   flex: 1;
   overflow-y: auto;
+  overflow-x: auto;
   padding: 0 14px 14px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .seg-table {
@@ -1406,7 +1436,7 @@ html.dark .btn-copiar-instruccion { background: #6d28d9; }
 .btn-mic-small:active { background: #7a0e0e; }
 .btn-mic-small.grabando {
   background: #388e3c;
-  animation: pulse-mic 1s ease-in-out infinite;
+  animation: pulse-mic-green 1s ease-in-out infinite;
 }
 
 .btn-valeria-send {
@@ -1426,7 +1456,7 @@ html.dark .btn-copiar-instruccion { background: #6d28d9; }
 }
 .btn-valeria-send:active { background: #3b0764; }
 
-@keyframes pulse-mic {
+@keyframes pulse-mic-green {
   0%   { box-shadow: 0 0 0 0 rgba(56,142,60,.5); }
   70%  { box-shadow: 0 0 0 14px rgba(56,142,60,0); }
   100% { box-shadow: 0 0 0 0 rgba(56,142,60,0); }
@@ -1909,6 +1939,10 @@ html.dark .dictar-bottom { background: #1a1a1a; border-top-color: #2a2a2a; }
 }
 #btn-mic-recorrido:active { opacity: 0.8; }
 #btn-mic-recorrido.grabando { background: linear-gradient(135deg,#7f1d1d,#991b1b); animation: pulse-rec 1s infinite; }
+@keyframes pulse-rec {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(200,0,0,.4); }
+  50%       { box-shadow: 0 0 0 8px rgba(200,0,0,0); }
+}
 
 .dictar-publish-wrap {
   display: flex;

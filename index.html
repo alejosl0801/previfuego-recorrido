@@ -127,7 +127,7 @@
         <button class="btn-icon-admin" onclick="cargarClientes()" title="Actualizar clientes">&#8635;</button>
       </div>
       <div class="clientes-search-wrap">
-        <input type="search" id="clientes-buscar" placeholder="Buscar cliente o direcci&#xF3;n..." oninput="filtrarClientesMes()" autocomplete="off" />
+        <input type="search" id="clientes-buscar" aria-label="Buscar cliente" placeholder="Buscar cliente o direcci&#xF3;n..." oninput="filtrarClientesMes()" autocomplete="off" />
       </div>
       <div id="clientes-mes-stats" class="clientes-mes-stats"></div>
       <div class="clientes-qf-row">
@@ -180,7 +180,7 @@
         <div id="valeria-chips" class="valeria-chips"></div>
         <div id="valeria-chat" class="valeria-chat"></div>
         <div class="valeria-input-row">
-          <input type="text" id="valeria-input" class="valeria-text-input" placeholder="Consulta historial, clientes pendientes..." onkeydown="valeriaTecla(event)" autocomplete="off" />
+          <input type="text" id="valeria-input" aria-label="Consultar a Valeria" class="valeria-text-input" placeholder="Consulta historial, clientes pendientes..." onkeydown="valeriaTecla(event)" autocomplete="off" />
           <button id="btn-mic" class="btn-mic-small" onclick="iniciarVoz()" title="Hablar">&#x1F3A4;</button>
           <button class="btn-valeria-send" onclick="enviarMensajeValeria()" title="Enviar">&#x27A4;</button>
         </div>
@@ -207,12 +207,12 @@
     <!-- Tab Seguimiento -->
     <div id="tab-seguimiento" class="tab-content">
       <div class="seg-toolbar">
-        <select id="seg-filtro-tecnico" onchange="aplicarFiltroSeguimiento()" class="seg-filtro-select">
+        <select id="seg-filtro-tecnico" aria-label="Filtrar por t&#xe9;cnico" onchange="aplicarFiltroSeguimiento()" class="seg-filtro-select">
           <option value="">Todos</option>
           <option value="Ra&#xFA;l">Ra&#xFA;l</option>
           <option value="Juan">Juan</option>
         </select>
-        <select id="seg-intervalo" onchange="cambiarIntervaloSeguimiento()" class="seg-filtro-select">
+        <select id="seg-intervalo" aria-label="Intervalo de actualizaci&#xF3;n" onchange="cambiarIntervaloSeguimiento()" class="seg-filtro-select">
           <option value="10">10s</option>
           <option value="15">15s</option>
           <option value="30" selected>30s</option>
@@ -223,7 +223,7 @@
         <button class="btn-icon-admin" onclick="imprimirSeguimiento()" title="Imprimir">&#x1F5A8;</button>
       </div>
       <div class="seg-search-wrap">
-        <input type="search" id="seg-buscar" placeholder="Buscar..." oninput="filtrarSeguimiento()" autocomplete="off" />
+        <input type="search" id="seg-buscar" aria-label="Buscar en seguimiento" placeholder="Buscar..." oninput="filtrarSeguimiento()" autocomplete="off" />
       </div>
       <div class="seguimiento-counters" id="seg-counters"></div>
       <div id="seg-tabla-wrap">
@@ -313,7 +313,7 @@
 
       <div class="config-section" style="margin-top:16px;margin-bottom:24px">
         <h3>Informaci&#xF3;n</h3>
-        <p style="font-size:0.82rem;color:#777">Versi&#xF3;n: <strong id="cfg-version">3.6</strong></p>
+        <p style="font-size:0.82rem;color:#777">Versi&#xF3;n: <strong id="cfg-version">3.9</strong></p>
         <p style="font-size:0.82rem;color:#777;margin-top:4px" id="cfg-last-sync">&#xDA;ltima sync: —</p>
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn-ghost btn-sm" onclick="toggleDarkMode()">&#x1F319; Modo oscuro</button>
