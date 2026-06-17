@@ -433,9 +433,9 @@ function setQuickFilter(val) {
 
 var USUARIOS = {
   alejandro: { nombre: 'Alejandro', emoji: '👔', esAdmin: true },
-  raul:      { nombre: 'Ra\xFAl',   emoji: '👷' },
-  juan:      { nombre: 'Juan',      emoji: '👷' }
+  tecnico:   { nombre: 'T\xE9cnico', emoji: '👷' }
 };
+var TECNICOS = ['Ra\xFAl', 'Juan'];
 
 /* ===================================================
    DARK MODE + FONT SIZE — init immediately
@@ -642,10 +642,6 @@ function actualizarEstadoConexion() {
     lastSync.textContent = ts ? '\xDAltima sync: ' + ts : '\xDAltima sync: —';
   }
 
-  var rRaul = document.getElementById('cfg-nombre-raul');
-  var rJuan = document.getElementById('cfg-nombre-juan');
-  if (rRaul) rRaul.value = _lsGet('pf_nombre_raul') || 'Ra\xFAl';
-  if (rJuan) rJuan.value = _lsGet('pf_nombre_juan') || 'Juan';
 }
 
 function desconectarDropbox() {
@@ -739,17 +735,6 @@ function guardarPathSushi() {
 }
 
 function guardarNombresTecnicos() {
-  var rNaul = document.getElementById('cfg-nombre-raul');
-  var rJuan = document.getElementById('cfg-nombre-juan');
-  if (rNaul && rNaul.value.trim()) {
-    _lsSet('pf_nombre_raul', rNaul.value.trim());
-    USUARIOS.raul.nombre = rNaul.value.trim();
-  }
-  if (rJuan && rJuan.value.trim()) {
-    _lsSet('pf_nombre_juan', rJuan.value.trim());
-    USUARIOS.juan.nombre = rJuan.value.trim();
-  }
-  _poblarFiltroTecnicos();  // Refresh seg filter if seguimiento tab is open
   showToast('✅ Nombres guardados');
 }
 
@@ -1142,7 +1127,7 @@ function consultarValeria(texto) {
   var diaSemana = DIAS_SEMANA[new Date().getDay()];
 
   var systemMsg = 'Eres Valeria, asistente experta de PREVIFUEGO, empresa de extintores y seguridad contra incendios en Guayaquil, Ecuador.\n'
-    + 'Admin: Alejandro López (dueño). Técnicos: ' + USUARIOS.raul.nombre + ' y ' + USUARIOS.juan.nombre + '.\n'
+    + 'Admin: Alejandro López (dueño). Técnicos: ' + TECNICOS[0] + ' y ' + TECNICOS[1] + '.\n'
     + 'Hoy es ' + diaSemana + ' ' + fechaHoy() + '.\n'
     + 'CONOCIMIENTO OPERATIVO:\n'
     + '- Sectores Guayaquil: Norte (Alborada, Garzota, Sauces, Kennedy, V\xEDa Perimetral, V\xEDa Daule, Los Ceibos), Centro (Mal\xE9con, Urdesa, Miraflores), Riocentros (Norte, El Dorado, Ceibos, Puntilla), Malls (Mall del Sol, San Marino, City Mall, Mall del Norte, Village Plaza), Oriente (Samborond\xF3n), Sur (Guasmo, Pascuales), Dur\xE1n.\n'
@@ -1559,11 +1544,6 @@ function showScreen(id) {
 
 function login(usuario) {
   if (!USUARIOS[usuario]) return;
-  var savedRaul = _lsGet('pf_nombre_raul');
-  var savedJuan = _lsGet('pf_nombre_juan');
-  if (savedRaul) USUARIOS.raul.nombre = savedRaul;
-  if (savedJuan) USUARIOS.juan.nombre = savedJuan;
-
   USUARIO_ACTUAL = usuario;
   _lsSet('pf_usuario', usuario);
   if (USUARIOS[usuario].esAdmin) {
@@ -2180,8 +2160,8 @@ function renderRutaPreview() {
     var histHtml = patron && patron.ultimo_recorrido
       ? '<div style="font-size:0.72rem;color:#888;margin-top:2px">📅 ' + (patron.veces_en_ruta||0) + 'x \xB7 \xDAlt: ' + esc(patron.ultimo_recorrido) + (patron.tecnico_habitual ? ' \xB7 ' + esc(patron.tecnico_habitual) : '') + '</div>'
       : '';
-    var tecnicoHabitual = patron && patron.tecnico_habitual ? patron.tecnico_habitual : USUARIOS.raul.nombre;
-    var tecNombres = [USUARIOS.raul.nombre, USUARIOS.juan.nombre];
+    var tecnicoHabitual = patron && patron.tecnico_habitual ? patron.tecnico_habitual : TECNICOS[0];
+    var tecNombres = [TECNICOS[0], TECNICOS[1]];
     var selectOpts = tecNombres.map(function(t) {
       return '<option' + (t === tecnicoHabitual ? ' selected' : '') + '>' + esc(t) + '</option>';
     }).join('');
@@ -2391,7 +2371,7 @@ function _renderDictarPuntos() {
     lista.innerHTML = '<div class=”dictar-empty”>Hab\xE1 y describe cada punto del recorrido. La IA arma la misi\xF3n autom\xE1ticamente.</div>';
     return;
   }
-  var tecNombres = [USUARIOS.raul.nombre, USUARIOS.juan.nombre];
+  var tecNombres = [TECNICOS[0], TECNICOS[1]];
   var html = '';
   _DICTAR_PUNTOS.forEach(function(p, i) {
     var misionHtml = (p.mision || '').split('\n').filter(function(l) { return l.trim(); }).map(function(l) {
@@ -2467,10 +2447,10 @@ function hablarPuntoRecorrido() {
 
 function _estructurarPuntoConIA(descripcion) {
   var num = _DICTAR_PUNTOS.length + 1;
-  var tecDefault = USUARIOS.raul.nombre;
+  var tecDefault = TECNICOS[0];
   // Detect if admin mentions the second technician by name
-  var nombreJuan = USUARIOS.juan.nombre.toLowerCase().split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  if (new RegExp('\\b' + nombreJuan + '\\b', 'i').test(descripcion)) tecDefault = USUARIOS.juan.nombre;
+  var nombreJuan = TECNICOS[1].toLowerCase().split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (new RegExp('\\b' + nombreJuan + '\\b', 'i').test(descripcion)) tecDefault = TECNICOS[1];
 
   var systemMsg = 'Eres un transcriptor de recorridos para PREVIFUEGO (empresa de extintores, Guayaquil, Ecuador).\n'
     + 'El admin Alejandro te describe UN punto de recorrido en voz. Tu \xFAnica tarea es plasmar EXACTAMENTE lo que dice en formato JSON.\n'
@@ -2606,7 +2586,7 @@ function publicarRutaPreview() {
     return {
       nombre: c.nombre, direccion: c.direccion, extintores: c.extintores,
       local: c.local || '', esKfc: c.esKfc || false, mision: c.mision || 'Mantenimiento',
-      tecnico: tecnicoEl ? tecnicoEl.value : USUARIOS.raul.nombre,
+      tecnico: tecnicoEl ? tecnicoEl.value : TECNICOS[0],
       nota: notaEl ? notaEl.value.trim() : '',
       urgente: priorityEl ? priorityEl.checked : false,
       done: false, enCamino: false, horaCompletado: null, observacion: ''
@@ -2646,7 +2626,7 @@ function _poblarFiltroTecnicos() {
   var sel = document.getElementById('seg-filtro-tecnico');
   if (!sel) return;
   var prev = sel.value;
-  var nombres = [USUARIOS.raul.nombre, USUARIOS.juan.nombre];
+  var nombres = [TECNICOS[0], TECNICOS[1]];
   var html = '<option value="">Todos</option>';
   nombres.forEach(function(n) { html += '<option value="' + esc(n) + '">' + esc(n) + '</option>'; });
   sel.innerHTML = html;
@@ -2761,7 +2741,7 @@ function renderTablaSeguimiento(puntos) {
   for (var tc in tecnicos) {
     if (!tecnicos.hasOwnProperty(tc)) continue;
     var s = tecnicos[tc];
-    var colorBorder = tc === USUARIOS.raul.nombre ? '#3b82f6' : (tc === USUARIOS.juan.nombre ? '#f97316' : '#9e1212');
+    var colorBorder = tc === TECNICOS[0] ? '#3b82f6' : (tc === TECNICOS[1] ? '#f97316' : '#9e1212');
     var pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
     var circ = 2 * Math.PI * 18;
     var svgRing = '<svg width="44" height="44" style="position:absolute;top:8px;right:8px;flex-shrink:0"><circle cx="22" cy="22" r="18" fill="none" stroke="#eee" stroke-width="4"/><circle cx="22" cy="22" r="18" fill="none" stroke="' + colorBorder + '" stroke-width="4" stroke-dasharray="' + Math.round(circ) + '" stroke-dashoffset="' + Math.round(circ * (1 - pct / 100)) + '" stroke-linecap="round" transform="rotate(-90 22 22)"/><text x="22" y="27" text-anchor="middle" font-size="10" font-weight="bold" fill="' + colorBorder + '">' + pct + '%</text></svg>';
@@ -2782,7 +2762,7 @@ function renderTablaSeguimiento(puntos) {
   });
   var tHtml = '';
   sorted.forEach(function(p) {
-    var colorBorderRow = p.tecnico === USUARIOS.raul.nombre ? '3px solid #3b82f6' : (p.tecnico === USUARIOS.juan.nombre ? '3px solid #f97316' : 'none');
+    var colorBorderRow = p.tecnico === TECNICOS[0] ? '3px solid #3b82f6' : (p.tecnico === TECNICOS[1] ? '3px solid #f97316' : 'none');
     var estadoBadge;
     if (p.done) {
       estadoBadge = '<span class="badge-done">✓ Listo</span>';
@@ -2823,13 +2803,12 @@ function cargarRecorrido() {
   mostrarCargando(true);
   var vacio = document.getElementById('s1-vacio');
   if (vacio) vacio.style.display = 'none';
-  var tecnico = USUARIOS[USUARIO_ACTUAL].nombre;
   dbxDownloadJSON(DBX_RECORRIDOS)
   .then(function(recorridos) {
     mostrarCargando(false);
     var hoy = recorridos[fechaHoy()];
     if (!hoy || !hoy.puntos || !hoy.puntos.length) { cargarRecorridoLocal(); return; }
-    var misPuntos = hoy.puntos.filter(function(p) { return p.tecnico === tecnico; });
+    var misPuntos = hoy.puntos;
     if (!misPuntos.length) { mostrarVacio('No tienes puntos asignados para hoy.'); return; }
     _lsSet('pf_puntos_' + fechaHoy(), JSON.stringify(misPuntos));
     procesarPuntos(misPuntos);
@@ -2840,8 +2819,7 @@ function cargarRecorrido() {
     if (guardados) {
       try {
         var arr = JSON.parse(guardados);
-        var mis = arr.filter(function(p) { return !p.tecnico || p.tecnico === tecnico; });
-        if (mis.length) { showToast('Sin conexi\xF3n — usando datos guardados'); procesarPuntos(mis); return; }
+        if (arr.length) { showToast('Sin conexi\xF3n — usando datos guardados'); procesarPuntos(arr); return; }
       } catch(e) {}
     }
     mostrarVacio('Sin conexi\xF3n con el servidor.\nVerifica tu internet e intenta de nuevo.');
@@ -2853,9 +2831,7 @@ function cargarRecorridoLocal() {
   if (!guardados) { mostrarVacio(); return; }
   try {
     var arr = JSON.parse(guardados);
-    var tecnico = USUARIO_ACTUAL ? USUARIOS[USUARIO_ACTUAL].nombre : '';
-    var mis = arr.filter(function(p) { return !p.tecnico || p.tecnico === tecnico; });
-    if (mis.length) procesarPuntos(mis); else mostrarVacio();
+    if (arr.length) procesarPuntos(arr); else mostrarVacio();
   } catch(e) { mostrarVacio(); }
 }
 
@@ -3163,7 +3139,6 @@ function subirFichas() {
 function _ejecutarSubirFichas() {
   if (_subirFichasPending) { subirFichas(); return; }  // Reschedule if upload still in flight
   _subirFichasPending = true;
-  var tecnico  = USUARIO_ACTUAL ? USUARIOS[USUARIO_ACTUAL].nombre : '';
   var fechaSubir = fechaHoy();
   var snapshot = PUNTOS.map(function(p) {
     return { nombre: p.nombre, done: p.done, horaCompletado: p.horaCompletado, enCamino: p.enCamino || false, observacion: p.observacion || '' };
@@ -3171,10 +3146,8 @@ function _ejecutarSubirFichas() {
   dbxDownloadJSON(DBX_RECORRIDOS)
   .then(function(recorridos) {
     var hoy = recorridos[fechaSubir];
-    // dbxDownloadJSON returns {} for "file not found" — hoy absent = no route published yet, skip silently
     if (!hoy || !hoy.puntos) { var e = new Error('Sin recorrido hoy'); e.noRetry = true; throw e; }
     hoy.puntos = hoy.puntos.map(function(p) {
-      if (p.tecnico !== tecnico) return p;
       var match = snapshot.filter(function(s) { return s.nombre === p.nombre; })[0];
       if (match) { p.done = match.done; p.horaCompletado = match.horaCompletado; p.enCamino = match.enCamino; p.observacion = match.observacion; }
       return p;
