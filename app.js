@@ -2366,10 +2366,105 @@ function abrirModoRecorrido() {
   if (panelDictar) panelDictar.style.display = 'flex';
   _renderDictarPuntos();
   if (!_DICTAR_PUNTOS.length) {
-    _dictatStatus('Pulsa el micr\xF3fono y describe el primer punto.');
+    _dictatStatus('Pega el recorrido de ChatGPT o dicta por voz.');
   } else {
-    _dictatStatus(_DICTAR_PUNTOS.length + ' punto(s) en espera. Pulsa mic\xF3fono para agregar m\xE1s.');
+    _dictatStatus(_DICTAR_PUNTOS.length + ' punto(s). Agrega m\xE1s o publica.');
   }
+}
+
+function togglePegarRecorrido() {
+  var ta = document.getElementById('dictar-pegar-texto');
+  var btn = document.getElementById('btn-pegar-recorrido');
+  if (!ta) return;
+  if (ta.style.display === 'none') {
+    ta.style.display = 'block';
+    ta.focus();
+    if (btn) btn.textContent = '✅ Procesar texto';
+  } else {
+    var texto = ta.value.trim();
+    if (!texto) { ta.style.display = 'none'; if (btn) btn.textContent = '📋 Pegar recorrido'; return; }
+    _parsearRecorridoTexto(texto);
+    ta.value = '';
+    ta.style.display = 'none';
+    if (btn) btn.textContent = '📋 Pegar recorrido';
+  }
+}
+
+function _parsearRecorridoTexto(texto) {
+  var lineas = texto.split('\n').map(function(l) { return l.trim(); }).filter(function(l) { return l; });
+  var puntos = [];
+  var currentPunto = null;
+
+  for (var i = 0; i < lineas.length; i++) {
+    var linea = lineas[i];
+    var matchPunto = linea.match(/^(?:punto\s*)?(\d+)[\.\)\-:]\s*(.+)/i);
+    if (!matchPunto) matchPunto = linea.match(/^[•●▪–—\-\*]\s*(.+)/i);
+
+    if (matchPunto) {
+      if (currentPunto) puntos.push(currentPunto);
+      var contenido = matchPunto[2] || matchPunto[1];
+      var partes = contenido.split(/[\-–—:,]/).map(function(s) { return s.trim(); });
+      var nombre = partes[0] || contenido;
+      var mision = partes.length > 1 ? partes.slice(1).join('\n').trim() : '';
+      currentPunto = {
+        nombre: nombre,
+        direccion: '',
+        mision: mision || 'Mantenimiento',
+        nota: '',
+        urgente: false,
+        tecnico: TECNICOS[0],
+        esKfc: /\bkfc\b/i.test(nombre),
+        extintores: 0,
+        local: '',
+        done: false,
+        enCamino: false,
+        horaCompletado: null,
+        observacion: ''
+      };
+    } else if (currentPunto) {
+      if (currentPunto.mision === 'Mantenimiento') {
+        currentPunto.mision = linea;
+      } else {
+        currentPunto.mision += '\n' + linea;
+      }
+    } else {
+      // First line without a number — treat as a point
+      currentPunto = {
+        nombre: linea,
+        direccion: '',
+        mision: 'Mantenimiento',
+        nota: '',
+        urgente: false,
+        tecnico: TECNICOS[0],
+        esKfc: /\bkfc\b/i.test(linea),
+        extintores: 0,
+        local: '',
+        done: false,
+        enCamino: false,
+        horaCompletado: null,
+        observacion: ''
+      };
+    }
+  }
+  if (currentPunto) puntos.push(currentPunto);
+
+  if (!puntos.length) {
+    _dictatStatus('⚠️ No se encontraron puntos. Aseg\xFArate de que cada punto empiece con n\xFAmero (1. 2. 3.)', '#c00');
+    return;
+  }
+
+  // Detect technician name in mission text
+  var nombreTec2 = TECNICOS[1].toLowerCase().split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  var reTec2 = new RegExp('\\b' + nombreTec2 + '\\b', 'i');
+  puntos.forEach(function(p) {
+    if (reTec2.test(p.nombre) || reTec2.test(p.mision)) p.tecnico = TECNICOS[1];
+  });
+
+  _DICTAR_PUNTOS = _DICTAR_PUNTOS.concat(puntos);
+  _renderDictarPuntos();
+  _dictatStatus('✅ ' + puntos.length + ' punto(s) agregados. Revisa y publica.');
+  var lista = document.getElementById('dictar-puntos-lista');
+  if (lista) lista.scrollTop = lista.scrollHeight;
 }
 
 function salirModoRecorrido() {
