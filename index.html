@@ -152,13 +152,17 @@
       <div id="modo-recorrido-panel" style="display:none;flex-direction:column;gap:0;flex:1;overflow:hidden">
         <div class="dictar-header">
           <button class="btn-ghost btn-sm" onclick="salirModoRecorrido()">&#x2190; Volver</button>
-          <span class="dictar-title">&#x1F399; Dictando Recorrido</span>
+          <span class="dictar-title">&#x1F399; Crear Recorrido</span>
           <span id="dictar-count-badge" class="dictar-count-badge">0 puntos</span>
         </div>
-        <div id="dictar-status" class="dictar-status">Pulsa el mic&#xF3;fono y describe el primer punto.</div>
+        <div id="dictar-status" class="dictar-status">Pega el recorrido de ChatGPT o dicta por voz.</div>
         <div id="dictar-puntos-lista" class="dictar-puntos-lista"></div>
         <div class="dictar-bottom">
-          <button id="btn-mic-recorrido" class="btn-dictar-mic" onclick="hablarPuntoRecorrido()">&#x1F3A4; Hablar punto</button>
+          <textarea id="dictar-pegar-texto" class="opts-input" rows="4" placeholder="Pega aqu&#xED; el recorrido de ChatGPT..." style="font-size:13px;resize:vertical;width:100%;display:none"></textarea>
+          <div style="display:flex;gap:8px;width:100%">
+            <button id="btn-pegar-recorrido" class="btn-primary" onclick="togglePegarRecorrido()" style="flex:1">&#x1F4CB; Pegar recorrido</button>
+            <button id="btn-mic-recorrido" class="btn-dictar-mic" onclick="hablarPuntoRecorrido()" style="flex:0 0 auto;padding:8px 14px">&#x1F3A4;</button>
+          </div>
           <div class="dictar-publish-wrap">
             <label class="dictar-manana-label"><input type="checkbox" id="dictar-chk-manana"> Para ma&#xF1;ana</label>
             <button id="btn-publicar-dictado" class="btn-primary" onclick="publicarRecorridoDictado()" disabled>&#x1F4E4; Publicar</button>
