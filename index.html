@@ -250,15 +250,26 @@
           <button class="btn-ghost btn-sm" onclick="verificarConexion()">&#x1F4E1; Test</button>
           <button class="btn-ghost btn-sm" onclick="limpiarCache()">&#x1F5D1; Limpiar cach&#xE9;</button>
         </div>
+        <div style="margin-top:12px;border-top:1px solid rgba(0,0,0,0.1);padding-top:12px">
+          <p style="font-size:12px;color:#666;margin-bottom:8px">Compartir conexi&#xF3;n con otros dispositivos:</p>
+          <button class="btn-ghost btn-full" onclick="generarCodigoConexion()" id="btn-generar-codigo" style="display:none">&#x1F4E4; Generar c&#xF3;digo para compartir</button>
+          <div style="margin-top:8px">
+            <input type="text" id="cfg-codigo-conexion" class="opts-input" placeholder="Pega aqu&#xED; el c&#xF3;digo de conexi&#xF3;n" style="font-size:13px" />
+            <button class="btn-ghost btn-full" onclick="usarCodigoConexion()" style="margin-top:6px">&#x1F517; Conectar con c&#xF3;digo</button>
+          </div>
+        </div>
       </div>
 
       <div class="config-section" style="margin-top:16px">
         <h3>Valeria IA (ChatGPT)</h3>
-        <div id="cfg-ia-status" style="margin-bottom:8px;font-size:13px;color:#1a7f37">Verificando clave ChatGPT...</div>
-        <div class="form-group" style="padding:0">
-          <input type="password" id="cfg-openai-key" class="opts-input" placeholder="Pega tu clave OpenAI (sk-...)" style="font-size:13px" />
-          <button class="btn-ghost btn-full" onclick="guardarOpenAIKey()" style="margin-top:8px">Guardar clave ChatGPT</button>
-        </div>
+        <div id="cfg-ia-status" style="margin-bottom:8px;font-size:13px;color:#1a7f37">Verificando...</div>
+        <details style="margin-top:4px">
+          <summary style="font-size:13px;color:#666;cursor:pointer">Cambiar clave ChatGPT</summary>
+          <div class="form-group" style="padding:8px 0 0">
+            <input type="password" id="cfg-openai-key" class="opts-input" placeholder="Pega tu clave OpenAI (sk-...)" style="font-size:13px" />
+            <button class="btn-ghost btn-full" onclick="guardarOpenAIKey()" style="margin-top:8px">Guardar clave ChatGPT</button>
+          </div>
+        </details>
       </div>
 
       <div class="config-section" style="margin-top:16px">
