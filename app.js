@@ -643,12 +643,13 @@ function generarCodigoConexion() {
   var rt = getRefreshToken();
   if (!rt) { showToast('Conecta Dropbox primero'); return; }
   var code = btoa(rt);
+  var link = 'https://alejosl0801.github.io/previfuego-recorrido/?c=' + encodeURIComponent(code);
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(code).then(function() {
-      showToast('✅ C\xF3digo copiado — p\xE9galo en el otro dispositivo o env\xEDalo por WhatsApp');
+    navigator.clipboard.writeText(link).then(function() {
+      showToast('✅ Link copiado — \xE1brelo en cualquier dispositivo y queda conectado autom\xE1ticamente');
     });
   } else {
-    pfModal('C\xF3digo de conexi\xF3n', 'Copia este c\xF3digo y p\xE9galo en el otro dispositivo:\n\n' + code);
+    pfModal('Link de conexi\xF3n', 'Copia este link y \xE1brelo en cualquier dispositivo:\n\n' + link);
   }
 }
 
@@ -3253,6 +3254,22 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
   } catch(e) {}
+
+  var urlParams = new URLSearchParams(window.location.search);
+  var cParam = urlParams.get('c');
+  if (cParam && !getRefreshToken()) {
+    try {
+      var rt = atob(decodeURIComponent(cParam));
+      if (rt) {
+        _lsSet('pf_dbx_refresh_token', rt);
+        window.history.replaceState({}, '', window.location.pathname);
+        showToast('✅ Dropbox conectado autom\xE1ticamente');
+        sincronizarConfig();
+      }
+    } catch(e) {}
+  } else if (cParam) {
+    window.history.replaceState({}, '', window.location.pathname);
+  }
 
   var oauthInProgress = handleOAuthCallback();
   if (!oauthInProgress) {
