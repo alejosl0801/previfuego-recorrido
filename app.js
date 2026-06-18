@@ -609,14 +609,17 @@ function actualizarEstadoConexion() {
   var btnConectar  = document.getElementById('btn-conectar-dropbox');
   var btnDesconect = document.getElementById('btn-desconectar-dropbox');
 
+  var btnGenCodigo = document.getElementById('btn-generar-codigo');
   if (getRefreshToken()) {
     if (status)       status.innerHTML = '✅ <strong>Dropbox conectado</strong>';
     if (btnConectar)  btnConectar.style.display = 'none';
     if (btnDesconect) btnDesconect.style.display = 'block';
+    if (btnGenCodigo) btnGenCodigo.style.display = 'block';
   } else {
     if (status)       status.innerHTML = '⚠️ No conectado a Dropbox';
     if (btnConectar)  btnConectar.style.display = 'block';
     if (btnDesconect) btnDesconect.style.display = 'none';
+    if (btnGenCodigo) btnGenCodigo.style.display = 'none';
   }
 
   var inKfc   = document.getElementById('cfg-path-kfc');
@@ -634,6 +637,35 @@ function actualizarEstadoConexion() {
     lastSync.textContent = ts ? '\xDAltima sync: ' + ts : '\xDAltima sync: —';
   }
 
+}
+
+function generarCodigoConexion() {
+  var rt = getRefreshToken();
+  if (!rt) { showToast('Conecta Dropbox primero'); return; }
+  var code = btoa(rt);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(code).then(function() {
+      showToast('✅ C\xF3digo copiado — p\xE9galo en el otro dispositivo o env\xEDalo por WhatsApp');
+    });
+  } else {
+    pfModal('C\xF3digo de conexi\xF3n', 'Copia este c\xF3digo y p\xE9galo en el otro dispositivo:\n\n' + code);
+  }
+}
+
+function usarCodigoConexion() {
+  var input = document.getElementById('cfg-codigo-conexion');
+  if (!input || !input.value.trim()) { showToast('Pega el c\xF3digo primero'); return; }
+  try {
+    var rt = atob(input.value.trim());
+    _lsSet('pf_dbx_refresh_token', rt);
+    _lsRemove('pf_dbx_access_token');
+    _lsRemove('pf_dbx_token_exp');
+    input.value = '';
+    actualizarEstadoConexion();
+    showToast('✅ Dropbox conectado');
+  } catch(e) {
+    showToast('❌ C\xF3digo inv\xE1lido');
+  }
 }
 
 function desconectarDropbox() {
