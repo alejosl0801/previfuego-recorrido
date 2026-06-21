@@ -2391,52 +2391,59 @@ function togglePegarRecorrido() {
 }
 
 function _parsearRecorridoTexto(texto) {
-  var lineas = texto.split('\n').map(function(l) { return l.trim(); }).filter(function(l) { return l; });
+  var lineas = texto.split('\n').map(function(l) { return l.trim(); });
   var puntos = [];
   var currentPunto = null;
+  var currentMision = [];
+  var currentNotas = [];
+
+  function cerrarPunto() {
+    if (!currentPunto) return;
+    currentPunto.mision = currentMision.join('\n').trim() || 'Mantenimiento';
+    var notaStr = currentNotas.join('\n').trim();
+    if (notaStr) currentPunto.nota = notaStr;
+    puntos.push(currentPunto);
+    currentPunto = null;
+    currentMision = [];
+    currentNotas = [];
+  }
 
   for (var i = 0; i < lineas.length; i++) {
     var linea = lineas[i];
-    var matchPunto = linea.match(/^(?:punto\s*)?(\d+)[\.\)\-:]\s*(.+)/i);
-    if (!matchPunto) matchPunto = linea.match(/^[•●▪–—\-\*]\s*(.+)/i);
+    if (!linea) continue;
+
+    // Skip route title lines (RECORRIDO LUNES 22 DE JUNIO...)
+    if (/^RECORRIDO\b/i.test(linea)) continue;
+
+    // Detect "Punto N" line
+    var matchPunto = linea.match(/^[Pp]unto\s*(\d+)\s*[\-–—]\s*(.+)/);
+    if (!matchPunto) matchPunto = linea.match(/^[Pp]unto\s*(\d+)\s*$/);
 
     if (matchPunto) {
-      if (currentPunto) puntos.push(currentPunto);
-      var contenido = matchPunto[2] || matchPunto[1];
-      var partes = contenido.split(/[\-–—:,]/).map(function(s) { return s.trim(); });
-      var nombre = partes[0] || contenido;
-      var mision = partes.length > 1 ? partes.slice(1).join('\n').trim() : '';
-      currentPunto = {
-        nombre: nombre,
-        direccion: '',
-        mision: mision || 'Mantenimiento',
-        nota: '',
-        urgente: false,
-        tecnico: TECNICOS[0],
-        esKfc: /\bkfc\b/i.test(nombre),
-        extintores: 0,
-        local: '',
-        done: false,
-        enCamino: false,
-        horaCompletado: null,
-        observacion: ''
-      };
-    } else if (currentPunto) {
-      if (currentPunto.mision === 'Mantenimiento') {
-        currentPunto.mision = linea;
-      } else {
-        currentPunto.mision += '\n' + linea;
+      cerrarPunto();
+      var contenido = matchPunto[2] || '';
+      // Check if mission is on the same line: "Punto 1 - KFC, retirar extintores"
+      var nombre = contenido;
+      var misionInline = '';
+      var commaIdx = contenido.indexOf(',');
+      if (commaIdx > 0 && !/misi[oó]n/i.test(contenido.substring(0, commaIdx))) {
+        nombre = contenido.substring(0, commaIdx).trim();
+        misionInline = contenido.substring(commaIdx + 1).trim();
       }
-    } else {
-      // First line without a number — treat as a point
+      // Check if "Misión:" is embedded: "Punto 1 – KFC Misión: hacer algo"
+      var misionMatch = nombre.match(/^(.+?)\s+[Mm]isi[oó]n:\s*(.+)$/);
+      if (misionMatch) {
+        nombre = misionMatch[1].trim();
+        misionInline = misionMatch[2].trim();
+      }
       currentPunto = {
-        nombre: linea,
+        nombre: nombre || ('Punto ' + matchPunto[1]),
         direccion: '',
-        mision: 'Mantenimiento',
+        mision: '',
         nota: '',
         urgente: false,
         tecnico: TECNICOS[0],
-        esKfc: /\bkfc\b/i.test(linea),
+        esKfc: /\bkfc\b/i.test(nombre || ''),
         extintores: 0,
         local: '',
         done: false,
@@ -2444,20 +2451,69 @@ function _parsearRecorridoTexto(texto) {
         horaCompletado: null,
         observacion: ''
       };
+      currentMision = [];
+      currentNotas = [];
+      if (misionInline) currentMision.push(misionInline);
+      continue;
     }
+
+    if (!currentPunto) continue;
+
+    // "Misión:" or "Mision:" line
+    var misionLine = linea.match(/^[Mm]isi[oó]n:\s*(.*)/);
+    if (misionLine) {
+      if (misionLine[1].trim()) currentMision.push(misionLine[1].trim());
+      continue;
+    }
+
+    // "Local:" sub-location — append to punto name
+    var localLine = linea.match(/^[Ll]ocal:\s*(.*)/);
+    if (localLine && localLine[1].trim()) {
+      if (currentPunto.nombre && currentPunto.nombre !== ('Punto ' + puntos.length + 1)) {
+        currentPunto.local = localLine[1].trim();
+      } else {
+        currentPunto.nombre = localLine[1].trim();
+      }
+      continue;
+    }
+
+    // Parenthetical notes
+    if (/^\(/.test(linea) && /\)$/.test(linea)) {
+      currentNotas.push(linea.replace(/^\(/, '').replace(/\)$/, ''));
+      continue;
+    }
+    if (/^\(/.test(linea)) {
+      currentNotas.push(linea.replace(/^\(/, ''));
+      continue;
+    }
+
+    // Bullet point lines (part of mission)
+    if (/^[\*•●▪–—\-]\s+/.test(linea)) {
+      currentMision.push(linea.replace(/^[\*•●▪–—\-]\s+/, '• '));
+      continue;
+    }
+
+    // Numbered sub-items in mission (1 de 50 lb CO₂, 2-10Pqs, etc.)
+    if (/^\d+[\s\-]/.test(linea) && !/^[Pp]unto/.test(linea)) {
+      currentMision.push(linea);
+      continue;
+    }
+
+    // Everything else is part of the mission
+    currentMision.push(linea);
   }
-  if (currentPunto) puntos.push(currentPunto);
+  cerrarPunto();
 
   if (!puntos.length) {
-    _dictatStatus('⚠️ No se encontraron puntos. Aseg\xFArate de que cada punto empiece con n\xFAmero (1. 2. 3.)', '#c00');
+    _dictatStatus('⚠️ No se encontraron puntos. Cada punto debe empezar con "Punto 1", "Punto 2", etc.', '#c00');
     return;
   }
 
-  // Detect technician name in mission text
+  // Detect technician name mentions
   var nombreTec2 = TECNICOS[1].toLowerCase().split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   var reTec2 = new RegExp('\\b' + nombreTec2 + '\\b', 'i');
   puntos.forEach(function(p) {
-    if (reTec2.test(p.nombre) || reTec2.test(p.mision)) p.tecnico = TECNICOS[1];
+    if (reTec2.test(p.nombre) || reTec2.test(p.mision) || reTec2.test(p.nota)) p.tecnico = TECNICOS[1];
   });
 
   _DICTAR_PUNTOS = _DICTAR_PUNTOS.concat(puntos);
@@ -2504,6 +2560,7 @@ function _renderDictarPuntos() {
       + '<div class=”dictar-punto-num”>' + (i + 1) + '</div>'
       + '<div class=”dictar-punto-body”>'
       +   '<div class=”dictar-punto-nombre”>' + esc(p.nombre) + '</div>'
+      +   (p.local ? '<div class=”dictar-punto-dir”>🏪 ' + esc(p.local) + '</div>' : '')
       +   (p.direccion ? '<div class=”dictar-punto-dir”>📍 ' + esc(p.direccion) + '</div>' : '')
       +   '<div class=”dictar-mision-wrap”>' + misionHtml + '</div>'
       +   (p.nota ? '<div class=”dictar-punto-nota”>📌 ' + esc(p.nota) + '</div>' : '')
