@@ -159,10 +159,7 @@
         <div id="dictar-puntos-lista" class="dictar-puntos-lista"></div>
         <div class="dictar-bottom">
           <textarea id="dictar-pegar-texto" class="opts-input" rows="4" placeholder="Pega aqu&#xED; el recorrido de ChatGPT..." style="font-size:13px;resize:vertical;width:100%;display:none"></textarea>
-          <div style="display:flex;gap:8px;width:100%">
-            <button id="btn-pegar-recorrido" class="btn-primary" onclick="togglePegarRecorrido()" style="flex:1">&#x1F4CB; Pegar recorrido</button>
-            <button id="btn-mic-recorrido" class="btn-dictar-mic" onclick="hablarPuntoRecorrido()" style="flex:0 0 auto;padding:8px 14px">&#x1F3A4;</button>
-          </div>
+          <button id="btn-pegar-recorrido" class="btn-primary btn-full" onclick="togglePegarRecorrido()">&#x1F4CB; Pegar recorrido</button>
           <div class="dictar-publish-wrap">
             <label class="dictar-manana-label"><input type="checkbox" id="dictar-chk-manana"> Para ma&#xF1;ana</label>
             <button id="btn-publicar-dictado" class="btn-primary" onclick="publicarRecorridoDictado()" disabled>&#x1F4E4; Publicar</button>
