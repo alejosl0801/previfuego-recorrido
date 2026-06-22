@@ -1537,8 +1537,8 @@ function pfConfirm(titulo, msg, cb) {
   document.body.style.overflow = 'hidden';
 }
 
-function showToast(msg) {
-  _toastQueue.push(msg);
+function showToast(msg, duration) {
+  _toastQueue.push({ msg: msg, dur: duration || 2800 });
   if (_toastQueue.length > 3) _toastQueue = _toastQueue.slice(-3);
   if (!_toastShowing) _processToastQueue();
 }
@@ -1546,16 +1546,16 @@ function showToast(msg) {
 function _processToastQueue() {
   if (!_toastQueue.length) { _toastShowing = false; return; }
   _toastShowing = true;
-  var msg = _toastQueue.shift();
+  var item = _toastQueue.shift();
   var el = document.getElementById('toast');
   if (!el) { _toastShowing = false; return; }
-  el.textContent = msg;
+  el.textContent = item.msg;
   el.classList.add('visible');
   if (_toastTimer) clearTimeout(_toastTimer);
   _toastTimer = setTimeout(function() {
     el.classList.remove('visible');
     setTimeout(_processToastQueue, 350);
-  }, 2800);
+  }, item.dur);
 }
 
 /* ===================================================
@@ -2033,7 +2033,7 @@ function _resaltar(texto, filtro) {
 }
 
 /* ===================================================
-   ADMIN — VOZ + GROQ (used by Valeria)
+   ADMIN — VOZ + ChatGPT (used by Valeria)
 =================================================== */
 function iniciarVoz() {
   var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
