@@ -759,9 +759,6 @@ function guardarPathSushi() {
   showToast('✅ Path Sushicorp guardado');
 }
 
-function guardarNombresTecnicos() {
-  showToast('✅ Nombres guardados');
-}
 
 function testDescargarArchivo(path) {
   var debug = document.getElementById('cfg-debug');
@@ -1419,41 +1416,6 @@ var MESES_NUM = {'1':'ENERO','2':'FEBRERO','3':'MARZO','4':'ABRIL','5':'MAYO','6
   '01':'ENERO','02':'FEBRERO','03':'MARZO','04':'ABRIL','05':'MAYO','06':'JUNIO',
   '07':'JULIO','08':'AGOSTO','09':'SEPTIEMBRE','10':'OCTUBRE','11':'NOVIEMBRE','12':'DICIEMBRE'};
 
-function normalizarMes(val) {
-  // Handle Date objects directly (SheetJS returns date cells as Date objects)
-  if (val instanceof Date && !isNaN(val)) {
-    return MESES_NUM[String(val.getMonth() + 1)] || '';
-  }
-  // Handle Excel serial numbers (numeric dates)
-  if (typeof val === 'number' && val > 1000) {
-    try {
-      var d = new Date(Math.round((val - 25569) * 86400 * 1000));
-      if (!isNaN(d)) return MESES_NUM[String(d.getMonth() + 1)] || '';
-    } catch(e) {}
-  }
-  var s = String(val).trim();
-  if (!s || s === 'undefined' || s === 'null') return '';
-  if (MESES_NUM[s]) return MESES_NUM[s];
-  var up = s.toUpperCase();
-  var ABREV = {
-    'ENE':'ENERO','FEB':'FEBRERO','MAR':'MARZO','ABR':'ABRIL','MAY':'MAYO',
-    'JUN':'JUNIO','JUL':'JULIO','AGO':'AGOSTO','SEP':'SEPTIEMBRE',
-    'SEPT':'SEPTIEMBRE','OCT':'OCTUBRE','NOV':'NOVIEMBRE','DIC':'DICIEMBRE',
-    'JAN':'ENERO','APR':'ABRIL','AUG':'AGOSTO','DEC':'DICIEMBRE'
-  };
-  if (ABREV[up]) return ABREV[up];
-  // Scan ALL words in the string (handles "Sat Mar 01 2026..." from Date.toString())
-  var words = up.split(/[\s\-\/\.\,\_]+/).map(function(w){ return w.replace(/[^A-Z]/g,''); });
-  for (var j = 0; j < words.length; j++) {
-    if (ABREV[words[j]]) return ABREV[words[j]];
-  }
-  // Handle full names with trailing year or spaces
-  var FULL = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
-  for (var i = 0; i < FULL.length; i++) {
-    if (up.indexOf(FULL[i]) !== -1) return FULL[i];
-  }
-  return up;
-}
 
 
 /* ===================================================
@@ -1783,18 +1745,6 @@ function cargarClientes() {
   });
 }
 /* Load all months — escape hatch when the selected month has no data */
-function cargarTodosSinFiltro() {
-  var mesEl = document.getElementById('admin-mes');
-  var MESES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
-  var actual = new Date().getMonth();
-  var cont = document.getElementById('clientes-mes-lista');
-  if (cont) cont.innerHTML = '<div class="no-clientes">🔍 Buscando mes con datos...</div>';
-  if (mesEl) mesEl.value = MESES[actual];
-  _cargandoClientes = false;
-  _mesUltimoCargado = '';
-  cargarClientes();
-}
-
 var _visitasPendientes = {};
 function _guardarVisitas() {
   if (!getRefreshToken()) return;
@@ -2591,127 +2541,6 @@ function _dictarEliminarPunto(idx) {
   _dictatStatus(_DICTAR_PUNTOS.length + ' punto(s). Pulsa micr\xF3fono para agregar m\xE1s.');
 }
 
-var _DICTAR_TEXTO_ACUM = '';
-
-function hablarPuntoRecorrido() {
-  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) { pfModal('No disponible', 'Tu navegador no soporta reconocimiento de voz. Usa Chrome.'); return; }
-  var btn = document.getElementById('btn-mic-recorrido');
-  if (_DICTAR_REC) {
-    try { _DICTAR_REC.abort(); } catch(e) {}
-    _DICTAR_REC = null;
-    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4; Hablar punto'; }
-    if (_DICTAR_TEXTO_ACUM.trim()) {
-      var textoFinal = _DICTAR_TEXTO_ACUM.trim();
-      _DICTAR_TEXTO_ACUM = '';
-      _dictatStatus('⏳ Procesando: “' + textoFinal.slice(0, 80) + (textoFinal.length > 80 ? '...' : '') + '”');
-      _estructurarPuntoConIA(textoFinal);
-    } else {
-      _DICTAR_TEXTO_ACUM = '';
-      _dictatStatus('Grabaci\xF3n cancelada.');
-    }
-    return;
-  }
-  _DICTAR_TEXTO_ACUM = '';
-  if (btn) { btn.classList.add('grabando'); btn.innerHTML = '&#x23F9; Detener y procesar'; }
-  _dictatStatus('🔴 Escuchando... habla todo lo que necesites. Pulsa Detener cuando termines.', '#c00');
-  var rec = new SpeechRecognition();
-  _DICTAR_REC = rec;
-  rec.lang = 'es-EC';
-  rec.continuous = true;
-  rec.interimResults = true;
-  rec.onresult = function(e) {
-    var full = '';
-    for (var i = 0; i < e.results.length; i++) {
-      full += e.results[i][0].transcript;
-    }
-    _DICTAR_TEXTO_ACUM = full;
-    _dictatStatus('🔴 “' + full.slice(-100) + (full.length > 100 ? '...' : '') + '”', '#c00');
-  };
-  rec.onerror = function(ev) {
-    if (ev.error === 'no-speech') return;
-    _DICTAR_REC = null;
-    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4; Hablar punto'; }
-    if (_DICTAR_TEXTO_ACUM.trim()) {
-      _dictatStatus('⏳ Procesando lo capturado...');
-      var t = _DICTAR_TEXTO_ACUM.trim(); _DICTAR_TEXTO_ACUM = '';
-      _estructurarPuntoConIA(t);
-    } else {
-      _DICTAR_TEXTO_ACUM = '';
-      _dictatStatus('⚠️ Error de micr\xF3fono: ' + ev.error, '#c00');
-    }
-  };
-  rec.onend = function() {
-    if (!_DICTAR_REC) return;
-    if (_DICTAR_TEXTO_ACUM.trim()) {
-      try { rec.start(); } catch(e) { _DICTAR_REC = null; if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4;'; } _dictatStatus('⚠️ Micr\xF3fono interrumpido. Pulsa de nuevo.', '#c00'); return; }
-    } else {
-      _DICTAR_REC = null;
-      if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4; Hablar punto'; }
-    }
-  };
-  rec.start();
-}
-
-function _estructurarPuntoConIA(descripcion) {
-  var num = _DICTAR_PUNTOS.length + 1;
-  var tecDefault = TECNICOS[0];
-  // Detect if admin mentions the second technician by name
-  var nombreJuan = TECNICOS[1].toLowerCase().split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  if (new RegExp('\\b' + nombreJuan + '\\b', 'i').test(descripcion)) tecDefault = TECNICOS[1];
-
-
-  var systemMsg = 'Eres Valeria, asistente de PREVIFUEGO (empresa de extintores, Guayaquil, Ecuador).\n'
-    + 'El admin Alejandro te dicta UN punto del recorrido diario por voz. Tu UNICO trabajo es escribir bonito lo que el dice.\n\n'
-    + 'REGLAS ABSOLUTAS:\n'
-    + '1. SOLO transcribe y organiza lo que el admin DIJO. NO agregues, NO inventes, NO busques informacion adicional.\n'
-    + '2. Si el dice "ir a Menestras del Negro Vina Plaza a dar mantenimiento", eso es TODO lo que pones.\n'
-    + '3. NO sugieras extintores, capacidades, cantidades ni ningun dato que el no haya mencionado.\n'
-    + '4. Si el menciona cantidades o tipos de extintor, incluyelos tal cual los dijo.\n'
-    + '5. Capitaliza nombres propios correctamente y organiza la informacion de forma clara.\n\n'
-    + 'FORMATO DE RESPUESTA (SOLO JSON, sin texto extra):\n'
-    + '{"nombre":"nombre del cliente/lugar","direccion":"ubicacion si la menciono, sino vacio","mision":"lo que dijo que hay que hacer, escrito bonito","nota":"observaciones que haya dicho, sino vacio","urgente":false}\n\n'
-    + 'Usa \\n para saltos de linea en mision si hay varias tareas. urgente=true solo si lo dice explicitamente.';
-
-  _llamarIA([
-    { role: 'system', content: systemMsg },
-    { role: 'user', content: 'Descripci\xF3n del admin: “' + descripcion + '”' }
-  ], 800, 0.1)
-  .then(function(d) {
-    // Guard: admin may have logged out during the ChatGPT call — don't push into a stale/new session
-    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
-    var choice = (d.choices || [])[0] || {};
-    var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
-    // Extract JSON from response
-    var jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('Respuesta inesperada: ' + text.slice(0, 80));
-    var parsed = JSON.parse(jsonMatch[0]);
-    _DICTAR_PUNTOS.push({
-      nombre:        parsed.nombre   || ('Punto ' + num),
-      direccion:     parsed.direccion || '',
-      mision:        parsed.mision   || 'Mantenimiento',
-      nota:          parsed.nota     || '',
-      urgente:       !!parsed.urgente,
-      tecnico:       tecDefault,
-      esKfc:         /\bkfc\b/i.test(parsed.nombre || ''),
-      extintores:    0,
-      local:         '',
-      done:          false,
-      enCamino:      false,
-      horaCompletado: null,
-      observacion:   ''
-    });
-    _renderDictarPuntos();
-    _dictatStatus('✅ Punto ' + num + ' agregado. Pulsa para el siguiente.');
-    // Scroll to bottom of list
-    var lista = document.getElementById('dictar-puntos-lista');
-    if (lista) lista.scrollTop = lista.scrollHeight;
-  })
-  .catch(function(err) {
-    _dictatStatus('❌ Error: ' + String(err), '#c00');
-  });
-}
-
 function publicarRecorridoDictado() {
   if (!_DICTAR_PUNTOS.length) { pfModal('Sin puntos', 'Dicta al menos un punto primero.'); return; }
   var manana = document.getElementById('dictar-chk-manana');
@@ -2753,17 +2582,6 @@ function limpiarPreview() {
   _ultimaInstruccionVoz = '';
 }
 
-function compartirRutaWhatsApp() {
-  if (!RUTA_PREVIEW.length) { showToast('No hay ruta para compartir'); return; }
-  var texto = 'Recorrido Previfuego ' + fechaHoy() + ':\n';
-  RUTA_PREVIEW.forEach(function(c, i) {
-    var tecEl = document.getElementById('rtecnico-' + i);
-    var tec = tecEl ? tecEl.value : '';
-    texto += (i + 1) + '. ' + c.nombre + (c.direccion ? ' - ' + c.direccion : '') + (tec ? ' [' + tec + ']' : '') + '\n';
-  });
-  var url = 'https://wa.me/?text=' + encodeURIComponent(texto);
-  window.open(url, '_blank');
-}
 
 function publicarRutaPreview() {
   if (!RUTA_PREVIEW.length) { pfModal('Sin ruta', 'Usa el micr\xF3fono o escribe para crear la ruta primero.'); return; }
