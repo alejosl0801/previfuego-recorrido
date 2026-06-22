@@ -1795,14 +1795,20 @@ function cargarTodosSinFiltro() {
   cargarClientes();
 }
 
+var _visitasPendientes = {};
 function _guardarVisitas() {
   if (!getRefreshToken()) return;
   if (_guardarVisitasTimer) clearTimeout(_guardarVisitasTimer);
   var clave = _claveMesActual();
-  var snapshot = JSON.parse(JSON.stringify(VISITAS_MES));  // Capture now — VISITAS_MES may reset if user switches months before timer fires
+  _visitasPendientes[clave] = JSON.parse(JSON.stringify(VISITAS_MES));
   _guardarVisitasTimer = setTimeout(function() {
+    var pendientes = _visitasPendientes;
+    _visitasPendientes = {};
     dbxDownloadJSON(DBX_VISITAS)
-    .then(function(data) { data[clave] = snapshot; return dbxUpload(DBX_VISITAS, JSON.stringify(data, null, 2)); })
+    .then(function(data) {
+      Object.keys(pendientes).forEach(function(k) { data[k] = pendientes[k]; });
+      return dbxUpload(DBX_VISITAS, JSON.stringify(data, null, 2));
+    })
     .catch(function(e) { console.error('[PF] guardarVisitas error:', e); });
   }, 500);
 }
@@ -2638,7 +2644,7 @@ function hablarPuntoRecorrido() {
   rec.onend = function() {
     if (!_DICTAR_REC) return;
     if (_DICTAR_TEXTO_ACUM.trim()) {
-      rec.start();
+      try { rec.start(); } catch(e) { _DICTAR_REC = null; if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4;'; } _dictatStatus('⚠️ Micr\xF3fono interrumpido. Pulsa de nuevo.', '#c00'); return; }
     } else {
       _DICTAR_REC = null;
       if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '&#x1F3A4; Hablar punto'; }
@@ -3333,16 +3339,28 @@ function _ejecutarSubirFichas() {
     if (!hoy || !hoy.puntos) { var e = new Error('Sin recorrido hoy'); e.noRetry = true; throw e; }
     hoy.puntos = hoy.puntos.map(function(p) {
       var match = snapshot.filter(function(s) { return s.nombre === p.nombre; })[0];
-      if (match) { p.done = match.done; p.horaCompletado = match.horaCompletado; p.enCamino = match.enCamino; p.observacion = match.observacion; }
+      if (match) {
+        if (match.done) { p.done = true; p.horaCompletado = match.horaCompletado; }
+        if (match.enCamino) p.enCamino = true;
+        if (match.observacion) p.observacion = match.observacion;
+      }
       return p;
     });
     recorridos[fechaSubir] = hoy;
-    return dbxUpload(DBX_RECORRIDOS, JSON.stringify(recorridos, null, 2));
+    return dbxUpload(DBX_RECORRIDOS, JSON.stringify(recorridos, null, 2)).then(function() {
+      hoy.puntos.forEach(function(serverP) {
+        var local = PUNTOS.filter(function(lp) { return lp.nombre === serverP.nombre; })[0];
+        if (local && serverP.done && !local.done) {
+          local.done = true;
+          local.horaCompletado = serverP.horaCompletado;
+        }
+        if (local && serverP.enCamino && !local.enCamino) local.enCamino = true;
+      });
+    });
   })
   .then(function() { _subirFichasReintentos = 0; })
-  .finally(function() { _subirFichasPending = false; })
   .catch(function(err) {
-    if (err && err.noRetry) return; // "no route today" — silent skip, not an error
+    if (err && err.noRetry) return;
     console.error('[PF] subirFichas error:', err);
     _subirFichasReintentos++;
     if (_subirFichasReintentos <= 3) {
@@ -3351,7 +3369,8 @@ function _ejecutarSubirFichas() {
     } else {
       showToast('❌ Sin conexi\xF3n — tu avance qued\xF3 guardado en el tel\xE9fono. Pulsa ↻ cuando vuelva el internet.');
     }
-  });
+  })
+  .finally(function() { _subirFichasPending = false; });
 }
 
 /* ===================================================
