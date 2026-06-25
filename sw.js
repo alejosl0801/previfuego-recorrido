@@ -1,4 +1,4 @@
-const CACHE_VERSION = '8.4';
+const CACHE_VERSION = '8.5';
 const CACHE_NAME = 'pfrecorrido-v' + CACHE_VERSION;
 const APP_ASSETS = [
   '/previfuego-recorrido/',
@@ -25,9 +25,6 @@ self.addEventListener('message', e => {
     self.registration.showNotification(d.title || 'Previfuego', {
       body: d.body || '', icon: '/previfuego-recorrido/icon-192.png', badge: '/previfuego-recorrido/icon-192.png'
     });
-  }
-  if (d.type === 'check-update') {
-    self.registration.update();
   }
 });
 self.addEventListener('fetch', e => {

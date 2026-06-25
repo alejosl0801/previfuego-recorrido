@@ -32,7 +32,6 @@ html.dark .tab-content { background: #111; }
 html.dark .punto-card,
 html.dark .cliente-mes-card,
 html.dark .config-section,
-html.dark .seg-counter-card,
 html.dark .seg-table,
 html.dark .modal-box,
 html.dark .seg-table thead { background: #6b0d0d; }
@@ -41,7 +40,7 @@ html.dark .seg-table tr:nth-child(even) td { background: #1a1a1a; }
 html.dark .search-wrap,
 html.dark .search-wrap input,
 html.dark .clientes-search-wrap input { background: #1e1e1e; color: #e8e8e8; border-color: #333; }
-html.dark .opts-input, html.dark .opts-select { background: #2a2a2a; color: #e8e8e8; border-color: #444; }
+html.dark .opts-input { background: #2a2a2a; color: #e8e8e8; border-color: #444; }
 html.dark #cargando { background: rgba(0,0,0,0.85); }
 html.dark #cargando p { color: #aaa; }
 html.dark .modal-msg { color: #bbb; }
@@ -60,11 +59,19 @@ html.dark .progress-track { background: #333; }
 html.dark .form-group label { color: #aaa; }
 html.dark .form-group select { background: #2a2a2a; color: #e8e8e8; border-color: #444; }
 html.dark .seg-filtro-select { background: #2a2a2a; color: #e8e8e8; border-color: #444; }
-html.dark .seg-counter-name { color: #aaa; }
 html.dark .badge-done { background: #14532d; color: #86efac; }
 html.dark .badge-pending { background: #713f12; color: #fde68a; }
-html.dark .badge-en-camino { background: #7c2d12; color: #fed7aa; }
 html.dark .tecnico-tag { background: #2a2a2a; color: #aaa; }
+html.dark .historial-fecha { color: #e5e7eb; }
+html.dark .historial-punto-nombre { color: #e5e7eb; }
+html.dark .historial-punto-mision { color: #9ca3af; }
+html.dark .historial-punto-hora { color: #34d399; }
+html.dark .seg-punto-nombre { color: #e5e7eb; }
+html.dark .seg-punto-dir { color: #9ca3af; }
+html.dark .seg-punto-mision { color: #d1d5db; }
+html.dark .seg-resumen-detail { color: #9ca3af; }
+html.dark .punto-card-nota { background: #3b2e10; color: #fde68a; }
+html.dark .punto-card-obs { color: #9ca3af; }
 html.dark .config-section h3 { color: #e8e8e8; }
 html.dark .qf-btn { background: #2a2a2a; color: #aaa; border-color: #444; }
 html.dark .btn-icon-admin { background: #2a2a2a; border-color: #444; color: #aaa; }
@@ -73,14 +80,6 @@ html.dark .btn-icon-admin { background: #2a2a2a; border-color: #444; color: #aaa
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
-@media (prefers-color-scheme: dark) {
-  html:not(.dark) body { /* respect manual toggle over system */ }
-}
-
-/* ===== SAFE AREA ===== */
-.admin-publish-wrap {
-  padding-bottom: max(14px, env(safe-area-inset-bottom));
-}
 
 /* ===== SCREENS ===== */
 .screen {
@@ -104,7 +103,6 @@ html.dark .btn-icon-admin { background: #2a2a2a; border-color: #444; color: #aaa
   padding-right: max(12px, env(safe-area-inset-right));
   padding-top: env(safe-area-inset-top, 0px);
   min-height: calc(56px + env(safe-area-inset-top, 0px));
-  height: 56px;
   position: sticky;
   top: 0;
   z-index: 100;
@@ -157,7 +155,7 @@ html.dark .btn-icon-admin { background: #2a2a2a; border-color: #444; color: #aaa
   padding: 8px 16px;
   font-size: 0.88rem;
   font-weight: 600;
-  z-index: 9500;
+  z-index: 10000;
 }
 .offline-banner.hidden { display: none; }
 
@@ -545,6 +543,12 @@ html.dark .btn-icon-admin { background: #2a2a2a; border-color: #444; color: #aaa
 }
 
 /* ===== CLIENTES HEADER ROW ===== */
+.admin-mes-select {
+  width: 100%; padding: 9px 12px; border: 1.5px solid #ddd; border-radius: 10px;
+  font-size: 0.9rem; background: #fff; outline: none; -webkit-appearance: none; appearance: none;
+}
+html.dark .admin-mes-select { background: #2a2a2a; color: #e8e8e8; border-color: #444; }
+
 .clientes-header-row {
   display: flex;
   align-items: flex-end;
@@ -620,11 +624,9 @@ html.dark .btn-icon-admin { background: #2a2a2a; border-color: #444; color: #aaa
 
 /* ===== FAB TOP ===== */
 .fab-top {
-  position: sticky;
+  position: fixed;
   bottom: 20px;
   right: 20px;
-  align-self: flex-end;
-  margin-right: 16px;
   background: #9e1212;
   color: #fff;
   border: none;
@@ -673,33 +675,6 @@ html.dark .btn-icon-admin { background: #2a2a2a; border-color: #444; color: #aaa
   flex-wrap: wrap;
 }
 
-.seg-counter-card {
-  background: #fff;
-  border-radius: 12px;
-  padding: 12px 16px;
-  flex: 1;
-  min-width: 120px;
-  box-shadow: 0 1px 5px rgba(0,0,0,0.08);
-  text-align: center;
-}
-
-.seg-counter-name {
-  font-size: 0.8rem;
-  color: #666;
-  font-weight: 600;
-}
-
-.seg-counter-num {
-  font-size: 1.6rem;
-  font-weight: 800;
-  color: #9e1212;
-  line-height: 1.2;
-}
-
-.seg-counter-total {
-  font-size: 0.8rem;
-  color: #aaa;
-}
 
 .seg-table {
   width: 100%;
@@ -755,14 +730,6 @@ html.dark .btn-icon-admin { background: #2a2a2a; border-color: #444; color: #aaa
   font-weight: 700;
 }
 
-.badge-en-camino {
-  background: #ffedd5;
-  color: #9a3412;
-  border-radius: 20px;
-  padding: 3px 10px;
-  font-size: 0.78rem;
-  font-weight: 700;
-}
 
 .auto-refresh-note {
   text-align: center;
@@ -1098,7 +1065,7 @@ html.dark .cliente-tipo-tag { background: #1e2a5e; color: #93b4ff; }
 
 
 /* ===== OPTS INPUT / SELECT ===== */
-.opts-input, .opts-select {
+.opts-input {
   width: 100%;
   padding: 8px 10px;
   border: 1.5px solid #ddd;
@@ -1109,7 +1076,7 @@ html.dark .cliente-tipo-tag { background: #1e2a5e; color: #93b4ff; }
   background: #fafafa;
 }
 
-.opts-input:focus, .opts-select:focus {
+.opts-input:focus {
   border-color: #9e1212;
   background: #fff;
 }
@@ -1153,17 +1120,6 @@ html.dark .cliente-tipo-tag { background: #1e2a5e; color: #93b4ff; }
   .clientes-bulk-row, .clientes-search-wrap, .btn-visitado, .fab-top { display: none !important; }
 }
 
-/* ===== NEW: loading overlay (non-destructive month reload) ===== */
-.clientes-loading-overlay {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  gap: 10px; background: rgba(255,255,255,0.72); backdrop-filter: blur(1px);
-  z-index: 5; font-size: 0.9rem; color: #555; font-weight: 600; border-radius: 12px;
-}
-html.dark .clientes-loading-overlay { background: rgba(20,20,24,0.72); color: #ddd; }
-.spinner-sm {
-  width: 22px; height: 22px; border: 3px solid #ddd; border-top-color: #9e1212;
-  border-radius: 50%; animation: spin 0.8s linear infinite;
-}
 
 /* ===== Missing classes referenced from app.js innerHTML ===== */
 .cliente-ultvisita {
@@ -1303,25 +1259,6 @@ html.dark .dictar-mision-linea { color: #bbb; }
 }
 html.dark .dictar-punto-nota { color: #777; }
 
-.dictar-punto-footer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  flex-wrap: wrap;
-}
-
-.dictar-punto-footer select {
-  flex: 1;
-  min-width: 0;
-  font-size: 0.82rem;
-  padding: 4px 6px;
-  border-radius: 6px;
-  border: 1px solid #ddd;
-  background: #fff;
-  color: #111;
-}
-html.dark .dictar-punto-footer select { background: #2a2a2a; border-color: #444; color: #eee; }
 
 .dictar-punto-del {
   background: none;
@@ -1387,6 +1324,9 @@ html.dark .dictar-manana-label { color: #aaa; }
   color: #9e1212;
   border-bottom-color: #9e1212;
 }
+html.dark .s1-tabs { background: #1e1e1e; border-bottom-color: #333; }
+html.dark .s1-tab { color: #aaa; }
+html.dark .s1-tab.active { color: #f87171; border-bottom-color: #f87171; }
 
 /* ===== REDESIGNED PUNTO CARD (TECH VIEW) ===== */
 .punto-card {
