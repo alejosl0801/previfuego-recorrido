@@ -695,18 +695,18 @@ function limpiarCache() {
     var hoy = fechaHoy();
     _lsRemove('pf_puntos_' + hoy);
     _lsRemove('pf_estado_' + hoy);
-    if ('caches' in window) {
-      caches.keys().then(function(ks) {
-        return Promise.all(ks.map(function(k) { return caches.delete(k); }));
-      }).then(function() {
-        sessionStorage.removeItem('pf_vc');
-        if (navigator.serviceWorker) {
-          navigator.serviceWorker.addEventListener('controllerchange', function() {
-            window.location.reload(true);
-          });
-          navigator.serviceWorker.getRegistration().then(function(reg) {
-            if (reg) reg.update();
-            setTimeout(function() { window.location.reload(true); }, 3000);
+    sessionStorage.removeItem('pf_vc');
+    if (navigator.serviceWorker) {
+      navigator.serviceWorker.getRegistration().then(function(reg) {
+        if (reg) {
+          reg.unregister().then(function() {
+            if ('caches' in window) {
+              caches.keys().then(function(ks) {
+                return Promise.all(ks.map(function(k) { return caches.delete(k); }));
+              }).then(function() { window.location.reload(true); });
+            } else {
+              window.location.reload(true);
+            }
           });
         } else {
           window.location.reload(true);
@@ -1141,6 +1141,8 @@ function cargarClientes() {
   if (!getRefreshToken()) {
     var cont = document.getElementById('clientes-mes-lista');
     if (cont) cont.innerHTML = '<div class="no-clientes"><strong>&#9888; Conecta Dropbox primero</strong><br><small>Ve al tab &#9881; Config y pulsa "Conectar con Dropbox".</small><br><button class="btn-primary" style="margin-top:12px" onclick="switchTab(\'config\')">Ir a Config</button></div>';
+    var sk = document.getElementById('skeleton-lista');
+    if (sk) sk.style.display = 'none';
     return;
   }
   var mesEl = document.getElementById('admin-mes');
@@ -1219,23 +1221,34 @@ function cargarClientes() {
 }
 /* Load all months — escape hatch when the selected month has no data */
 var _visitasPendientes = {};
+var _guardarVisitasInFlight = false;
+var _guardarVisitasQueued = false;
 function _guardarVisitas() {
   if (!getRefreshToken()) return;
   if (_guardarVisitasTimer) clearTimeout(_guardarVisitasTimer);
   var clave = _claveMesActual();
   _visitasPendientes[clave] = JSON.parse(JSON.stringify(VISITAS_MES));
   _guardarVisitasTimer = setTimeout(function() {
-    var pendientes = _visitasPendientes;
-    dbxDownloadJSON(DBX_VISITAS)
-    .then(function(data) {
-      Object.keys(pendientes).forEach(function(k) { data[k] = pendientes[k]; });
-      return dbxUpload(DBX_VISITAS, JSON.stringify(data, null, 2));
-    })
-    .then(function() {
-      Object.keys(pendientes).forEach(function(k) { delete _visitasPendientes[k]; });
-    })
-    .catch(function(e) { console.error('[PF] guardarVisitas error:', e); });
+    _ejecutarGuardarVisitas();
   }, 500);
+}
+function _ejecutarGuardarVisitas() {
+  if (_guardarVisitasInFlight) { _guardarVisitasQueued = true; return; }
+  _guardarVisitasInFlight = true;
+  var pendientes = _visitasPendientes;
+  dbxDownloadJSON(DBX_VISITAS)
+  .then(function(data) {
+    Object.keys(pendientes).forEach(function(k) { data[k] = pendientes[k]; });
+    return dbxUpload(DBX_VISITAS, JSON.stringify(data, null, 2));
+  })
+  .then(function() {
+    Object.keys(pendientes).forEach(function(k) { delete _visitasPendientes[k]; });
+  })
+  .catch(function(e) { console.error('[PF] guardarVisitas error:', e); })
+  .finally(function() {
+    _guardarVisitasInFlight = false;
+    if (_guardarVisitasQueued) { _guardarVisitasQueued = false; _ejecutarGuardarVisitas(); }
+  });
 }
 
 function marcarVisitado(idx) {
@@ -1376,6 +1389,8 @@ function renderClientesMes() {
   if (!html) {
     if (_clientesFiltro) {
       html = '<div class="no-clientes">Sin resultados para "' + esc(_clientesFiltro) + '"</div>';
+    } else if (_clientesQuickFilter !== 'todos') {
+      html = '<div class="no-clientes">Sin clientes ' + (_clientesQuickFilter === 'visitados' ? 'visitados' : 'pendientes') + ' a\xFAn.</div>';
     } else {
       html = '<div class="no-clientes">Sin clientes para este mes.</div>';
     }
@@ -1437,10 +1452,7 @@ function _resaltar(texto, filtro) {
 }
 
 /* ===================================================
-   ADMIN — VOZ + ChatGPT (used by Valeria)
-=================================================== */
-/* ===================================================
-   MODO DICTAR RECORRIDO — crea puntos estructurados por voz
+   MODO DICTAR RECORRIDO — crea puntos desde texto pegado
 =================================================== */
 var _DICTAR_PUNTOS = [];  // Array of structured point objects
 var _DICTAR_REC = null;   // Active SpeechRecognition
@@ -1618,7 +1630,7 @@ function _renderDictarPuntos() {
   });
   lista.innerHTML = html;
   var wrap = document.getElementById('recorrido-publish-wrap');
-  if (wrap) wrap.style.display = 'flex';
+  if (wrap) wrap.style.display = _DICTAR_PUNTOS.length ? 'flex' : 'none';
 }
 
 function _dictarEliminarPunto(idx) {
@@ -1639,8 +1651,8 @@ function publicarRecorridoDictado() {
     dbxDownloadJSON(DBX_RECORRIDOS)
     .then(function(recorridos) {
       var existing = (recorridos[fechaPublicar] && recorridos[fechaPublicar].puntos) || [];
-      puntos = puntos.map(function(p) {
-        var prev = existing.filter(function(e) { return e.nombre === p.nombre; })[0];
+      puntos = puntos.map(function(p, idx) {
+        var prev = idx < existing.length && existing[idx].nombre === p.nombre ? existing[idx] : existing.filter(function(e) { return e.nombre === p.nombre; })[0];
         if (prev && prev.done) { p.done = true; p.horaCompletado = prev.horaCompletado; p.observacion = prev.observacion || ''; }
         else if (prev && prev.enCamino) { p.enCamino = true; }
         return p;
@@ -1691,6 +1703,9 @@ function detenerSeguimiento() {
 }
 
 function pfRenderSeguimiento() {
+  if (document.hidden) return;
+  var segTab = document.getElementById('tab-seguimiento');
+  if (segTab && !segTab.classList.contains('active')) return;
   var modal = document.getElementById('modal-overlay');
   if (modal && !modal.classList.contains('hidden')) return;
   dbxDownloadJSON(DBX_RECORRIDOS)
@@ -1781,8 +1796,8 @@ function _segGuardarRecorrido(puntos, callback) {
   .then(function(recorridos) {
     if (!recorridos[fecha]) recorridos[fecha] = {};
     var serverPuntos = (recorridos[fecha].puntos || []);
-    puntos = puntos.map(function(p) {
-      var sp = serverPuntos.filter(function(s) { return s.nombre === p.nombre; })[0];
+    puntos = puntos.map(function(p, idx) {
+      var sp = idx < serverPuntos.length && serverPuntos[idx].nombre === p.nombre ? serverPuntos[idx] : serverPuntos.filter(function(s) { return s.nombre === p.nombre; })[0];
       if (sp) {
         if (sp.done) { p.done = true; p.horaCompletado = sp.horaCompletado; }
         if (sp.enCamino && !p.done) p.enCamino = true;
@@ -1815,13 +1830,13 @@ function segEditarPunto(idx) {
   titleEl.textContent = 'Editar punto ' + (idx + 1);
   msgEl.innerHTML = '<div class="seg-edit-form">'
     + '<label class="seg-edit-label">Nombre:</label>'
-    + '<input type="text" id="seg-edit-nombre" class="seg-edit-input" value="' + esc(p.nombre || '').replace(/"/g, '&quot;') + '">'
+    + '<input type="text" id="seg-edit-nombre" class="seg-edit-input" value="' + esc(p.nombre || '') + '">'
     + '<label class="seg-edit-label">Direcci\xF3n:</label>'
-    + '<input type="text" id="seg-edit-dir" class="seg-edit-input" value="' + esc(p.direccion || '').replace(/"/g, '&quot;') + '">'
+    + '<input type="text" id="seg-edit-dir" class="seg-edit-input" value="' + esc(p.direccion || '') + '">'
     + '<label class="seg-edit-label">Misi\xF3n:</label>'
     + '<textarea id="seg-edit-mision" class="seg-edit-input" rows="3">' + esc(p.mision || '') + '</textarea>'
     + '<label class="seg-edit-label">Nota:</label>'
-    + '<input type="text" id="seg-edit-nota" class="seg-edit-input" value="' + esc(p.nota || '').replace(/"/g, '&quot;') + '">'
+    + '<input type="text" id="seg-edit-nota" class="seg-edit-input" value="' + esc(p.nota || '') + '">'
     + '</div>';
   actEl.innerHTML = '';
   var btnCancel = document.createElement('button');
@@ -2336,8 +2351,8 @@ function _ejecutarSubirFichas() {
     });
     var hoy = recorridos[fechaSubir];
     if (!hoy || !hoy.puntos) { var e = new Error('Sin recorrido hoy'); e.noRetry = true; throw e; }
-    hoy.puntos = hoy.puntos.map(function(p) {
-      var match = snapshot.filter(function(s) { return s.nombre === p.nombre; })[0];
+    hoy.puntos = hoy.puntos.map(function(p, idx) {
+      var match = idx < snapshot.length && snapshot[idx].nombre === p.nombre ? snapshot[idx] : snapshot.filter(function(s) { return s.nombre === p.nombre; })[0];
       if (match) {
         if (match.done) { p.done = true; p.horaCompletado = match.horaCompletado; }
         p.enCamino = match.done ? false : match.enCamino;
@@ -2347,8 +2362,8 @@ function _ejecutarSubirFichas() {
     });
     recorridos[fechaSubir] = hoy;
     return dbxUpload(DBX_RECORRIDOS, JSON.stringify(recorridos, null, 2)).then(function() {
-      hoy.puntos.forEach(function(serverP) {
-        var local = PUNTOS.filter(function(lp) { return lp.nombre === serverP.nombre; })[0];
+      hoy.puntos.forEach(function(serverP, idx) {
+        var local = idx < PUNTOS.length && PUNTOS[idx].nombre === serverP.nombre ? PUNTOS[idx] : PUNTOS.filter(function(lp) { return lp.nombre === serverP.nombre; })[0];
         if (local && serverP.done && !local.done) {
           local.done = true;
           local.horaCompletado = serverP.horaCompletado;
@@ -2434,11 +2449,15 @@ document.addEventListener('DOMContentLoaded', function() {
       var rt = atob(decodeURIComponent(cParam));
       if (rt && rt.length > 10) {
         window.history.replaceState({}, '', window.location.pathname);
-        refreshAccessToken(rt).then(function() {
-          _lsSet('pf_dbx_refresh_token', rt);
+        _lsSet('pf_dbx_refresh_token', rt);
+        _lsRemove('pf_dbx_access_token');
+        _lsRemove('pf_dbx_token_exp');
+        refreshAccessToken().then(function() {
           showToast('✅ Dropbox conectado autom\xE1ticamente');
+          actualizarEstadoConexion();
           sincronizarConfig();
         }).catch(function() {
+          _lsRemove('pf_dbx_refresh_token');
           showToast('❌ C\xF3digo de conexi\xF3n inv\xE1lido');
         });
       }
@@ -2464,6 +2483,20 @@ document.addEventListener('DOMContentLoaded', function() {
   if (!navigator.onLine) {
     var b = document.getElementById('offline-banner');
     if (b) b.classList.remove('hidden');
+  }
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && USUARIO_ACTUAL) {
+      var fechaEl = document.getElementById('s1-fecha');
+      if (fechaEl && fechaEl.textContent && fechaEl.textContent !== fechaHoy() && !USUARIOS[USUARIO_ACTUAL].esAdmin) {
+        cargarRecorrido();
+      }
+    }
+  });
+  var modalOv = document.getElementById('modal-overlay');
+  if (modalOv) {
+    modalOv.addEventListener('click', function(e) {
+      if (e.target === modalOv) { modalOv.classList.add('hidden'); document.body.style.overflow = ''; }
+    });
   }
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
