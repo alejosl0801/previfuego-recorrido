@@ -61,11 +61,6 @@ html.dark .mes-archivos code { background: #2a2a2a; }
 html.dark .progress-bar-wrap { background: #1e1e1e; border-bottom-color: #333; }
 html.dark .no-clientes { color: #888; }
 html.dark .seg-toolbar { background: #1a1a1a; }
-html.dark .punto-card.en-camino { background: #2a1e14; border-color: #f97316; }
-html.dark .punto-card-dir { color: #999; }
-html.dark .punto-card-mision { color: #f87171; }
-html.dark .punto-card-nota { color: #fbbf24; }
-html.dark .punto-card-obs { color: #999; }
 html.dark .progress-info span { color: #bbb; }
 html.dark .progress-track { background: #333; }
 html.dark .form-group label { color: #aaa; }
@@ -80,7 +75,6 @@ html.dark .config-section h3 { color: #e8e8e8; }
 html.dark .valeria-input-row { background: #1e1e1e; border-top-color: #333; }
 html.dark .admin-publish-wrap { background: rgba(30,30,30,.97); }
 html.dark .qf-btn { background: #2a2a2a; color: #aaa; border-color: #444; }
-html.dark .btn-en-camino { background: #2a1e14; color: #f97316; border-color: #f97316; }
 html.dark .btn-icon-admin { background: #2a2a2a; border-color: #444; color: #aaa; }
 html.dark .obs-clasif-badge { background: #1e293b; color: #94a3b8; }
 html.dark .valeria-sugerencia-chip { background: #2d1f5e; color: #c4b5fd; }
@@ -343,47 +337,6 @@ html.dark .ruta-preview { border-top-color: #333; }
   gap: 10px;
 }
 
-.punto-card {
-  background: #fff;
-  border-radius: 14px;
-  padding: 16px;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.09);
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  border: 1.5px solid transparent;
-  transition: border-color 0.2s, opacity 0.2s, transform 0.15s;
-  touch-action: pan-y;
-  user-select: none;
-}
-
-.punto-card.done {
-  opacity: 0.58;
-  border-color: #22c55e;
-}
-
-.punto-card.en-camino {
-  border-color: #f97316;
-  background: #fffbf7;
-}
-
-.punto-card-num {
-  background: #9e1212;
-  color: #fff;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.85rem;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.punto-card.done .punto-card-num {
-  background: #22c55e;
-}
 .punto-card-highlight {
   animation: highlight-pulse 0.6s ease-in-out 2;
   box-shadow: 0 0 0 3px #9e1212;
@@ -391,78 +344,6 @@ html.dark .ruta-preview { border-top-color: #333; }
 @keyframes highlight-pulse {
   0%, 100% { box-shadow: 0 0 0 3px rgba(158,18,18,0.3); }
   50% { box-shadow: 0 0 0 6px rgba(158,18,18,0.15); }
-}
-
-.punto-card.en-camino .punto-card-num {
-  background: #f97316;
-}
-
-.punto-card-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.punto-card-nombre {
-  font-weight: 700;
-  font-size: 0.97rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.punto-card.done .punto-card-nombre {
-  text-decoration: line-through;
-  color: #888;
-}
-
-.punto-card-dir {
-  font-size: 0.82rem;
-  color: #666;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.punto-card-dir-link {
-  color: #2563eb;
-  text-decoration: none;
-  display: block;
-}
-.punto-card-dir-link:active { opacity: 0.7; }
-
-.punto-card-mision {
-  font-size: 0.82rem;
-  color: #374151;
-  font-weight: 500;
-  margin-top: 4px;
-  line-height: 1.4;
-}
-
-.punto-card-hora {
-  font-size: 0.78rem;
-  color: #22c55e;
-  font-weight: 600;
-  margin-top: 2px;
-}
-
-.punto-card-nota {
-  font-size: 0.78rem;
-  color: #b45309;
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.punto-card-obs {
-  font-size: 0.78rem;
-  color: #555;
-  font-style: italic;
-  margin-top: 2px;
-}
-
-.punto-card-actions {
-  flex-shrink: 0;
 }
 
 /* ===== BUTTONS ===== */
@@ -494,26 +375,6 @@ html.dark .ruta-preview { border-top-color: #333; }
   display: block;
 }
 
-.btn-success {
-  background: #22c55e;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 10px 18px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  min-height: 48px;
-  min-width: 80px;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s, transform 0.1s;
-}
-
-.btn-success:active {
-  background: #16a34a;
-  transform: scale(0.96);
-}
-
 .btn-ghost {
   background: transparent;
   color: #9e1212;
@@ -537,25 +398,6 @@ html.dark .ruta-preview { border-top-color: #333; }
   min-height: 36px;
   border-radius: 8px;
 }
-
-.btn-done-icon {
-  font-size: 1.2rem;
-  color: #22c55e;
-}
-
-.btn-en-camino {
-  background: #fff7ed;
-  color: #f97316;
-  border: 1.5px solid #f97316;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 1.1rem;
-  cursor: pointer;
-  min-height: 40px;
-  min-width: 44px;
-  -webkit-tap-highlight-color: transparent;
-}
-.btn-en-camino:active { background: #fed7aa; }
 
 .btn-icon-admin {
   background: #f5f5f5;

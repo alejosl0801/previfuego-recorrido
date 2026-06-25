@@ -16,7 +16,9 @@
   <link rel="stylesheet" href="style.css" />
   <script>
   (function(){
-    var V='8.1';
+    var V='8.2';
+    if(sessionStorage.getItem('pf_vc')===V) return;
+    sessionStorage.setItem('pf_vc',V);
     if(navigator.serviceWorker){
       navigator.serviceWorker.getRegistrations().then(function(regs){
         regs.forEach(function(r){r.update()});
@@ -230,9 +232,6 @@
       </div>
 
       <div class="config-section" style="margin-top:16px">
-      </div>
-
-      <div class="config-section" style="margin-top:16px">
         <h3>Rutas de archivos</h3>
         <div class="form-group" style="padding:0">
           <label>Archivo KFC (.xlsx):</label>
@@ -265,7 +264,7 @@
 
       <div class="config-section" style="margin-top:16px;margin-bottom:24px">
         <h3>Informaci&#xF3;n</h3>
-        <p style="font-size:0.82rem;color:#777">Versi&#xF3;n: <strong id="cfg-version">3.9</strong></p>
+        <p style="font-size:0.82rem;color:#777">Versi&#xF3;n: <strong id="cfg-version">4.0</strong></p>
         <p style="font-size:0.82rem;color:#777;margin-top:4px" id="cfg-last-sync">&#xDA;ltima sync: —</p>
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn-ghost btn-sm" onclick="toggleDarkMode()">&#x1F319; Modo oscuro</button>

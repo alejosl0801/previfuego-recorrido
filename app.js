@@ -381,7 +381,6 @@ var DBX_REDIRECT   = 'https://alejosl0801.github.io/previfuego-recorrido/';
 var DBX_RECORRIDOS = '/Previfuego/recorridos.json';
 var DBX_CONFIG     = '/Previfuego/config.json';
 var DBX_VISITAS    = '/Previfuego/visitas.json';
-var DBX_VALERIA    = '/Previfuego/valeria_memoria.json';
 
 function _lsGet(k, def) { try { return localStorage.getItem(k); } catch(e) { return def || null; } }
 function _lsSet(k, v) { try { localStorage.setItem(k, v); } catch(e) {} }
@@ -398,9 +397,6 @@ var USUARIO_ACTUAL = null;
 var PUNTOS = [];
 var CLIENTES_DISPONIBLES = [];
 var VISITAS_MES = {};
-var RUTA_PREVIEW = [];
-var VALERIA_MEMORIA = {};
-var VALERIA_CHAT = [];
 var _seguimientoInterval = null;
 var _seguimientoIntervaloSeg = 30;
 var _toastQueue = [];
@@ -412,13 +408,8 @@ var _undoIdx = null;
 var _undoData = null;
 var _guardarVisitasTimer = null;
 var _segPuntosCache = [];
-var _obsClasifCache = {};
 var _fontSizeDelta = parseInt(_lsGet('pf_font_delta', '0') || '0') || 0;
 var _darkMode = _lsGet('pf_dark') === '1';
-var _ultimaInstruccionVoz = '';
-var _pensandoValeria = false;  // Guard against concurrent Valeria AI calls
-var _sincronizarValeriaP = Promise.resolve();  // Track in-flight Valeria sync
-var _chipHistorial = [];
 var _clientesFiltro = '';
 var _clientesQuickFilter = 'todos';
 
@@ -434,7 +425,6 @@ var USUARIOS = {
   alejandro: { nombre: 'Alejandro', emoji: '👔', esAdmin: true },
   tecnico:   { nombre: 'T\xE9cnico', emoji: '👷' }
 };
-var TECNICOS = ['Ra\xFAl', 'Juan'];
 
 /* ===================================================
    DARK MODE + FONT SIZE — init immediately
@@ -711,9 +701,10 @@ function limpiarCache() {
       caches.keys().then(function(ks) {
         return Promise.all(ks.map(function(k) { return caches.delete(k); }));
       }).then(function() {
+        sessionStorage.removeItem('pf_vc');
         if (navigator.serviceWorker) {
-          navigator.serviceWorker.getRegistrations().then(function(regs) {
-            regs.forEach(function(r) { r.unregister(); });
+          navigator.serviceWorker.getRegistration().then(function(reg) {
+            if (reg) reg.update();
             window.location.reload(true);
           });
         } else {
@@ -816,30 +807,6 @@ function inspeccionarExcel(path) {
 /* ===================================================
    CHATGPT KEY
 =================================================== */
-function guardarOpenAIKey() {
-  var input = document.getElementById('cfg-openai-key');
-  if (!input) return;
-  var key = input.value.trim();
-  if (!key) {
-    _lsRemove('pf_openai_key');
-    input.value = '';
-    _actualizarEstadoIA();
-    showToast('Clave ChatGPT eliminada');
-    return;
-  }
-  _lsSet('pf_openai_key', key);
-  input.value = '';
-  _actualizarEstadoIA();
-  if (getRefreshToken()) {
-    dbxDownloadJSON(DBX_CONFIG)
-    .then(function(cfg) { cfg.openai_key = key; return dbxUpload(DBX_CONFIG, JSON.stringify(cfg, null, 2)); })
-    .then(function() { showToast('✅ Clave ChatGPT guardada en Dropbox'); })
-    .catch(function() { showToast('✅ Clave guardada localmente'); });
-  } else {
-    showToast('✅ Clave ChatGPT guardada');
-  }
-}
-
 function _actualizarEstadoIA() {
   var el = document.getElementById('cfg-ia-status');
   if (!el) return;
@@ -853,7 +820,6 @@ function _inicializarArchivosDropbox() {
   var archivos = [
     { path: DBX_RECORRIDOS, default: '{}' },
     { path: DBX_VISITAS,    default: '{}' },
-    { path: DBX_VALERIA,    default: '{"historial_rutas":[],"patrones_cliente":{},"conversaciones":[]}' },
     { path: DBX_CONFIG,     default: '{}' }
   ];
   archivos.forEach(function(a) {
@@ -877,466 +843,6 @@ function sincronizarConfig() {
   .catch(function() {});
 }
 
-/* ===================================================
-   AI API — ChatGPT (OpenAI)
-=================================================== */
-function getOpenAIKey() { return _lsGet('pf_openai_key') || ''; }
-
-function _llamarIA(mensajes, maxTokens, temperatura) {
-  var key = getOpenAIKey();
-  if (!key) return Promise.reject(new Error('Sin clave ChatGPT — ingr\xE9sala en ⚙️ Config'));
-  var timeoutId;
-  var timeoutP = new Promise(function(_, reject) {
-    timeoutId = setTimeout(function() { reject(new Error('Tiempo de espera agotado (25s). Intenta de nuevo.')); }, 25000);
-  });
-  return Promise.race([
-    fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: mensajes,
-        temperature: temperatura || 0.1,
-        max_tokens: maxTokens || 1024
-      })
-    }).then(function(r) {
-      if (!r.ok) return r.text().then(function(t) { throw new Error('ChatGPT HTTP ' + r.status + ': ' + t.slice(0, 200)); });
-      return r.json();
-    }).catch(function(err) {
-      if (err instanceof TypeError || /fetch|network|internet/i.test(err.message)) {
-        throw new Error('Sin conexi\xF3n a internet — verifica tu red e intenta de nuevo');
-      }
-      throw err;
-    }),
-    timeoutP
-  ]).finally(function() { clearTimeout(timeoutId); });
-}
-
-/* D1 — Auto-resumen diario de la ruta publicada */
-function _resumenDiario(puntos) {
-  if (!puntos || !puntos.length) return;
-  var lista = puntos.map(function(p) {
-    return '- ' + p.nombre + (p.esKfc ? ' (KFC)' : '') + ' → ' + (p.tecnico || 'sin asignar');
-  }).join('\n');
-  var DIAS_SEMANA = ['domingo','lunes','martes','mi\xE9rcoles','jueves','viernes','s\xE1bado'];
-  var diaSemana = DIAS_SEMANA[new Date().getDay()];
-  _llamarIA([
-    { role: 'system', content: 'Eres Valeria, asistente de Previfuego. Resume la ruta del d\xEDa en UNA sola l\xEDnea breve en espa\xF1ol. Ejemplo: "Ruta del lunes: 8 clientes KFC en Guayaquil Norte, t\xE9cnico Ra\xFAl". No agregues nada m\xE1s.' },
-    { role: 'user', content: 'D\xEDa: ' + diaSemana + '\nPuntos:\n' + lista }
-  ], 256, 0.3)
-  .then(function(d) {
-    // Guard: if admin logged out while ChatGPT was processing, VALERIA_MEMORIA was reset to {}.
-    // Uploading now would overwrite the full memory file with a nearly empty object — data loss.
-    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
-    var choice = (d.choices || [])[0] || {};
-    var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
-    if (!text) return;
-    if (!VALERIA_MEMORIA.resumenes_diarios) VALERIA_MEMORIA.resumenes_diarios = [];
-    // Replace existing entry for today instead of accumulating duplicates
-    if (VALERIA_MEMORIA.resumenes_diarios.length && VALERIA_MEMORIA.resumenes_diarios[0].fecha === fechaHoy()) {
-      VALERIA_MEMORIA.resumenes_diarios[0].resumen = text;
-    } else {
-      VALERIA_MEMORIA.resumenes_diarios.unshift({ fecha: fechaHoy(), resumen: text });
-    }
-    if (VALERIA_MEMORIA.resumenes_diarios.length > 30) VALERIA_MEMORIA.resumenes_diarios = VALERIA_MEMORIA.resumenes_diarios.slice(0, 30);
-    if (getRefreshToken()) {
-      dbxUpload(DBX_VALERIA, JSON.stringify(VALERIA_MEMORIA, null, 2)).catch(function() {});
-    }
-  })
-  .catch(function(e) { console.error('[PF] resumenDiario error:', e); });
-}
-
-/* D2 — Sugerencia proactiva al cargar admin (rate-limited 4h) */
-function sugerenciaProactiva() {
-  if (!CLIENTES_DISPONIBLES.length) return;
-  if (!VALERIA_MEMORIA.historial_rutas || !VALERIA_MEMORIA.historial_rutas.length) return;
-  var ultima = parseInt(_lsGet('pf_ultima_sugerencia') || '0') || 0;
-  if (Date.now() - ultima < 4 * 60 * 60 * 1000) return;
-
-  var pendientes = CLIENTES_DISPONIBLES.filter(function(c) {
-    return !(VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado);
-  }).slice(0, 80).map(function(c) {
-    return '- ' + c.nombre + (c.esKfc ? ' (KFC)' : '') + (c.direccion ? ' - ' + c.direccion : '');
-  }).join('\n');
-  var historialCtx = (VALERIA_MEMORIA.historial_rutas || []).slice(0, 10).map(function(h) {
-    return h.fecha + ': ' + (h.clientes || []).join(', ');
-  }).join('\n');
-
-  _llamarIA([
-    { role: 'system', content: 'Eres Valeria, asistente de Previfuego. Bas\xE1ndote en el historial de rutas y los clientes pendientes, sugiere en 1-2 frases qu\xE9 clientes deber\xEDan visitarse hoy. S\xE9 concreto y breve.' },
-    { role: 'user', content: '=== HISTORIAL ===\n' + (historialCtx || '(sin historial)') + '\n\n=== PENDIENTES ===\n' + (pendientes || '(ninguno)') }
-  ], 512, 0.3)
-  .then(function(d) {
-    var choice = (d.choices || [])[0] || {};
-    var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
-    if (text) { _lsSet('pf_ultima_sugerencia', String(Date.now())); _mostrarSugerenciaChip(text); }
-  })
-  .catch(function(e) { console.error('[PF] sugerenciaProactiva error:', e); });
-}
-
-function _mostrarSugerenciaChip(texto) {
-  var cont = document.getElementById('valeria-sugerencia');
-  if (!cont) return;
-  cont.innerHTML = '<div class="valeria-sugerencia-chip">💡 ' + esc(texto)
-    + ' <button onclick="document.getElementById(\'valeria-sugerencia\').innerHTML=\'\'" style="background:none;border:none;cursor:pointer;color:#999">✕</button></div>';
-}
-
-/* D3 — Clasificar observaciones de t\xE9cnicos */
-function clasificarObservacion(texto) {
-  if (!texto || texto.length <= 20) return Promise.resolve('');
-  return _llamarIA([
-    { role: 'system', content: 'Clasifica la siguiente observaci\xF3n de un t\xE9cnico de extintores. Responde \xDANICAMENTE con una de estas tres etiquetas exactas: "⚠️ Problema detectado", "🔧 Requiere seguimiento", "✅ Normal".' },
-    { role: 'user', content: texto }
-  ], 32, 0)
-  .then(function(d) {
-    var choice = (d.choices || [])[0] || {};
-    var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
-    if (text.indexOf('Problema') !== -1) return '⚠️ Problema detectado';
-    if (text.indexOf('seguimiento') !== -1) return '🔧 Requiere seguimiento';
-    return '✅ Normal';
-  })
-  .catch(function() { return ''; });
-}
-
-/* D4 — Resumen IA del seguimiento del d\xEDa */
-function resumenSeguimientoIA() {
-  if (!_segPuntosCache || !_segPuntosCache.length) {
-    pfModal('Sin datos', 'No hay recorrido publicado hoy para resumir.');
-    return;
-  }
-  showToast('⏳ Generando resumen IA...');
-  var lista = _segPuntosCache.map(function(p) {
-    return '- ' + p.nombre + ' [' + (p.done ? 'LISTO' : (p.enCamino ? 'EN CAMINO' : 'PENDIENTE')) + '] '
-      + (p.tecnico || 'sin asignar') + (p.observacion ? ' | Obs: ' + p.observacion : '');
-  }).join('\n');
-  _llamarIA([
-    { role: 'system', content: 'Eres Valeria, asistente de Previfuego. Genera un breve reporte de estado en espa\xF1ol del avance del recorrido del d\xEDa: cu\xE1ntos completados, pendientes, por t\xE9cnico, y resalta observaciones importantes. S\xE9 conciso. Firma como "Valeria 🤖".' },
-    { role: 'user', content: 'Fecha: ' + fechaHoy() + '\n\n' + lista }
-  ], 1024, 0.3)
-  .then(function(d) {
-    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
-    var choice = (d.choices || [])[0] || {};
-    var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
-    pfModal('📊 Resumen IA del d\xEDa', text || 'Sin respuesta.');
-  })
-  .catch(function(err) {
-    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
-    pfModal('Error', 'No se pudo generar el resumen: ' + String(err));
-  });
-}
-
-/* ===================================================
-   VALERIA — AI ASSISTANT WITH MEMORY
-=================================================== */
-function sincronizarValeria() {
-  if (!getRefreshToken()) return;
-  _sincronizarValeriaP = dbxDownloadJSON(DBX_VALERIA)
-  .then(function(mem) {
-    VALERIA_MEMORIA = mem || {};
-    if (!VALERIA_MEMORIA.historial_rutas) VALERIA_MEMORIA.historial_rutas = [];
-    if (!VALERIA_MEMORIA.patrones_cliente) VALERIA_MEMORIA.patrones_cliente = {};
-    if (!VALERIA_MEMORIA.conversaciones) VALERIA_MEMORIA.conversaciones = [];
-  })
-  .catch(function() {
-    VALERIA_MEMORIA = { historial_rutas: [], patrones_cliente: {}, conversaciones: [] };
-  });
-}
-
-function actualizarMemoriaValeria(puntos, instruccion) {
-  // Wait for any in-flight sincronizarValeria download to finish — prevents overwrite race
-  _sincronizarValeriaP.then(function() { _doActualizarMemoriaValeria(puntos, instruccion); });
-}
-function _doActualizarMemoriaValeria(puntos, instruccion) {
-  // Guard: if admin logged out while sincronizarValeria promise was pending, VALERIA_MEMORIA is {}
-  if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
-  if (!VALERIA_MEMORIA.historial_rutas) VALERIA_MEMORIA.historial_rutas = [];
-  if (!VALERIA_MEMORIA.patrones_cliente) VALERIA_MEMORIA.patrones_cliente = {};
-
-  var tecnicos = {};
-  puntos.forEach(function(p) {
-    var t = p.tecnico || 'Sin asignar';
-    if (!tecnicos[t]) tecnicos[t] = [];
-    tecnicos[t].push(p.nombre);
-  });
-
-  var entrada = {
-    fecha: fechaHoy(),
-    instruccion: instruccion || '',
-    clientes: puntos.map(function(p) { return p.nombre; }),
-    tecnicos: tecnicos
-  };
-
-  VALERIA_MEMORIA.historial_rutas.unshift(entrada);
-  if (VALERIA_MEMORIA.historial_rutas.length > 60) {
-    VALERIA_MEMORIA.historial_rutas = VALERIA_MEMORIA.historial_rutas.slice(0, 60);
-  }
-
-  puntos.forEach(function(p) {
-    var key = p.nombre;
-    if (!VALERIA_MEMORIA.patrones_cliente[key]) {
-      VALERIA_MEMORIA.patrones_cliente[key] = { ultimo_recorrido: '', veces_en_ruta: 0, tecnico_habitual: '' };
-    }
-    var pc = VALERIA_MEMORIA.patrones_cliente[key];
-    pc.ultimo_recorrido = fechaHoy();
-    pc.veces_en_ruta = (pc.veces_en_ruta || 0) + 1;
-    if (p.tecnico) pc.tecnico_habitual = p.tecnico;
-  });
-
-  // Cap patrones_cliente at 300 entries (LRU: remove oldest by ultimo_recorrido)
-  var keys = Object.keys(VALERIA_MEMORIA.patrones_cliente);
-  if (keys.length > 300) {
-    keys.sort(function(a, b) {
-      return (VALERIA_MEMORIA.patrones_cliente[a].ultimo_recorrido || '')
-           < (VALERIA_MEMORIA.patrones_cliente[b].ultimo_recorrido || '') ? -1 : 1;
-    });
-    keys.slice(0, keys.length - 300).forEach(function(k) {
-      delete VALERIA_MEMORIA.patrones_cliente[k];
-    });
-  }
-
-  if (getRefreshToken()) {
-    dbxUpload(DBX_VALERIA, JSON.stringify(VALERIA_MEMORIA, null, 2)).catch(function(e) {
-      console.error('[PF] actualizarMemoriaValeria error:', e);
-    });
-  }
-}
-
-function _esConsultaValeria(texto) {
-  // App-improvement requests must go to consultarValeria, NOT route creation.
-  var esMejoras = /\b(mejor|mejora|suger|recomiend|implementa|funcionalidad|feature)\b/i.test(texto);
-  if (esMejoras) return true;
-
-  // Route-creation keywords take priority — even if the message contains "?"
-  var crearRutaPatrones = /\b(pon|agrega|agregar|incluye|incluir|mete|meter|crea|crear|dame|haz|hacer|selecciona|seleccionar|a\xF1ade|a\xF1adir)\b/i;
-  if (crearRutaPatrones.test(texto)) return false;
-
-  var consultaPatrones = [
-    /\bcu\xe1ndo\b/i, /\bqu\xe9 hicimos\b/i, /\bhistorial\b/i, /\brecordas\b/i,
-    /\bfuimos a\b/i, /\ba d\xF3nde\b/i, /\bcu\xe1ntas veces\b/i, /\bqu\xe9 d\xEDa\b/i,
-    /\bla \xFAltima vez\b/i, /\bme recuerdas\b/i, /\bmuestra\b/i, /\bcu\xe1l es\b/i,
-    /\bcu\xe1nto\b/i, /\bcu\xe1ntos\b/i
-  ];
-  for (var i = 0; i < consultaPatrones.length; i++) {
-    if (consultaPatrones[i].test(texto)) return true;
-  }
-  return false;
-}
-
-function consultarValeria(texto) {
-  agregarBurbuja('valeria', '⏳ Pensando...', 'thinking');
-
-  var hoy = new Date();
-  var hace30 = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-  var historialReciente = (VALERIA_MEMORIA.historial_rutas || []).filter(function(h) {
-    var partes = (h.fecha || '').split('/');
-    if (partes.length !== 3) return false;
-    var d = new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
-    if (isNaN(d.getTime())) return false;
-    return d >= hace30;
-  }).slice(0, 15);
-
-  // Limit to first 150 clients to keep the prompt compact
-  var MAX_CLIENTES_CTX = 150;
-  var clientesCtx = CLIENTES_DISPONIBLES.slice(0, MAX_CLIENTES_CTX).map(function(c, i) {
-    var vis = VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado ? 'VISITADO' : 'PENDIENTE';
-    var patron = VALERIA_MEMORIA.patrones_cliente && VALERIA_MEMORIA.patrones_cliente[c.nombre];
-    var extra = patron ? ' [veces:' + (patron.veces_en_ruta || 0) + ',\xFAltima:' + (patron.ultimo_recorrido || '—') + ']' : '';
-    return i + '. [' + (c.esKfc ? 'KFC' : 'OTRO') + '] ' + c.nombre
-      + (c.local ? ' (' + c.local + ')' : '') + ' - ' + c.direccion + ' [' + vis + ']' + extra;
-  }).join('\n');
-  if (CLIENTES_DISPONIBLES.length > MAX_CLIENTES_CTX) {
-    clientesCtx += '\n... y ' + (CLIENTES_DISPONIBLES.length - MAX_CLIENTES_CTX) + ' m\xE1s';
-  }
-
-  var historialCtx = historialReciente.map(function(h) {
-    var tecCtx = '';
-    if (h.tecnicos) {
-      tecCtx = ' | T\xe9cnicos: ' + Object.keys(h.tecnicos).map(function(t) {
-        return t + '(' + (h.tecnicos[t] || []).join(',') + ')';
-      }).join('; ');
-    }
-    return h.fecha + ': "' + (h.instruccion || '') + '" → ' + (h.clientes || []).join(', ') + tecCtx;
-  }).join('\n');
-
-  var esMejoras = /mejor[ao]|implementa|funcionalidad|feature|sugiere|recomienda|cambio|app|sistema|necesitamos/i.test(texto);
-  var DIAS_SEMANA = ['domingo','lunes','martes','mi\xE9rcoles','jueves','viernes','s\xE1bado'];
-  var diaSemana = DIAS_SEMANA[new Date().getDay()];
-
-  var systemMsg = 'Eres Valeria, asistente experta de PREVIFUEGO, empresa de extintores y seguridad contra incendios en Guayaquil, Ecuador.\n'
-    + 'Admin: Alejandro López (dueño). Técnicos: ' + TECNICOS[0] + ' y ' + TECNICOS[1] + '.\n'
-    + 'Hoy es ' + diaSemana + ' ' + fechaHoy() + '.\n'
-    + 'CONOCIMIENTO OPERATIVO:\n'
-    + '- Sectores Guayaquil: Norte (Alborada, Garzota, Sauces, Kennedy, V\xEDa Perimetral, V\xEDa Daule, Los Ceibos), Centro (Mal\xE9con, Urdesa, Miraflores), Riocentros (Norte, El Dorado, Ceibos, Puntilla), Malls (Mall del Sol, San Marino, City Mall, Mall del Norte, Village Plaza), Oriente (Samborond\xF3n), Sur (Guasmo, Pascuales), Dur\xE1n.\n'
-    + '- Cadenas principales: KFC (m\xFAltiples locales), Cebiches de la Rumi\xF1ahui, Menestras del Negro, Tortaman\xEDa, Papa Johns, Empanadas de Paco, Caj\xFAn Grill, American Deli, Juan Valdez, Baskin Robbins, No\xE9, Dolce Incontro, Casa Res, El Toro Asado, TropiBurger.\n'
-    + '- Empresas: G\xF3mez y G\xF3mez (cierra 12pm), VESEIND (recargas), Congas, Produsol, Segumar SCI, Importadora Federal, L\xF3pez y L\xF3pez, Servintex, SEPRO, Bidokan, Carsague, Tractocentro, Korea Motors, Demaco.\n'
-    + '- Tipos de servicio: mantenimiento en sitio, retiro para recarga/mantenimiento, entrega de extintores procesados, instalaci\xF3n nueva, sistemas CO₂, recarga, evaluaci\xF3n t\xE9cnica, cobros/cheques.\n'
-    + '- Recorrido t\xEDpico: 3-8 puntos por jornada, organizados por zona geogr\xE1fica. Jornada ma\xF1ana 8am-1pm, tarde 1:30pm-6pm.\n'
-    + 'Tienes acceso al historial de rutas y datos de clientes. '
-    + 'Responde en espa\xF1ol de forma concisa, \xFAtil y proactiva. '
-    + 'Si te preguntan por clientes pendientes, agr\xFApalos por zona geogr\xE1fica. '
-    + 'Si te piden crear una ruta, optimiza el orden por zonas, incluye el tiempo estimado (15-20min \xD7 n clientes) y responde con exactamente '
-    + 'CREAR_RUTA: seguido del array JSON de \xEDndices. '
-    + (esMejoras
-      ? 'Si te piden sugerencias de mejoras para la app, analiza el historial de uso y los patrones de clientes, '
-        + 'y genera una lista numerada de mejoras CONCRETAS y ESPEC\xCDFICAS basadas en los datos reales. '
-        + 'Termina tu respuesta con este bloque exacto para que el administrador lo pueda copiar a Claude:\n'
-        + '--- INSTRUCCIÓN PARA CLAUDE ---\n'
-        + '[aquí escribe en imperativo las mejoras a implementar, siendo muy específico con cada feature]\n'
-        + '--- FIN INSTRUCCIÓN ---\n'
-      : '')
-    + 'Siempre firma tus respuestas como "Valeria 🤖".';
-
-  var userMsg = '=== HISTORIAL \xDALTIMOS 30 D\xCDAS ===\n' + (historialCtx || '(sin historial)') + '\n\n'
-    + '=== CLIENTES DEL MES (con estado de visita y patrones) ===\n' + (clientesCtx || '(sin clientes)') + '\n\n'
-    + '=== PREGUNTA DEL ADMINISTRADOR ===\n' + texto;
-
-  _llamarIA([
-    { role: 'system', content: systemMsg },
-    { role: 'user', content: userMsg }
-  ], 4096, 0.2)
-  .then(function(d) {
-    eliminarBurbujaThinking();
-    // Guard: admin may have logged out during the 20s ChatGPT call
-    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
-    if (d.error) throw new Error(d.error.message || 'Error ChatGPT API');
-    var choice = (d.choices || [])[0] || {};
-    if (choice.finish_reason === 'length') {
-      agregarBurbuja('valeria', '⚠️ Respuesta incompleta (l\xEDmite de tokens). Intenta con una instrucci\xF3n m\xE1s corta.');
-      return;
-    }
-    var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
-
-    if (text.trim().indexOf('CREAR_RUTA:') === 0) {
-      var jsonPart = text.slice('CREAR_RUTA:'.length).trim();
-      var match = jsonPart.match(/\[[\d,\s,-]*\]/);
-      if (match) {
-        var indices = JSON.parse(match[0]);
-        RUTA_PREVIEW = indices
-          .filter(function(i) { return Number.isInteger(i) && i >= 0 && i < CLIENTES_DISPONIBLES.length; })
-          .map(function(i) { return Object.assign({}, CLIENTES_DISPONIBLES[i]); });
-        if (RUTA_PREVIEW.length) {
-          agregarBurbuja('valeria', '✅ Selecci\xF3n lista: ' + RUTA_PREVIEW.length + ' cliente(s). Revisa la vista previa abajo.');
-          renderRutaPreview();
-          return;
-        }
-      }
-      agregarBurbuja('valeria', '⚠️ No encontr\xE9 clientes que coincidan con esa instrucci\xF3n.');
-    } else {
-      agregarBurbuja('valeria', text || '⚠️ Sin respuesta.');
-    }
-  })
-  .catch(function(err) {
-    eliminarBurbujaThinking();
-    agregarBurbuja('valeria', '❌ Error al consultar: ' + String(err));
-    console.error('[PF] consultarValeria error:', err);
-  })
-  .finally(function() { _pensandoValeria = false; });
-}
-
-function enviarMensajeValeria() {
-  if (_pensandoValeria) return;
-  var input = document.getElementById('valeria-input');
-  if (!input) return;
-  var texto = input.value.trim();
-  if (!texto) return;
-  _pensandoValeria = true;
-  input.value = '';
-  agregarBurbuja('usuario', texto);
-  _agregarChipHistorial(texto);
-
-  if (!CLIENTES_DISPONIBLES.length) {
-    agregarBurbuja('valeria', '⚠️ Primero carga los clientes desde el tab Clientes.');
-    _pensandoValeria = false;
-    return;
-  }
-
-  if (_esConsultaValeria(texto)) {
-    consultarValeria(texto);
-  } else {
-    procesarInstruccionVoz(texto);
-  }
-}
-
-function valeriaTecla(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    enviarMensajeValeria();
-  }
-}
-
-function agregarBurbuja(quien, texto, clase) {
-  VALERIA_CHAT.push({ quien: quien, texto: texto, clase: clase || '' });
-  if (VALERIA_CHAT.length > 100) VALERIA_CHAT = VALERIA_CHAT.slice(-100);
-  renderChat();
-}
-
-function eliminarBurbujaThinking() {
-  VALERIA_CHAT = VALERIA_CHAT.filter(function(b) { return b.clase !== 'thinking'; });
-  renderChat();
-}
-
-function renderChat() {
-  var chat = document.getElementById('valeria-chat');
-  if (!chat) return;
-  var html = '';
-  VALERIA_CHAT.forEach(function(b, idx) {
-    var esUsuario = b.quien === 'usuario';
-    var tieneInstruccion = b.quien === 'valeria' && b.texto && b.texto.indexOf('--- INSTRUCCIÓN PARA CLAUDE ---') !== -1;
-    var textoHtml = esc(b.texto).replace(/\n/g, '<br>');
-    if (tieneInstruccion) {
-      textoHtml = textoHtml
-        .replace('--- INSTRUCCIÓN PARA CLAUDE ---', '<strong style="color:#7c3aed">--- INSTRUCCIÓN PARA CLAUDE ---</strong>')
-        .replace('--- FIN INSTRUCCIÓN ---', '<strong style="color:#7c3aed">--- FIN INSTRUCCIÓN ---</strong>');
-    }
-    html += '<div class="chat-burbuja ' + (esUsuario ? 'chat-usuario' : 'chat-valeria') + (b.clase ? ' chat-' + b.clase : '') + '">'
-      + '<div class="chat-texto">' + textoHtml + '</div>'
-      + (tieneInstruccion ? '<button class="btn-copiar-instruccion" onclick="copiarInstruccionClaude(' + idx + ')">📋 Copiar instrucción para Claude</button>' : '')
-      + '</div>';
-  });
-  chat.innerHTML = html;
-  chat.scrollTop = chat.scrollHeight;
-}
-
-function copiarInstruccionClaude(idx) {
-  var b = VALERIA_CHAT[idx];
-  if (!b || !b.texto) return;
-  var inicio = b.texto.indexOf('--- INSTRUCCIÓN PARA CLAUDE ---');
-  if (inicio === -1) return;  // Stale index — bubble no longer contains instruction
-  var fin = b.texto.indexOf('--- FIN INSTRUCCIÓN ---');
-  var instruccion = fin > inicio
-    ? b.texto.slice(inicio, fin + '--- FIN INSTRUCCIÓN ---'.length)
-    : b.texto.slice(inicio);
-  navigator.clipboard.writeText(instruccion).then(function() {
-    showToast('✅ Instrucción copiada al portapapeles');
-  }).catch(function() {
-    var ta = document.createElement('textarea');
-    ta.value = instruccion;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    showToast('✅ Instrucción copiada');
-  });
-}
-
-function _agregarChipHistorial(texto) {
-  _chipHistorial = _chipHistorial.filter(function(c) { return c !== texto; });
-  _chipHistorial.unshift(texto);
-  if (_chipHistorial.length > 5) _chipHistorial = _chipHistorial.slice(0, 5);
-  var cont = document.getElementById('valeria-chips');
-  if (!cont) return;
-  var html = '';
-  _chipHistorial.forEach(function(c) {
-    html += '<button class="valeria-chip" onclick="usarChip(this.getAttribute(\'data-val\'))" data-val="' + esc(c) + '">' + esc(c) + '</button>';
-  });
-  cont.innerHTML = html;
-}
-
-function usarChip(texto) {
-  var input = document.getElementById('valeria-input');
-  if (input) { input.value = texto; input.focus(); }
-}
 
 /* ===================================================
    DROPBOX FILE HELPERS
@@ -1562,7 +1068,6 @@ function login(usuario) {
     _mesUltimoCargado = '';
     _inicializarArchivosDropbox();
     sincronizarConfig();
-    sincronizarValeria();
     actualizarEstadoConexion();
     cargarClientes();
     _initAdminRutaStatus();
@@ -1583,8 +1088,6 @@ function logout() {
   if (_subirFichasTimer) { clearTimeout(_subirFichasTimer); _subirFichasTimer = null; }
   if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
   _toastQueue = []; _toastShowing = false;
-  _pensandoValeria = false;
-  _sincronizarValeriaP = Promise.resolve();
   _subirFichasPending = false;
   _subirFichasReintentos = 0;
   _cargandoClientes = false;
@@ -1595,13 +1098,9 @@ function logout() {
   CLIENTES_DISPONIBLES = [];
   VISITAS_MES = {};
   RUTA_PREVIEW = [];
-  VALERIA_CHAT = [];
-  VALERIA_MEMORIA = {};
   _DICTAR_PUNTOS = [];
-  _chipHistorial = [];
   _clientesFiltro = '';
   _clientesQuickFilter = 'todos';
-  _obsClasifCache = {};
   _segPuntosCache = [];
   _lsRemove('pf_usuario');
   switchTab('clientes');
@@ -1743,7 +1242,6 @@ function cargarClientes() {
       return;
     }
     renderClientesMes();
-    try { sugerenciaProactiva(); } catch(e) {}
   }).catch(function(err) {
     if (genActual !== _cargandoClientesGen) return;  // Stale — newer load in progress
     clearTimeout(_lockTimeout);
@@ -1946,27 +1444,6 @@ function renderClienteMesCard(c, idx, visitado) {
       + '</div>';
   }
 
-  // Alerta 30 dias sin recorrido
-  var alerta30 = '';
-  var patron = VALERIA_MEMORIA.patrones_cliente && VALERIA_MEMORIA.patrones_cliente[c.nombre];
-  if (patron && patron.ultimo_recorrido && !visitado) {
-    var partes = patron.ultimo_recorrido.split('/');
-    if (partes.length === 3) {
-      var ultimaVisita = new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
-      var diasPasados = Math.floor((new Date() - ultimaVisita) / (1000 * 60 * 60 * 24));
-      if (diasPasados >= 30) alerta30 = ' <span class="alerta-30d">⚠️ ' + diasPasados + 'd</span>';
-    }
-  }
-
-  var historialStr = '';
-  if (patron && (patron.veces_en_ruta || patron.ultimo_recorrido)) {
-    historialStr = '<div class="cliente-historial">'
-      + (patron.veces_en_ruta ? '📅 ' + patron.veces_en_ruta + 'x' : '')
-      + (patron.ultimo_recorrido ? ' \xB7 \xDAlt: ' + esc(patron.ultimo_recorrido) : '')
-      + (patron.tecnico_habitual ? ' \xB7 ' + esc(patron.tecnico_habitual) : '')
-      + '</div>';
-  }
-
   var nombreHtml = _resaltar(c.nombre, _clientesFiltro);
   var dirHtml = c.direccion ? _resaltar(c.direccion, _clientesFiltro) : '';
   var tipoBorde = c.esKfc ? ' card-kfc' : ' card-otros';
@@ -1975,12 +1452,11 @@ function renderClienteMesCard(c, idx, visitado) {
 
   return '<div class="cliente-mes-card' + (visitado ? ' visitado' : '') + tipoBorde + '">'
     + '<div class="cliente-mes-info">'
-    +   '<div class="cliente-nombre">' + badge + ' ' + nombreHtml + alerta30 + '</div>'
+    +   '<div class="cliente-nombre">' + badge + ' ' + nombreHtml + '</div>'
     +   (dirHtml ? '<div class="cliente-dir">' + dirHtml + '</div>' : '')
     +   tiposHtml
     +   '<div class="cliente-ext">🧯 ' + (c.extintores || '?') + ' extintor(es)</div>'
     +   ultVisStr
-    +   historialStr
     + '</div>'
     + '<button class="btn-visitado' + (visitado ? ' btn-visitado-done' : '') + '" onclick="marcarVisitado(' + idx + ')">'
     +   (visitado ? '✓' + fechaV : 'Marcar')
@@ -2003,292 +1479,12 @@ function _resaltar(texto, filtro) {
 /* ===================================================
    ADMIN — VOZ + ChatGPT (used by Valeria)
 =================================================== */
-function iniciarVoz() {
-  var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    pfModal('No disponible', 'Tu navegador no soporta reconocimiento de voz. Usa Chrome en Android o iOS.');
-    return;
-  }
-  if (!CLIENTES_DISPONIBLES.length) {
-    pfModal('Sin clientes', 'Primero carga los clientes en el tab "Clientes".');
-    return;
-  }
-  var btn = document.getElementById('btn-mic');
-  if (_currentRec) {
-    _currentRec.abort();
-    _currentRec = null;
-    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '🎤'; }
-    return;
-  }
-  // Abort dictation mic if active
-  if (_DICTAR_REC) { try { _DICTAR_REC.abort(); } catch(e) {} _DICTAR_REC = null; }
-  if (btn) { btn.classList.add('grabando'); btn.innerHTML = '⏹'; }
-
-  var rec = new SpeechRecognition();
-  _currentRec = rec;
-  rec.lang = 'es-EC';
-  rec.continuous = false;
-  rec.interimResults = false;
-  rec.onresult = function(e) {
-    var texto = e.results[0][0].transcript;
-    var conf = Math.round((e.results[0][0].confidence || 0) * 100);
-    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '🎤'; }
-    _currentRec = null;
-    var input = document.getElementById('valeria-input');
-    if (input) input.value = '';
-    agregarBurbuja('usuario', texto + (conf ? ' (' + conf + '% confianza)' : ''));
-    _agregarChipHistorial(texto);
-    _ultimaInstruccionVoz = texto;
-    if (_pensandoValeria) { agregarBurbuja('valeria', '⏳ Espera, aún estoy procesando la instrucción anterior...'); return; }
-    _pensandoValeria = true;
-    if (_esConsultaValeria(texto)) {
-      consultarValeria(texto);
-    } else {
-      procesarInstruccionVoz(texto);
-    }
-  };
-  rec.onerror = function(e) {
-    _currentRec = null;
-    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '🎤'; }
-    agregarBurbuja('valeria', '⚠️ Error de micr\xF3fono: ' + e.error);
-  };
-  rec.onend = function() {
-    _currentRec = null;
-    if (btn) { btn.classList.remove('grabando'); btn.innerHTML = '🎤'; }
-  };
-  rec.start();
-}
-
-function procesarInstruccionVoz(texto) {
-  agregarBurbuja('valeria', '⏳ Procesando con ChatGPT AI...', 'thinking');
-  _ultimaInstruccionVoz = texto;
-
-  var clientesCtx = CLIENTES_DISPONIBLES.map(function(c, i) {
-    var visitado = VISITAS_MES[c.nombre] && VISITAS_MES[c.nombre].visitado ? 'VISITADO' : 'PENDIENTE';
-    var patron = VALERIA_MEMORIA.patrones_cliente && VALERIA_MEMORIA.patrones_cliente[c.nombre];
-    var extraCtx = patron ? ' [veces:' + (patron.veces_en_ruta||0) + ',\xFAlt:' + (patron.ultimo_recorrido||'—') + ',tecnico:' + (patron.tecnico_habitual||'—') + ']' : '';
-    return i + '. [' + (c.esKfc ? 'KFC' : 'OTRO') + '] ' + c.nombre
-      + (c.local ? ' (' + c.local + ')' : '') + ' - ' + c.direccion + ' [' + visitado + ']' + extraCtx;
-  }).join('\n');
-
-  var historialCtx = (VALERIA_MEMORIA.historial_rutas || []).slice(0, 10).map(function(h) {
-    return h.fecha + ': ' + (h.clientes || []).join(', ');
-  }).join('\n');
-
-  var systemMsg = 'Eres Valeria, asistente de rutas para Previfuego (empresa de extintores).\n'
-    + 'Tu trabajo es organizar y escribir bonito lo que el admin te dice por voz.\n'
-    + 'Responde \xDANICAMENTE con un array JSON. Cada elemento: {"idx": N\xFAmero, "mision": "texto"}\n'
-    + 'Ejemplo: [{"idx":0,"mision":"Retirar 3 extintores CO2 50lb"},{"idx":5,"mision":"Cambiar l\xe1mpara de emergencia"}]\n\n'
-    + 'REGLAS:\n'
-    + '- idx = \xEDndice del cliente en la lista de abajo\n'
-    + '- mision = transcribir EXACTAMENTE lo que el admin dijo que hay que hacer en ese punto. Redactar de forma clara y profesional.\n'
-    + '- NO agregues detalles de extintores por tu cuenta. Solo incluye lo que el admin dijo expl\xEDcitamente.\n'
-    + '- Si el admin no especifica misi\xF3n para un punto, pon "Mantenimiento de extintores"\n'
-    + '- Si el admin menciona un cliente que no est\xe1 en la lista, b\xFAscalo por nombre similar\n'
-    + 'Responde SOLO con el JSON, sin texto adicional.';
-
-  var userMsg = 'Fecha actual: ' + fechaHoy() + '\n\n'
-    + '=== HISTORIAL RECIENTE ===\n' + (historialCtx || '(sin historial)') + '\n\n'
-    + '=== CLIENTES DISPONIBLES ===\n' + clientesCtx + '\n\n'
-    + 'Instrucci\xF3n del administrador: "' + texto + '"\n\n'
-    + 'Organiza la ruta seg\xFAn lo que el admin dijo. Responde solo con el array JSON.';
-
-  _llamarIA([
-    { role: 'system', content: systemMsg },
-    { role: 'user', content: userMsg }
-  ], 2048, 0.1)
-  .then(function(d) {
-    eliminarBurbujaThinking();
-    // Guard: admin may have logged out during the 20s ChatGPT call
-    if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL] || !USUARIOS[USUARIO_ACTUAL].esAdmin) return;
-    if (d.error) throw new Error(d.error.message || 'Error ChatGPT API');
-    var choice = (d.choices || [])[0] || {};
-    var text = (choice.message && choice.message.content ? choice.message.content : '').trim();
-    // Parse response: supports [{idx:N, mision:"..."}, ...] or legacy [N, N, ...]
-    var arrMatch = text.match(/\[[\s\S]*\]/);
-    if (!arrMatch) {
-      var partial = text.match(/\[[\s\S]*/);
-      if (!partial) throw new Error('Respuesta inesperada de ChatGPT: ' + text.slice(0, 100));
-      arrMatch = [partial[0].replace(/[,\s]+$/, '') + ']'];
-    }
-    var parsed;
-    try { parsed = JSON.parse(arrMatch[0]); } catch(e) { throw new Error('JSON inv\xe1lido de ChatGPT: ' + arrMatch[0].slice(0, 100)); }
-    RUTA_PREVIEW = [];
-    parsed.forEach(function(item) {
-      var idx = typeof item === 'number' ? item : (item && typeof item.idx === 'number' ? item.idx : -1);
-      if (idx < 0 || idx >= CLIENTES_DISPONIBLES.length) return;
-      var c = Object.assign({}, CLIENTES_DISPONIBLES[idx]);
-      if (item && item.mision) c.mision = item.mision;
-      RUTA_PREVIEW.push(c);
-    });
-    if (!RUTA_PREVIEW.length) {
-      agregarBurbuja('valeria', '⚠️ No encontr\xE9 clientes para esa instrucci\xF3n.');
-      return;
-    }
-    agregarBurbuja('valeria', '✅ ' + RUTA_PREVIEW.length + ' cliente(s) seleccionados. Asigna t\xE9cnicos en la vista previa y pulsa Publicar.');
-    if (RUTA_PREVIEW.length > 20) {
-      agregarBurbuja('valeria', '⚠️ Aviso: la ruta tiene m\xE1s de 20 puntos. Considera dividirla.');
-    }
-    renderRutaPreview();
-  })
-  .catch(function(err) {
-    eliminarBurbujaThinking();
-    agregarBurbuja('valeria', '❌ Error: ' + String(err));
-    console.error('[PF] ChatGPT error:', err);
-  })
-  .finally(function() { _pensandoValeria = false; });
-}
-
-function renderRutaPreview() {
-  var wrap  = document.getElementById('ruta-preview');
-  var lista = document.getElementById('ruta-preview-lista');
-  var title = document.getElementById('ruta-preview-title');
-  if (!wrap || !lista) return;
-  if (!RUTA_PREVIEW.length) { wrap.style.display = 'none'; return; }
-  if (title) title.textContent = 'Ruta sugerida — ' + RUTA_PREVIEW.length + ' punto(s)';
-  var html = '';
-  RUTA_PREVIEW.forEach(function(c, i) {
-    var badge = c.esKfc ? '<span class="badge-kfc">KFC</span>' : '';
-    var patron = VALERIA_MEMORIA.patrones_cliente && VALERIA_MEMORIA.patrones_cliente[c.nombre];
-    var histHtml = patron && patron.ultimo_recorrido
-      ? '<div style="font-size:0.72rem;color:#888;margin-top:2px">📅 ' + (patron.veces_en_ruta||0) + 'x \xB7 \xDAlt: ' + esc(patron.ultimo_recorrido) + (patron.tecnico_habitual ? ' \xB7 ' + esc(patron.tecnico_habitual) : '') + '</div>'
-      : '';
-    html += '<div class="ruta-preview-item" draggable="true" data-rp-idx="' + i + '">'
-      + '<div class="ruta-preview-drag" title="Arrastra para reordenar">&#x2630;</div>'
-      + '<div class="ruta-preview-num">' + (i + 1) + '</div>'
-      + '<div class="ruta-preview-info" style="flex:1;min-width:0">'
-      +   '<div class="cliente-nombre">' + badge + esc(c.nombre) + (c.local ? ' \xB7 ' + esc(c.local) : '') + '</div>'
-      +   '<div class="cliente-dir">' + esc(c.direccion) + '</div>'
-      +   histHtml
-      +   '<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
-      +     '<input type="text" id="rnota-' + i + '" class="opts-input" placeholder="Nota..." style="flex:1;font-size:0.78rem;padding:4px 8px;min-width:80px">'
-      +     '<label style="font-size:0.75rem;display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap">'
-      +       '<input type="checkbox" id="rpriority-' + i + '"> Urgente'
-      +     '</label>'
-      +   '</div>'
-      + '</div>'
-      + '<button onclick="quitarPuntoPreview(' + i + ')" style="background:none;border:none;cursor:pointer;color:#bbb;font-size:1.1rem;padding:4px 6px;flex-shrink:0">&#x2715;</button>'
-      + '</div>';
-  });
-  lista.innerHTML = html;
-  _initPreviewDragDrop(lista);
-  wrap.style.display = 'flex';
-  setTimeout(function() { if (wrap.scrollIntoView) wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
-}
-
 var _rpDragIdx = -1;
-function _initPreviewDragDrop(lista) {
-  var items = lista.querySelectorAll('.ruta-preview-item');
-  items.forEach(function(el) {
-    el.addEventListener('dragstart', function(e) {
-      _rpDragIdx = parseInt(el.getAttribute('data-rp-idx'));
-      el.classList.add('rp-dragging');
-      e.dataTransfer.effectAllowed = 'move';
-    });
-    el.addEventListener('dragend', function() {
-      el.classList.remove('rp-dragging');
-      _rpDragIdx = -1;
-      lista.querySelectorAll('.rp-drag-over').forEach(function(x) { x.classList.remove('rp-drag-over'); });
-    });
-    el.addEventListener('dragover', function(e) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      el.classList.add('rp-drag-over');
-    });
-    el.addEventListener('dragleave', function() {
-      el.classList.remove('rp-drag-over');
-    });
-    el.addEventListener('drop', function(e) {
-      e.preventDefault();
-      var dropIdx = parseInt(el.getAttribute('data-rp-idx'));
-      if (_rpDragIdx < 0 || _rpDragIdx === dropIdx) return;
-      var moved = RUTA_PREVIEW.splice(_rpDragIdx, 1)[0];
-      RUTA_PREVIEW.splice(dropIdx, 0, moved);
-      renderRutaPreview();
-      showToast('Punto movido a posici\xF3n ' + (dropIdx + 1));
-    });
-  });
-  // Touch drag support for mobile
-  var touchIdx = -1;
-  var touchClone = null;
-  items.forEach(function(el) {
-    var dragHandle = el.querySelector('.ruta-preview-drag');
-    if (!dragHandle) return;
-    dragHandle.addEventListener('touchstart', function(e) {
-      touchIdx = parseInt(el.getAttribute('data-rp-idx'));
-      el.classList.add('rp-dragging');
-      touchClone = el.cloneNode(true);
-      touchClone.classList.add('rp-touch-ghost');
-      touchClone.style.position = 'fixed';
-      touchClone.style.zIndex = '9999';
-      touchClone.style.pointerEvents = 'none';
-      touchClone.style.width = el.offsetWidth + 'px';
-      touchClone.style.opacity = '0.8';
-      document.body.appendChild(touchClone);
-      _positionTouchGhost(touchClone, e.touches[0]);
-    }, { passive: true });
-    dragHandle.addEventListener('touchmove', function(e) {
-      if (touchIdx < 0 || !touchClone) return;
-      e.preventDefault();
-      _positionTouchGhost(touchClone, e.touches[0]);
-      var overEl = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
-      if (overEl) overEl = overEl.closest('.ruta-preview-item');
-      lista.querySelectorAll('.rp-drag-over').forEach(function(x) { x.classList.remove('rp-drag-over'); });
-      if (overEl && overEl !== el) overEl.classList.add('rp-drag-over');
-    }, { passive: false });
-    dragHandle.addEventListener('touchend', function(e) {
-      if (touchClone) { touchClone.remove(); touchClone = null; }
-      el.classList.remove('rp-dragging');
-      lista.querySelectorAll('.rp-drag-over').forEach(function(x) { x.classList.remove('rp-drag-over'); });
-      if (touchIdx < 0) return;
-      var endTouch = e.changedTouches[0];
-      var overEl = document.elementFromPoint(endTouch.clientX, endTouch.clientY);
-      if (overEl) overEl = overEl.closest('.ruta-preview-item');
-      if (overEl) {
-        var dropIdx = parseInt(overEl.getAttribute('data-rp-idx'));
-        if (!isNaN(dropIdx) && dropIdx !== touchIdx) {
-          var moved = RUTA_PREVIEW.splice(touchIdx, 1)[0];
-          RUTA_PREVIEW.splice(dropIdx, 0, moved);
-          renderRutaPreview();
-          showToast('Punto movido a posici\xF3n ' + (dropIdx + 1));
-        }
-      }
-      touchIdx = -1;
-    });
-  });
-}
 function _positionTouchGhost(ghost, touch) {
   ghost.style.left = (touch.clientX - ghost.offsetWidth / 2) + 'px';
   ghost.style.top = (touch.clientY - 30) + 'px';
 }
 
-function copiarRutaWhatsApp() {
-  if (!RUTA_PREVIEW.length) { showToast('No hay ruta para copiar'); return; }
-  var lineas = ['*🔥 RECORRIDO PREVIFUEGO — ' + fechaHoy() + '*', ''];
-  RUTA_PREVIEW.forEach(function(c, i) {
-    var tecEl = document.getElementById('rtecnico-' + i);
-    var notaEl = document.getElementById('rnota-' + i);
-    var tecnico = tecEl ? tecEl.value : '';
-    var nota = notaEl ? notaEl.value.trim() : '';
-    var linea = (i + 1) + '. ' + c.nombre;
-    if (c.direccion) linea += ' — ' + c.direccion;
-    if (tecnico) linea += ' 👷 ' + tecnico;
-    if (nota) linea += ' 📌 ' + nota;
-    lineas.push(linea);
-  });
-  lineas.push('');
-  lineas.push('Total: ' + RUTA_PREVIEW.length + ' punto(s)');
-  var texto = lineas.join('\n');
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(texto).then(function() {
-      showToast('✅ Ruta copiada — p\xE9gala en WhatsApp');
-    }).catch(function() {
-      _copiarFallback(texto);
-    });
-  } else {
-    _copiarFallback(texto);
-  }
-}
 function _copiarFallback(texto) {
   var ta = document.createElement('textarea');
   ta.value = texto;
@@ -2299,44 +1495,11 @@ function _copiarFallback(texto) {
   ta.remove();
 }
 
-function quitarPuntoPreview(i) {
-  RUTA_PREVIEW.splice(i, 1);
-  if (!RUTA_PREVIEW.length) {
-    var wrap = document.getElementById('ruta-preview');
-    if (wrap) wrap.style.display = 'none';
-    return;
-  }
-  renderRutaPreview();
-}
-
-function agregarPuntoManual() {
-  pfModal('Agregar punto manual', 'Para agregar un cliente que no est\xE1 en la base de datos, escr\xEDbelo en el chat: "agrega [nombre] en [dirección]".');
-}
-
 /* ===================================================
    MODO DICTAR RECORRIDO — crea puntos estructurados por voz
 =================================================== */
 var _DICTAR_PUNTOS = [];  // Array of structured point objects
 var _DICTAR_REC = null;   // Active SpeechRecognition
-
-function abrirModoRecorrido() {
-  // Abort Valeria mic if active before switching to dictation mode
-  if (_currentRec) { try { _currentRec.abort(); } catch(e) {} _currentRec = null; var bm = document.getElementById('btn-mic'); if (bm) { bm.classList.remove('grabando'); bm.innerHTML = '🎤'; } }
-  var panelChat = document.getElementById('modo-chat-valeria');
-  var panelDictar = document.getElementById('modo-recorrido-panel');
-  if (panelChat) panelChat.style.display = 'none';
-  if (panelDictar) panelDictar.style.display = 'flex';
-  _renderDictarPuntos();
-  if (!_DICTAR_PUNTOS.length) {
-    _dictatStatus('Pega el recorrido de ChatGPT o dicta por voz.');
-  } else {
-    _dictatStatus(_DICTAR_PUNTOS.length + ' punto(s). Agrega m\xE1s o publica.');
-  }
-}
-
-function togglePegarRecorrido() {
-  procesarTextoPegado();
-}
 
 function procesarTextoPegado() {
   var ta = document.getElementById('dictar-pegar-texto');
@@ -2475,19 +1638,6 @@ function _parsearRecorridoTexto(texto) {
   if (lista) lista.scrollTop = lista.scrollHeight;
 }
 
-function salirModoRecorrido() {
-  if (_DICTAR_REC) { try { _DICTAR_REC.abort(); } catch(e) {} _DICTAR_REC = null; }
-  var panelChat = document.getElementById('modo-chat-valeria');
-  var panelDictar = document.getElementById('modo-recorrido-panel');
-  if (panelChat) panelChat.style.display = 'flex';
-  if (panelDictar) panelDictar.style.display = 'none';
-}
-
-function _dictatStatus(msg, color) {
-  var el = document.getElementById('dictar-status');
-  if (el) { el.textContent = msg; el.style.color = color || '#555'; }
-}
-
 function _renderDictarPuntos() {
   var lista = document.getElementById('dictar-puntos-lista');
   var badge = document.getElementById('dictar-count-badge');
@@ -2522,10 +1672,6 @@ function _renderDictarPuntos() {
   if (wrap) wrap.style.display = 'flex';
 }
 
-function _dictarCambiarTecnico(idx, val) {
-  if (_DICTAR_PUNTOS[idx]) _DICTAR_PUNTOS[idx].tecnico = val;
-}
-
 function _dictarEliminarPunto(idx) {
   _DICTAR_PUNTOS.splice(idx, 1);
   _renderDictarPuntos();
@@ -2555,7 +1701,6 @@ function publicarRecorridoDictado() {
     })
     .then(function() {
       mostrarCargando(false);
-      actualizarMemoriaValeria(puntos, 'Recorrido dictado por voz ' + fechaHoy());
       showToast('✅ Recorrido publicado — ' + puntos.length + ' puntos para ' + fechaPublicar);
       _DICTAR_PUNTOS = [];
       _renderDictarPuntos();
@@ -2566,69 +1711,13 @@ function publicarRecorridoDictado() {
   });
 }
 
-function limpiarPreview() {
-  RUTA_PREVIEW = [];
-  var wrap = document.getElementById('ruta-preview');
-  if (wrap) wrap.style.display = 'none';
-  _ultimaInstruccionVoz = '';
-}
-
-
-function publicarRutaPreview() {
-  if (!RUTA_PREVIEW.length) { pfModal('Sin ruta', 'Usa el micr\xF3fono o escribe para crear la ruta primero.'); return; }
-  var mananaEl = document.getElementById('chk-manana');
-  var fechaPublicar = (mananaEl && mananaEl.checked) ? fechaMas(1) : fechaHoy();
-  var puntos = RUTA_PREVIEW.map(function(c, i) {
-    var notaEl     = document.getElementById('rnota-' + i);
-    var priorityEl = document.getElementById('rpriority-' + i);
-    return {
-      nombre: c.nombre, direccion: c.direccion, extintores: c.extintores,
-      local: c.local || '', esKfc: c.esKfc || false, mision: c.mision || 'Mantenimiento',
-      tecnico: 'Equipo',
-      nota: notaEl ? notaEl.value.trim() : '',
-      urgente: priorityEl ? priorityEl.checked : false,
-      done: false, enCamino: false, horaCompletado: null, observacion: ''
-    };
-  });
-  pfConfirm('Publicar recorrido', 'Se publicar\xE1n ' + puntos.length + ' punto(s) para el ' + fechaPublicar + '. \xBFConfirmar?', function() {
-    mostrarCargando(true);
-    dbxDownloadJSON(DBX_RECORRIDOS)
-    .then(function(recorridos) {
-      var existing = recorridos[fechaPublicar];
-      var existingPuntos = (existing && existing.puntos) ? existing.puntos : [];
-      puntos = puntos.map(function(p) {
-        var prev = existingPuntos.filter(function(e) { return e.nombre === p.nombre; })[0];
-        if (prev && prev.done) { p.done = true; p.horaCompletado = prev.horaCompletado; p.observacion = prev.observacion || ''; }
-        else if (prev && prev.enCamino) { p.enCamino = true; }
-        return p;
-      });
-      recorridos[fechaPublicar] = { fecha: fechaPublicar, publicado: new Date().toISOString(), puntos: puntos };
-      return dbxUpload(DBX_RECORRIDOS, JSON.stringify(recorridos, null, 2));
-    })
-    .then(function() {
-      mostrarCargando(false);
-      actualizarMemoriaValeria(puntos, _ultimaInstruccionVoz);
-      _resumenDiario(puntos);
-      limpiarPreview();
-      showToast('Recorrido publicado — ' + puntos.length + ' puntos para ' + fechaPublicar);
-      _initAdminRutaStatus();
-    })
-    .catch(function(err) { mostrarCargando(false); pfModal('Error', 'No se pudo publicar: ' + String(err)); });
-  });
-}
-
 /* ===================================================
    ADMIN — SEGUIMIENTO
 =================================================== */
-function _poblarFiltroTecnicos() {
-  // No longer needed — single shared route
-}
-
 var _segFechaSeleccionada = '';
 
 function iniciarSeguimiento() {
   detenerSeguimiento();
-  _poblarFiltroTecnicos();
   var fechaInput = document.getElementById('seg-fecha');
   if (fechaInput) {
     var hoy = new Date();
@@ -2652,15 +1741,9 @@ function detenerSeguimiento() {
   if (_seguimientoInterval) { clearInterval(_seguimientoInterval); _seguimientoInterval = null; }
 }
 
-function cambiarIntervaloSeguimiento() {
-  var el = document.getElementById('seg-intervalo');
-  if (el) _seguimientoIntervaloSeg = parseInt(el.value) || 30;
-  var nota = document.getElementById('auto-refresh-note');
-  if (nota) nota.textContent = 'Se actualiza cada ' + _seguimientoIntervaloSeg + 's';
-  if (_seguimientoInterval) { detenerSeguimiento(); iniciarSeguimiento(); }
-}
-
 function pfRenderSeguimiento() {
+  var modal = document.getElementById('modal-overlay');
+  if (modal && !modal.classList.contains('hidden')) return;
   dbxDownloadJSON(DBX_RECORRIDOS)
   .then(function(recorridos) {
     var fechaBuscar = _segFechaSeleccionada || fechaHoy();
@@ -2752,6 +1835,16 @@ function _segGuardarRecorrido(puntos, callback) {
   dbxDownloadJSON(DBX_RECORRIDOS)
   .then(function(recorridos) {
     if (!recorridos[fecha]) recorridos[fecha] = {};
+    var serverPuntos = (recorridos[fecha].puntos || []);
+    puntos = puntos.map(function(p) {
+      var sp = serverPuntos.filter(function(s) { return s.nombre === p.nombre; })[0];
+      if (sp) {
+        if (sp.done) { p.done = true; p.horaCompletado = sp.horaCompletado; }
+        if (sp.enCamino && !p.done) p.enCamino = true;
+        if (sp.observacion && !p.observacion) p.observacion = sp.observacion;
+      }
+      return p;
+    });
     recorridos[fecha].puntos = puntos;
     recorridos[fecha].fecha = fecha;
     recorridos[fecha].editado = new Date().toISOString();
@@ -3142,7 +2235,9 @@ function actualizarProgreso() {
 
 function marcarEnCamino(idx) {
   if (idx < 0 || idx >= PUNTOS.length || PUNTOS[idx].done) return;
-  PUNTOS[idx].enCamino = !PUNTOS[idx].enCamino;
+  var activar = !PUNTOS[idx].enCamino;
+  if (activar) PUNTOS.forEach(function(p, j) { if (j !== idx) p.enCamino = false; });
+  PUNTOS[idx].enCamino = activar;
   _guardarEstadoLocal();
   renderPuntos();
   if (navigator.vibrate) navigator.vibrate(40);
@@ -3160,7 +2255,7 @@ function abrirMarcarListo(idx) {
   if (!overlay || !titleEl2 || !msgEl2 || !actEl) { marcarListo(idx, ''); return; }
   titleEl2.textContent = '✅ Completar: ' + p.nombre;
   msgEl2.innerHTML = '<div style="margin-bottom:10px;font-size:0.9rem;color:#555">Observaci\xF3n opcional:</div>'
-    + '<textarea id="obs-input" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:10px;font-size:0.9rem;min-height:80px;resize:vertical;font-family:inherit" placeholder="\xBFAlguna observaci\xF3n?"></textarea>';
+    + '<textarea id="obs-input" maxlength="500" style="width:100%;padding:10px;border:1.5px solid #ddd;border-radius:10px;font-size:0.9rem;min-height:80px;resize:vertical;font-family:inherit" placeholder="\xBFAlguna observaci\xF3n?"></textarea>';
   actEl.innerHTML = '';
   var btnCancel = document.createElement('button');
   btnCancel.className = 'btn-ghost';
@@ -3405,22 +2500,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedUser && USUARIOS[savedUser]) login(savedUser);
   }
   if ('serviceWorker' in navigator) {
+    var _swReloading = false;
+    function _swReload() { if (_swReloading) return; _swReloading = true; window.location.reload(); }
     navigator.serviceWorker.register('/previfuego-recorrido/sw.js').then(function(reg) {
-      reg.addEventListener('updatefound', function() {
-        var nw = reg.installing;
-        if (nw) nw.addEventListener('statechange', function() {
-          if (nw.state === 'activated') window.location.reload();
-        });
-      });
       reg.update();
       setInterval(function() { reg.update(); }, 60000);
     }).catch(function() {});
-    navigator.serviceWorker.addEventListener('message', function(e) {
-      if (e.data && e.data.type === 'sw-updated') window.location.reload();
-    });
-    navigator.serviceWorker.addEventListener('controllerchange', function() {
-      window.location.reload();
-    });
+    navigator.serviceWorker.addEventListener('controllerchange', _swReload);
   }
   if (!navigator.onLine) {
     var b = document.getElementById('offline-banner');
