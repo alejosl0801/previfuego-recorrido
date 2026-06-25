@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="style.css" />
   <script>
   (function(){
-    var V='7.0';
+    var V='8.0';
     if(navigator.serviceWorker){
       navigator.serviceWorker.getRegistrations().then(function(regs){
         regs.forEach(function(r){r.update()});
@@ -77,23 +77,33 @@
     <header class="app-header">
       <button onclick="logout()" class="btn-back">&#8592; Salir</button>
       <span id="s1-title">Mi Recorrido</span>
-      <button onclick="recargarRecorrido()" class="btn-icon" title="Actualizar">&#8635;</button>
+      <span class="header-date" id="s1-fecha"></span>
     </header>
-    <div class="progress-bar-wrap">
-      <div class="progress-info">
-        <span id="prog-texto">0/0 completados</span>
+    <div class="s1-tabs">
+      <button class="s1-tab active" onclick="switchTecTab('hoy')" id="tec-tab-hoy">Hoy</button>
+      <button class="s1-tab" onclick="switchTecTab('historial')" id="tec-tab-historial">Historial</button>
+      <button class="btn-icon" onclick="recargarRecorrido()" title="Actualizar" style="margin-left:auto">&#8635;</button>
+    </div>
+    <div id="tec-tab-hoy-content">
+      <div class="progress-bar-wrap">
+        <div class="progress-info">
+          <span id="prog-texto">0/0 completados</span>
+        </div>
+        <div class="progress-track">
+          <div id="prog-bar" class="progress-fill" style="width:0%"></div>
+        </div>
       </div>
-      <div class="progress-track">
-        <div id="prog-bar" class="progress-fill" style="width:0%"></div>
+      <div class="search-wrap">
+        <input type="search" id="s1-buscar" placeholder="Buscar cliente..." oninput="filtrarPuntos()" autocomplete="off" aria-label="Buscar cliente" />
+      </div>
+      <div id="lista-puntos" class="puntos-list"></div>
+      <div id="s1-vacio" class="empty-state" style="display:none">
+        <p>No hay recorrido publicado para hoy.</p>
+        <p>Consulta con Alejandro.</p>
       </div>
     </div>
-    <div class="search-wrap">
-      <input type="search" id="s1-buscar" placeholder="Buscar cliente..." oninput="filtrarPuntos()" autocomplete="off" aria-label="Buscar cliente" />
-    </div>
-    <div id="lista-puntos" class="puntos-list"></div>
-    <div id="s1-vacio" class="empty-state" style="display:none">
-      <p>No hay recorrido publicado para hoy.</p>
-      <p>Consulta con Alejandro.</p>
+    <div id="tec-tab-historial-content" style="display:none">
+      <div id="historial-lista" class="historial-lista"></div>
     </div>
     <div class="font-size-fab">
       <button onclick="cambiarFuente(-1)" title="Reducir texto">A-</button>
@@ -114,7 +124,7 @@
     </header>
     <div class="tabs">
       <button class="tab active" onclick="switchTab('clientes')" id="tab-btn-clientes">Clientes<span id="tab-badge-clientes" class="tab-badge" style="display:none"></span></button>
-      <button class="tab" onclick="switchTab('valeria')" id="tab-btn-valeria">&#x1F916; Valeria</button>
+      <button class="tab" onclick="switchTab('recorrido')" id="tab-btn-recorrido">&#x1F4CB; Recorrido</button>
       <button class="tab" onclick="switchTab('seguimiento')" id="tab-btn-seguimiento">Seguimiento</button>
       <button class="tab" onclick="switchTab('config')" id="tab-btn-config" aria-label="Configuraci&#xF3;n">&#x2699;&#xFE0F;</button>
     </div>
@@ -167,97 +177,33 @@
       <button id="fab-top" class="fab-top hidden" onclick="scrollToTop()" title="Ir arriba">&#8679;</button>
     </div>
 
-    <!-- Tab Valeria (AI Assistant with memory) -->
-    <div id="tab-valeria" class="tab-content">
-
-      <!-- MODO DICTAR RECORRIDO -->
-      <div id="modo-recorrido-panel" style="display:none;flex-direction:column;gap:0;flex:1;overflow:hidden">
-        <div class="dictar-header">
-          <button class="btn-ghost btn-sm" onclick="salirModoRecorrido()">&#x2190; Volver</button>
-          <span class="dictar-title">&#x1F399; Crear Recorrido</span>
+    <!-- Tab Recorrido (Crear/Pegar) -->
+    <div id="tab-recorrido" class="tab-content">
+      <div class="recorrido-crear-panel">
+        <div class="recorrido-crear-header">
+          <span class="recorrido-crear-title">Crear Recorrido del D&#xED;a</span>
           <span id="dictar-count-badge" class="dictar-count-badge">0 puntos</span>
         </div>
-        <div id="dictar-status" class="dictar-status">Pega el recorrido de ChatGPT o dicta por voz.</div>
+        <p class="recorrido-crear-hint">Pega el recorrido que te dio ChatGPT:</p>
+        <textarea id="dictar-pegar-texto" class="recorrido-textarea" rows="5" placeholder="Pega aqu&#xED; el recorrido de ChatGPT..."></textarea>
+        <button id="btn-pegar-recorrido" class="btn-primary btn-full" onclick="procesarTextoPegado()">&#x1F4CB; Procesar recorrido</button>
         <div id="dictar-puntos-lista" class="dictar-puntos-lista"></div>
-        <div class="dictar-bottom">
-          <textarea id="dictar-pegar-texto" class="opts-input" rows="4" placeholder="Pega aqu&#xED; el recorrido de ChatGPT..." style="font-size:13px;resize:vertical;width:100%;display:none"></textarea>
-          <button id="btn-pegar-recorrido" class="btn-primary btn-full" onclick="togglePegarRecorrido()">&#x1F4CB; Pegar recorrido</button>
-          <div class="dictar-publish-wrap">
-            <label class="dictar-manana-label"><input type="checkbox" id="dictar-chk-manana"> Para ma&#xF1;ana</label>
-            <button id="btn-publicar-dictado" class="btn-primary" onclick="publicarRecorridoDictado()" disabled>&#x1F4E4; Publicar</button>
-          </div>
+        <div class="recorrido-publish-wrap" id="recorrido-publish-wrap" style="display:none">
+          <label class="dictar-manana-label"><input type="checkbox" id="dictar-chk-manana"> Para ma&#xF1;ana</label>
+          <button id="btn-publicar-dictado" class="btn-primary btn-full" onclick="publicarRecorridoDictado()">&#x1F4E4; Publicar</button>
         </div>
       </div>
-
-      <!-- MODO CHAT VALERIA (default) -->
-      <div id="modo-chat-valeria" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
-        <button class="btn-dictar-open" onclick="abrirModoRecorrido()">&#x1F399; Crear Recorrido del D&#xED;a</button>
-        <div id="valeria-sugerencia"></div>
-        <div id="valeria-chips" class="valeria-chips"></div>
-        <div id="valeria-chat" class="valeria-chat"></div>
-        <div class="valeria-input-row">
-          <input type="text" id="valeria-input" aria-label="Consultar a Valeria" class="valeria-text-input" placeholder="Consulta historial, clientes pendientes..." onkeydown="valeriaTecla(event)" autocomplete="off" />
-          <button id="btn-mic" class="btn-mic-small" onclick="iniciarVoz()" title="Hablar">&#x1F3A4;</button>
-          <button class="btn-valeria-send" onclick="enviarMensajeValeria()" title="Enviar">&#x27A4;</button>
-        </div>
-        <div id="ruta-preview" class="ruta-preview" style="display:none">
-          <div class="ruta-preview-header">
-            <span id="ruta-preview-title">Ruta sugerida</span>
-            <button class="btn-ghost btn-sm" onclick="limpiarPreview()">&#x2715;</button>
-          </div>
-          <div id="ruta-preview-lista" class="ruta-preview-lista"></div>
-          <div style="padding:0 0 8px;display:flex;gap:8px">
-            <button class="btn-ghost btn-full" onclick="agregarPuntoManual()" style="font-size:0.85rem">&#x2B; Agregar punto manual</button>
-            <button class="btn-ghost" onclick="copiarRutaWhatsApp()" style="font-size:0.85rem;white-space:nowrap" title="Copiar ruta para WhatsApp">&#x1F4CB; Copiar</button>
-          </div>
-          <div class="admin-publish-wrap">
-            <label style="font-size:0.82rem;display:flex;align-items:center;gap:8px;color:#555;cursor:pointer">
-              <input type="checkbox" id="chk-manana"> Para ma&#xF1;ana
-            </label>
-            <button class="btn-primary btn-full" style="margin-top:8px" onclick="publicarRutaPreview()">&#x1F4E4; Publicar Recorrido</button>
-          </div>
-        </div>
-      </div>
-
     </div>
 
     <!-- Tab Seguimiento -->
     <div id="tab-seguimiento" class="tab-content">
       <div class="seg-toolbar">
         <input type="date" id="seg-fecha" aria-label="Fecha del recorrido" onchange="cambiarFechaSeguimiento()" class="seg-filtro-select" style="min-width:130px" />
-        <select id="seg-filtro-tecnico" aria-label="Filtrar por t&#xe9;cnico" onchange="aplicarFiltroSeguimiento()" class="seg-filtro-select">
-          <option value="">Todos</option>
-          <option value="Ra&#xFA;l">Ra&#xFA;l</option>
-          <option value="Juan">Juan</option>
-        </select>
-        <select id="seg-intervalo" aria-label="Intervalo de actualizaci&#xF3;n" onchange="cambiarIntervaloSeguimiento()" class="seg-filtro-select">
-          <option value="10">10s</option>
-          <option value="15">15s</option>
-          <option value="30" selected>30s</option>
-          <option value="60">60s</option>
-        </select>
         <button class="btn-icon-admin" onclick="pfRenderSeguimiento()" title="Actualizar">&#8635;</button>
-        <button id="btn-resumen-ia" class="btn-icon-admin" onclick="resumenSeguimientoIA()" title="Resumen IA">&#x1F4CA;</button>
         <button class="btn-icon-admin" onclick="imprimirSeguimiento()" title="Imprimir">&#x1F5A8;</button>
       </div>
-      <div class="seg-search-wrap">
-        <input type="search" id="seg-buscar" aria-label="Buscar en seguimiento" placeholder="Buscar..." oninput="filtrarSeguimiento()" autocomplete="off" />
-      </div>
       <div class="seguimiento-counters" id="seg-counters"></div>
-      <div id="seg-tabla-wrap">
-        <table class="seg-table">
-          <thead>
-            <tr>
-              <th>Cliente</th>
-              <th>T&#xE9;cnico</th>
-              <th>Estado</th>
-              <th>Hora</th>
-              <th>Obs.</th>
-            </tr>
-          </thead>
-          <tbody id="seg-tbody"></tbody>
-        </table>
-      </div>
+      <div id="seg-cards-wrap" class="seg-cards-wrap"></div>
       <p class="auto-refresh-note" id="auto-refresh-note">Se actualiza cada 30s</p>
     </div>
 
@@ -281,18 +227,6 @@
             <button class="btn-ghost btn-full" onclick="usarCodigoConexion()" style="margin-top:6px">&#x1F517; Conectar con c&#xF3;digo</button>
           </div>
         </div>
-      </div>
-
-      <div class="config-section" style="margin-top:16px">
-        <h3>Valeria IA (ChatGPT)</h3>
-        <div id="cfg-ia-status" style="margin-bottom:8px;font-size:13px;color:#1a7f37">Verificando...</div>
-        <details style="margin-top:4px">
-          <summary style="font-size:13px;color:#666;cursor:pointer">Cambiar clave ChatGPT</summary>
-          <div class="form-group" style="padding:8px 0 0">
-            <input type="password" id="cfg-openai-key" class="opts-input" placeholder="Pega tu clave OpenAI (sk-...)" style="font-size:13px" />
-            <button class="btn-ghost btn-full" onclick="guardarOpenAIKey()" style="margin-top:8px">Guardar clave ChatGPT</button>
-          </div>
-        </details>
       </div>
 
       <div class="config-section" style="margin-top:16px">
