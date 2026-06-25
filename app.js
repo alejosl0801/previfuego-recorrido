@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = '4.0';
+var APP_VERSION = '4.1';
 
 /* CLIENTES_BD generado desde: BASE_DATOS_KFC_9.xlsx + OTRAS_EMPRESAS.xlsx + MATRIZ_SUSHICORP.xlsx */
 var CLIENTES_BD = [
@@ -397,6 +397,7 @@ var USUARIO_ACTUAL = null;
 var PUNTOS = [];
 var CLIENTES_DISPONIBLES = [];
 var VISITAS_MES = {};
+var RUTA_PREVIEW = [];
 var _seguimientoInterval = null;
 var _seguimientoIntervaloSeg = 30;
 var _toastQueue = [];
@@ -619,7 +620,6 @@ function actualizarEstadoConexion() {
   if (inOtros) inOtros.value = DBX_OTROS_PATH;
   if (inSushi) inSushi.value = DBX_SUSHI_PATH;
 
-  _actualizarEstadoIA();
 
   var lastSync = document.getElementById('cfg-last-sync');
   if (lastSync) {
@@ -804,15 +804,6 @@ function inspeccionarExcel(path) {
   .catch(function(e) { debug.textContent = '❌ Error: ' + String(e); });
 }
 
-/* ===================================================
-   CHATGPT KEY
-=================================================== */
-function _actualizarEstadoIA() {
-  var el = document.getElementById('cfg-ia-status');
-  if (!el) return;
-  if (getOpenAIKey()) { el.textContent = '✅ ChatGPT configurado'; el.style.color = '#1a7f37'; }
-  else { el.textContent = '⚠️ Sin clave ChatGPT — ingresa una para activar Valeria'; el.style.color = '#b45309'; }
-}
 
 /* Create required Dropbox files on first use so 409 not_found never fires again */
 function _inicializarArchivosDropbox() {
@@ -836,8 +827,6 @@ function sincronizarConfig() {
   if (!getRefreshToken()) return;
   dbxDownloadJSON(DBX_CONFIG)
   .then(function(cfg) {
-    if (cfg.openai_key) _lsSet('pf_openai_key', cfg.openai_key);
-    _actualizarEstadoIA();
     _lsSet('pf_last_sync', new Date().toLocaleString('es-EC'));
   })
   .catch(function() {});
@@ -932,11 +921,6 @@ function dbxDownloadJSON(path) {
 /* ===================================================
    EXCEL PARSING (SheetJS)
 =================================================== */
-var MESES_NUM = {'1':'ENERO','2':'FEBRERO','3':'MARZO','4':'ABRIL','5':'MAYO','6':'JUNIO',
-  '7':'JULIO','8':'AGOSTO','9':'SEPTIEMBRE','10':'OCTUBRE','11':'NOVIEMBRE','12':'DICIEMBRE',
-  '01':'ENERO','02':'FEBRERO','03':'MARZO','04':'ABRIL','05':'MAYO','06':'JUNIO',
-  '07':'JULIO','08':'AGOSTO','09':'SEPTIEMBRE','10':'OCTUBRE','11':'NOVIEMBRE','12':'DICIEMBRE'};
-
 
 
 /* ===================================================
@@ -1315,7 +1299,7 @@ function exportarVisitados() {
   if (!visitados.length) { showToast('⚠️ No hay visitados a\xFAn'); return; }
   var texto = 'Clientes visitados ' + _claveMesActual() + ':\n'
     + visitados.map(function(c) { return '- ' + c.nombre + ' (' + (VISITAS_MES[c.nombre].fecha || '') + ')'; }).join('\n');
-  if (navigator.clipboard) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(texto)
       .then(function() { showToast('✅ Lista copiada al portapapeles'); })
       .catch(function() { pfModal('Lista visitados', texto); });
@@ -1479,27 +1463,16 @@ function _resaltar(texto, filtro) {
 /* ===================================================
    ADMIN — VOZ + ChatGPT (used by Valeria)
 =================================================== */
-var _rpDragIdx = -1;
-function _positionTouchGhost(ghost, touch) {
-  ghost.style.left = (touch.clientX - ghost.offsetWidth / 2) + 'px';
-  ghost.style.top = (touch.clientY - 30) + 'px';
-}
-
-function _copiarFallback(texto) {
-  var ta = document.createElement('textarea');
-  ta.value = texto;
-  ta.style.cssText = 'position:fixed;left:-9999px';
-  document.body.appendChild(ta);
-  ta.select();
-  try { document.execCommand('copy'); showToast('✅ Ruta copiada'); } catch(e) { showToast('No se pudo copiar'); }
-  ta.remove();
-}
-
 /* ===================================================
    MODO DICTAR RECORRIDO — crea puntos estructurados por voz
 =================================================== */
 var _DICTAR_PUNTOS = [];  // Array of structured point objects
 var _DICTAR_REC = null;   // Active SpeechRecognition
+
+function _dictatStatus(msg) {
+  var el = document.getElementById('dictar-status');
+  if (el) el.textContent = msg;
+}
 
 function procesarTextoPegado() {
   var ta = document.getElementById('dictar-pegar-texto');
@@ -1591,7 +1564,7 @@ function _parsearRecorridoTexto(texto) {
     // "Local:" sub-location — append to punto name
     var localLine = linea.match(/^[Ll]ocal:\s*(.*)/);
     if (localLine && localLine[1].trim()) {
-      if (currentPunto.nombre && currentPunto.nombre !== ('Punto ' + puntos.length + 1)) {
+      if (currentPunto.nombre && currentPunto.nombre !== ('Punto ' + (puntos.length + 1))) {
         currentPunto.local = localLine[1].trim();
       } else {
         currentPunto.nombre = localLine[1].trim();
@@ -1764,10 +1737,6 @@ function pfRenderSeguimiento() {
 }
 
 function aplicarFiltroSeguimiento() {
-  renderTablaSeguimiento(_segPuntosCache);
-}
-
-function filtrarSeguimiento() {
   renderTablaSeguimiento(_segPuntosCache);
 }
 
@@ -2374,7 +2343,6 @@ var _subirFichasReintentos = 0;
 
 function subirFichas() {
   if (_subirFichasTimer) clearTimeout(_subirFichasTimer);
-  _subirFichasReintentos = 0;
   _subirFichasTimer = setTimeout(function() { _ejecutarSubirFichas(); }, 800);
 }
 
@@ -2382,11 +2350,11 @@ function _ejecutarSubirFichas() {
   if (_subirFichasPending) { subirFichas(); return; }  // Reschedule if upload still in flight
   _subirFichasPending = true;
   var fechaSubir = fechaHoy();
-  var snapshot = PUNTOS.map(function(p) {
-    return { nombre: p.nombre, done: p.done, horaCompletado: p.horaCompletado, enCamino: p.enCamino || false, observacion: p.observacion || '' };
-  });
   dbxDownloadJSON(DBX_RECORRIDOS)
   .then(function(recorridos) {
+    var snapshot = PUNTOS.map(function(p) {
+      return { nombre: p.nombre, done: p.done, horaCompletado: p.horaCompletado, enCamino: p.enCamino || false, observacion: p.observacion || '' };
+    });
     var hoy = recorridos[fechaSubir];
     if (!hoy || !hoy.puntos) { var e = new Error('Sin recorrido hoy'); e.noRetry = true; throw e; }
     hoy.puntos = hoy.puntos.map(function(p) {
@@ -2512,4 +2480,13 @@ document.addEventListener('DOMContentLoaded', function() {
     var b = document.getElementById('offline-banner');
     if (b) b.classList.remove('hidden');
   }
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      var overlay = document.getElementById('modal-overlay');
+      if (overlay && !overlay.classList.contains('hidden')) {
+        overlay.classList.add('hidden');
+        document.body.style.overflow = '';
+      }
+    }
+  });
 });
