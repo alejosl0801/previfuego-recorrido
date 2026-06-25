@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = '3.9';
+var APP_VERSION = '4.0';
 
 /* CLIENTES_BD generado desde: BASE_DATOS_KFC_9.xlsx + OTRAS_EMPRESAS.xlsx + MATRIZ_SUSHICORP.xlsx */
 var CLIENTES_BD = [
@@ -1627,7 +1627,7 @@ function _initAdminRutaStatus() {
    ADMIN — TABS
 =================================================== */
 function switchTab(tab) {
-  ['clientes', 'valeria', 'seguimiento', 'config'].forEach(function(t) {
+  ['clientes', 'recorrido', 'seguimiento', 'config'].forEach(function(t) {
     var c = document.getElementById('tab-' + t);
     var b = document.getElementById('tab-btn-' + t);
     if (c) c.classList.remove('active');
@@ -1639,9 +1639,6 @@ function switchTab(tab) {
   if (ab) ab.classList.add('active');
   if (tab === 'seguimiento') iniciarSeguimiento(); else detenerSeguimiento();
   if (tab === 'config') actualizarEstadoConexion();
-  if (tab === 'valeria' && VALERIA_CHAT.length === 0) {
-    agregarBurbuja('valeria', 'Hola! Soy Valeria 🤖 Puedo crear rutas por voz o texto, y responder preguntas sobre el historial. \xBFQu\xE9 necesitas hoy?');
-  }
 }
 
 /* ===================================================
@@ -2156,11 +2153,6 @@ function renderRutaPreview() {
     var histHtml = patron && patron.ultimo_recorrido
       ? '<div style="font-size:0.72rem;color:#888;margin-top:2px">📅 ' + (patron.veces_en_ruta||0) + 'x \xB7 \xDAlt: ' + esc(patron.ultimo_recorrido) + (patron.tecnico_habitual ? ' \xB7 ' + esc(patron.tecnico_habitual) : '') + '</div>'
       : '';
-    var tecnicoHabitual = patron && patron.tecnico_habitual ? patron.tecnico_habitual : TECNICOS[0];
-    var tecNombres = [TECNICOS[0], TECNICOS[1]];
-    var selectOpts = tecNombres.map(function(t) {
-      return '<option' + (t === tecnicoHabitual ? ' selected' : '') + '>' + esc(t) + '</option>';
-    }).join('');
     html += '<div class="ruta-preview-item" draggable="true" data-rp-idx="' + i + '">'
       + '<div class="ruta-preview-drag" title="Arrastra para reordenar">&#x2630;</div>'
       + '<div class="ruta-preview-num">' + (i + 1) + '</div>'
@@ -2169,14 +2161,13 @@ function renderRutaPreview() {
       +   '<div class="cliente-dir">' + esc(c.direccion) + '</div>'
       +   histHtml
       +   '<div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
-      +     '<select class="opts-select" id="rtecnico-' + i + '" style="width:80px;font-size:0.82rem;padding:4px">' + selectOpts + '</select>'
       +     '<input type="text" id="rnota-' + i + '" class="opts-input" placeholder="Nota..." style="flex:1;font-size:0.78rem;padding:4px 8px;min-width:80px">'
       +     '<label style="font-size:0.75rem;display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap">'
-      +       '<input type="checkbox" id="rpriority-' + i + '"> 🔴 Urgente'
+      +       '<input type="checkbox" id="rpriority-' + i + '"> Urgente'
       +     '</label>'
       +   '</div>'
       + '</div>'
-      + '<button onclick="quitarPuntoPreview(' + i + ')" style="background:none;border:none;cursor:pointer;color:#bbb;font-size:1.1rem;padding:4px 6px;flex-shrink:0">✕</button>'
+      + '<button onclick="quitarPuntoPreview(' + i + ')" style="background:none;border:none;cursor:pointer;color:#bbb;font-size:1.1rem;padding:4px 6px;flex-shrink:0">&#x2715;</button>'
       + '</div>';
   });
   lista.innerHTML = html;
@@ -2344,21 +2335,18 @@ function abrirModoRecorrido() {
 }
 
 function togglePegarRecorrido() {
+  procesarTextoPegado();
+}
+
+function procesarTextoPegado() {
   var ta = document.getElementById('dictar-pegar-texto');
-  var btn = document.getElementById('btn-pegar-recorrido');
   if (!ta) return;
-  if (ta.style.display === 'none') {
-    ta.style.display = 'block';
-    ta.focus();
-    if (btn) btn.textContent = '✅ Procesar texto';
-  } else {
-    var texto = ta.value.trim();
-    if (!texto) { ta.style.display = 'none'; if (btn) btn.textContent = '📋 Pegar recorrido'; return; }
-    _parsearRecorridoTexto(texto);
-    ta.value = '';
-    ta.style.display = 'none';
-    if (btn) btn.textContent = '📋 Pegar recorrido';
-  }
+  var texto = ta.value.trim();
+  if (!texto) { showToast('Pega el recorrido primero'); ta.focus(); return; }
+  _parsearRecorridoTexto(texto);
+  ta.value = '';
+  var wrap = document.getElementById('recorrido-publish-wrap');
+  if (wrap) wrap.style.display = 'flex';
 }
 
 function _parsearRecorridoTexto(texto) {
@@ -2413,7 +2401,7 @@ function _parsearRecorridoTexto(texto) {
         mision: '',
         nota: '',
         urgente: false,
-        tecnico: TECNICOS[0],
+        tecnico: 'Equipo',
         esKfc: /\bkfc\b/i.test(nombre || ''),
         extintores: 0,
         local: '',
@@ -2480,13 +2468,6 @@ function _parsearRecorridoTexto(texto) {
     return;
   }
 
-  // Detect technician name mentions
-  var nombreTec2 = TECNICOS[1].toLowerCase().split(/\s+/)[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  var reTec2 = new RegExp('\\b' + nombreTec2 + '\\b', 'i');
-  puntos.forEach(function(p) {
-    if (reTec2.test(p.nombre) || reTec2.test(p.mision) || reTec2.test(p.nota)) p.tecnico = TECNICOS[1];
-  });
-
   _DICTAR_PUNTOS = _DICTAR_PUNTOS.concat(puntos);
   _renderDictarPuntos();
   _dictatStatus('✅ ' + puntos.length + ' punto(s) agregados. Revisa y publica.');
@@ -2515,35 +2496,30 @@ function _renderDictarPuntos() {
   if (btn) btn.disabled = _DICTAR_PUNTOS.length === 0;
   if (!lista) return;
   if (!_DICTAR_PUNTOS.length) {
-    lista.innerHTML = '<div class=”dictar-empty”>Hab\xE1 y describe cada punto del recorrido. La IA arma la misi\xF3n autom\xE1ticamente.</div>';
+    lista.innerHTML = '<div class=”dictar-empty”>Pega el recorrido de ChatGPT arriba.</div>';
     return;
   }
-  var tecNombres = [TECNICOS[0], TECNICOS[1]];
   var html = '';
   _DICTAR_PUNTOS.forEach(function(p, i) {
     var misionHtml = (p.mision || '').split('\n').filter(function(l) { return l.trim(); }).map(function(l) {
       return '<div class=”dictar-mision-linea”>' + esc(l) + '</div>';
     }).join('');
-    var opts = tecNombres.map(function(t) {
-      return '<option' + (t === p.tecnico ? ' selected' : '') + '>' + esc(t) + '</option>';
-    }).join('');
     html += '<div class=”dictar-punto-card”>'
       + '<div class=”dictar-punto-num”>' + (i + 1) + '</div>'
       + '<div class=”dictar-punto-body”>'
       +   '<div class=”dictar-punto-nombre”>' + esc(p.nombre) + '</div>'
-      +   (p.local ? '<div class=”dictar-punto-dir”>🏪 ' + esc(p.local) + '</div>' : '')
-      +   (p.direccion ? '<div class=”dictar-punto-dir”>📍 ' + esc(p.direccion) + '</div>' : '')
+      +   (p.local ? '<div class=”dictar-punto-dir”>' + esc(p.local) + '</div>' : '')
+      +   (p.direccion ? '<div class=”dictar-punto-dir”>' + esc(p.direccion) + '</div>' : '')
       +   '<div class=”dictar-mision-wrap”>' + misionHtml + '</div>'
-      +   (p.nota ? '<div class=”dictar-punto-nota”>📌 ' + esc(p.nota) + '</div>' : '')
-      +   '<div class=”dictar-punto-footer”>'
-      +     '<select class=”opts-select” onchange=”_dictarCambiarTecnico(' + i + ',this.value)” style=”font-size:0.8rem;padding:4px 6px”>' + opts + '</select>'
-      +     (p.urgente ? '<span style=”color:#e53e3e;font-size:0.78rem;font-weight:700”>🔴 Urgente</span>' : '')
-      +   '</div>'
+      +   (p.nota ? '<div class=”dictar-punto-nota”>' + esc(p.nota) + '</div>' : '')
+      +   (p.urgente ? '<div style=”color:#e53e3e;font-size:0.78rem;font-weight:700;margin-top:4px”>URGENTE</div>' : '')
       + '</div>'
-      + '<button class=”dictar-punto-del” onclick=”_dictarEliminarPunto(' + i + ')” title=”Eliminar punto”>✕</button>'
+      + '<button class=”dictar-punto-del” onclick=”_dictarEliminarPunto(' + i + ')” title=”Eliminar punto”>&#x2715;</button>'
       + '</div>';
   });
   lista.innerHTML = html;
+  var wrap = document.getElementById('recorrido-publish-wrap');
+  if (wrap) wrap.style.display = 'flex';
 }
 
 function _dictarCambiarTecnico(idx, val) {
@@ -2603,13 +2579,12 @@ function publicarRutaPreview() {
   var mananaEl = document.getElementById('chk-manana');
   var fechaPublicar = (mananaEl && mananaEl.checked) ? fechaMas(1) : fechaHoy();
   var puntos = RUTA_PREVIEW.map(function(c, i) {
-    var tecnicoEl  = document.getElementById('rtecnico-' + i);
     var notaEl     = document.getElementById('rnota-' + i);
     var priorityEl = document.getElementById('rpriority-' + i);
     return {
       nombre: c.nombre, direccion: c.direccion, extintores: c.extintores,
       local: c.local || '', esKfc: c.esKfc || false, mision: c.mision || 'Mantenimiento',
-      tecnico: tecnicoEl ? tecnicoEl.value : TECNICOS[0],
+      tecnico: 'Equipo',
       nota: notaEl ? notaEl.value.trim() : '',
       urgente: priorityEl ? priorityEl.checked : false,
       done: false, enCamino: false, horaCompletado: null, observacion: ''
@@ -2635,7 +2610,7 @@ function publicarRutaPreview() {
       actualizarMemoriaValeria(puntos, _ultimaInstruccionVoz);
       _resumenDiario(puntos);
       limpiarPreview();
-      agregarBurbuja('valeria', '✅ Recorrido publicado para ' + fechaPublicar + ' con ' + puntos.length + ' punto(s). 🚀');
+      showToast('Recorrido publicado — ' + puntos.length + ' puntos para ' + fechaPublicar);
       _initAdminRutaStatus();
     })
     .catch(function(err) { mostrarCargando(false); pfModal('Error', 'No se pudo publicar: ' + String(err)); });
@@ -2646,14 +2621,7 @@ function publicarRutaPreview() {
    ADMIN — SEGUIMIENTO
 =================================================== */
 function _poblarFiltroTecnicos() {
-  var sel = document.getElementById('seg-filtro-tecnico');
-  if (!sel) return;
-  var prev = sel.value;
-  var nombres = [TECNICOS[0], TECNICOS[1]];
-  var html = '<option value="">Todos</option>';
-  nombres.forEach(function(n) { html += '<option value="' + esc(n) + '">' + esc(n) + '</option>'; });
-  sel.innerHTML = html;
-  if (prev && nombres.indexOf(prev) !== -1) sel.value = prev;
+  // No longer needed — single shared route
 }
 
 var _segFechaSeleccionada = '';
@@ -2713,29 +2681,11 @@ function pfRenderSeguimiento() {
 }
 
 function aplicarFiltroSeguimiento() {
-  var filtroTec = document.getElementById('seg-filtro-tecnico');
-  var tec = filtroTec ? filtroTec.value : '';
-  var puntos = tec ? _segPuntosCache.filter(function(p) { return p.tecnico === tec; }) : _segPuntosCache.slice();
-  filtrarSeguimiento(puntos);
+  renderTablaSeguimiento(_segPuntosCache);
 }
 
-function filtrarSeguimiento(puntosBase) {
-  var buscar = document.getElementById('seg-buscar');
-  var q = buscar ? buscar.value.trim().toLowerCase() : '';
-  // When called from search input (no arg), respect active technician filter
-  if (puntosBase === undefined) {
-    var filtroTec = document.getElementById('seg-filtro-tecnico');
-    var tec = filtroTec ? filtroTec.value : '';
-    puntosBase = tec ? _segPuntosCache.filter(function(p) { return p.tecnico === tec; }) : _segPuntosCache.slice();
-  }
-  var puntos = puntosBase;
-  if (q) {
-    puntos = puntos.filter(function(p) {
-      return (p.nombre || '').toLowerCase().indexOf(q) !== -1
-        || (p.tecnico || '').toLowerCase().indexOf(q) !== -1;
-    });
-  }
-  renderTablaSeguimiento(puntos);
+function filtrarSeguimiento() {
+  renderTablaSeguimiento(_segPuntosCache);
 }
 
 function imprimirSeguimiento() {
@@ -2743,83 +2693,119 @@ function imprimirSeguimiento() {
 }
 
 function renderTablaSeguimiento(puntos) {
-  var tbody    = document.getElementById('seg-tbody');
+  var cardsWrap = document.getElementById('seg-cards-wrap');
   var counters = document.getElementById('seg-counters');
-  if (!tbody || !counters) return;
+  if (!cardsWrap || !counters) return;
   if (!puntos || !puntos.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#aaa;padding:20px">Sin recorrido publicado hoy.</td></tr>';
+    cardsWrap.innerHTML = '<div style="text-align:center;color:#aaa;padding:40px 20px">Sin recorrido publicado para esta fecha.</div>';
     counters.innerHTML = '';
     return;
   }
-  var tecnicos = {};
-  puntos.forEach(function(p) {
-    var t = p.tecnico || '—';
-    if (!tecnicos[t]) tecnicos[t] = { done: 0, total: 0, enCamino: 0, ext: 0 };
-    tecnicos[t].total++;
-    if (p.done) tecnicos[t].done++;
-    if (p.enCamino && !p.done) tecnicos[t].enCamino++;
-    tecnicos[t].ext += (p.extintores || 0);
-  });
-  var cHtml = '';
-  for (var tc in tecnicos) {
-    if (!tecnicos.hasOwnProperty(tc)) continue;
-    var s = tecnicos[tc];
-    var colorBorder = tc === TECNICOS[0] ? '#3b82f6' : (tc === TECNICOS[1] ? '#f97316' : '#9e1212');
-    var pct = s.total > 0 ? Math.round(s.done / s.total * 100) : 0;
-    var circ = 2 * Math.PI * 18;
-    var svgRing = '<svg width="44" height="44" style="position:absolute;top:8px;right:8px;flex-shrink:0"><circle cx="22" cy="22" r="18" fill="none" stroke="#eee" stroke-width="4"/><circle cx="22" cy="22" r="18" fill="none" stroke="' + colorBorder + '" stroke-width="4" stroke-dasharray="' + Math.round(circ) + '" stroke-dashoffset="' + Math.round(circ * (1 - pct / 100)) + '" stroke-linecap="round" transform="rotate(-90 22 22)"/><text x="22" y="27" text-anchor="middle" font-size="10" font-weight="bold" fill="' + colorBorder + '">' + pct + '%</text></svg>';
-    cHtml += '<div class="seg-counter-card" style="border-left:4px solid ' + colorBorder + ';position:relative;padding-right:56px">'
-      + '<div class="seg-counter-name">' + esc(tc) + '</div>'
-      + '<div class="seg-counter-num">' + s.done + '</div>'
-      + '<div class="seg-counter-total">de ' + s.total + (s.enCamino ? ' \xB7 🚗 ' + s.enCamino : '') + '</div>'
-      + '<div style="font-size:0.72rem;color:#888;margin-top:2px">🛡️ ' + s.ext + ' ext.</div>'
-      + svgRing
-      + '</div>';
-  }
+  var done = puntos.filter(function(p) { return p.done; }).length;
+  var enCamino = puntos.filter(function(p) { return p.enCamino && !p.done; }).length;
+  var pct = puntos.length > 0 ? Math.round(done / puntos.length * 100) : 0;
+  var cHtml = '<div class="seg-resumen-card">'
+    + '<div class="seg-resumen-progress">'
+    + '<div class="seg-resumen-pct">' + pct + '%</div>'
+    + '<div class="seg-resumen-detail">' + done + ' de ' + puntos.length + ' completados'
+    + (enCamino ? ' &middot; ' + enCamino + ' en camino' : '') + '</div>'
+    + '</div>'
+    + '<div class="seg-resumen-bar"><div class="seg-resumen-bar-fill" style="width:' + pct + '%"></div></div>'
+    + '</div>';
   counters.innerHTML = cHtml;
 
-  var sorted = puntos.slice().sort(function(a, b) {
-    if (a.done !== b.done) return a.done ? 1 : -1;
-    if (a.enCamino !== b.enCamino) return a.enCamino ? -1 : 1;
-    return (a.nombre || '').localeCompare(b.nombre || '');
-  });
-  var tHtml = '';
-  sorted.forEach(function(p) {
-    var colorBorderRow = p.tecnico === TECNICOS[0] ? '3px solid #3b82f6' : (p.tecnico === TECNICOS[1] ? '3px solid #f97316' : 'none');
+  var html = '';
+  puntos.forEach(function(p, i) {
+    var estadoClass = p.done ? ' seg-card-done' : (p.enCamino ? ' seg-card-encamino' : '');
     var estadoBadge;
     if (p.done) {
-      estadoBadge = '<span class="badge-done">✓ Listo</span>';
+      estadoBadge = '<span class="seg-badge-done">Listo' + (p.horaCompletado ? ' &middot; ' + esc(p.horaCompletado) : '') + '</span>';
     } else if (p.enCamino) {
-      estadoBadge = '<span class="badge-en-camino">🚗 En camino</span>';
+      estadoBadge = '<span class="seg-badge-encamino">En camino</span>';
     } else {
-      estadoBadge = '<span class="badge-pending">Pendiente</span>';
+      estadoBadge = '<span class="seg-badge-pending">Pendiente</span>';
     }
-    var obsHtml = '—';
-    if (p.observacion) {
-      var claveObs = (p.nombre || '') + '|' + p.observacion;
-      var badgeObs = _obsClasifCache[claveObs] ? '<div class="obs-clasif-badge">' + esc(_obsClasifCache[claveObs]) + '</div>' : '';
-      obsHtml = '<div style="font-size:0.72rem;color:#666;font-style:italic">' + esc(p.observacion) + '</div>' + badgeObs;
-      if (p.observacion.length > 20 && !(claveObs in _obsClasifCache)) {
-        _obsClasifCache[claveObs] = '';
-        clasificarObservacion(p.observacion).then(function(res) {
-          if (res) { _obsClasifCache[claveObs] = res; aplicarFiltroSeguimiento(); }
-        }).catch(function() {});
-      }
-    }
-    tHtml += '<tr style="border-left:' + colorBorderRow + '">'
-      + '<td>' + esc(p.nombre || '') + (p.esKfc ? ' <span class="badge-kfc-sm">KFC</span>' : '') + (p.urgente ? ' <span style="color:#e53e3e;font-weight:700">🔴</span>' : '') + (p.nota ? '<div style="font-size:0.7rem;color:#888">' + esc(p.nota) + '</div>' : '') + '</td>'
-      + '<td><span class="tecnico-tag">' + esc(p.tecnico || '—') + '</span></td>'
-      + '<td>' + estadoBadge + '</td>'
-      + '<td>' + esc(p.horaCompletado || '—') + '</td>'
-      + '<td>' + obsHtml + '</td>'
-      + '</tr>';
+    html += '<div class="seg-punto-card' + estadoClass + '">'
+      + '<div class="seg-punto-num">' + (i + 1) + '</div>'
+      + '<div class="seg-punto-body">'
+      + '<div class="seg-punto-header">'
+      + '<span class="seg-punto-nombre">' + esc(p.nombre || '') + '</span>'
+      + estadoBadge
+      + '</div>'
+      + (p.direccion ? '<div class="seg-punto-dir">' + esc(p.direccion) + '</div>' : '')
+      + (p.mision ? '<div class="seg-punto-mision">' + esc(p.mision) + '</div>' : '')
+      + (p.nota ? '<div class="seg-punto-nota">' + esc(p.nota) + '</div>' : '')
+      + (p.observacion ? '<div class="seg-punto-obs">' + esc(p.observacion) + '</div>' : '')
+      + '</div></div>';
   });
-  tbody.innerHTML = tHtml;
+  cardsWrap.innerHTML = html;
 }
 
 /* ===================================================
    T\xC9CNICO
 =================================================== */
+function switchTecTab(tab) {
+  var hoyC = document.getElementById('tec-tab-hoy-content');
+  var hisC = document.getElementById('tec-tab-historial-content');
+  var hoyB = document.getElementById('tec-tab-hoy');
+  var hisB = document.getElementById('tec-tab-historial');
+  if (tab === 'hoy') {
+    if (hoyC) hoyC.style.display = '';
+    if (hisC) hisC.style.display = 'none';
+    if (hoyB) hoyB.classList.add('active');
+    if (hisB) hisB.classList.remove('active');
+  } else {
+    if (hoyC) hoyC.style.display = 'none';
+    if (hisC) hisC.style.display = '';
+    if (hoyB) hoyB.classList.remove('active');
+    if (hisB) hisB.classList.add('active');
+    cargarHistorial();
+  }
+}
+
+function cargarHistorial() {
+  var lista = document.getElementById('historial-lista');
+  if (!lista) return;
+  lista.innerHTML = '<div style="text-align:center;padding:20px;color:#888">Cargando historial...</div>';
+  dbxDownloadJSON(DBX_RECORRIDOS)
+  .then(function(recorridos) {
+    var fechas = Object.keys(recorridos).sort(function(a, b) {
+      var pa = a.split('/'), pb = b.split('/');
+      var da = new Date(pa[2], pa[1]-1, pa[0]);
+      var db = new Date(pb[2], pb[1]-1, pb[0]);
+      return db - da;
+    }).slice(0, 7);
+    if (!fechas.length) { lista.innerHTML = '<div style="text-align:center;padding:20px;color:#888">Sin historial.</div>'; return; }
+    var html = '';
+    fechas.forEach(function(fecha) {
+      var data = recorridos[fecha];
+      var puntos = data && data.puntos ? data.puntos : [];
+      var done = puntos.filter(function(p) { return p.done; }).length;
+      html += '<div class="historial-dia">'
+        + '<div class="historial-dia-header">'
+        + '<span class="historial-fecha">' + esc(fecha) + '</span>'
+        + '<span class="historial-progreso">' + done + '/' + puntos.length + ' completados</span>'
+        + '</div>';
+      puntos.forEach(function(p, i) {
+        var estadoClass = p.done ? ' hist-done' : '';
+        html += '<div class="historial-punto' + estadoClass + '">'
+          + '<span class="historial-punto-num">' + (i + 1) + '</span>'
+          + '<div class="historial-punto-body">'
+          + '<div class="historial-punto-nombre">' + esc(p.nombre || '') + '</div>'
+          + (p.mision ? '<div class="historial-punto-mision">' + esc(p.mision) + '</div>' : '')
+          + (p.done && p.horaCompletado ? '<div class="historial-punto-hora">&#10003; ' + esc(p.horaCompletado) + '</div>' : '')
+          + (p.observacion ? '<div class="historial-punto-obs">' + esc(p.observacion) + '</div>' : '')
+          + '</div></div>';
+      });
+      html += '</div>';
+    });
+    lista.innerHTML = html;
+  })
+  .catch(function() {
+    lista.innerHTML = '<div style="text-align:center;padding:20px;color:#e53e3e">Error al cargar historial. Verifica tu conexi\xF3n.</div>';
+  });
+}
+
 function cargarRecorrido() {
   if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL]) return;
   showScreen('s1');
@@ -2897,6 +2883,8 @@ function procesarPuntos(arr) {
   if (undoBar) undoBar.classList.add('hidden');
   var vacio = document.getElementById('s1-vacio');
   if (vacio) vacio.style.display = 'none';
+  var fechaEl = document.getElementById('s1-fecha');
+  if (fechaEl) fechaEl.textContent = fechaHoy();
   renderPuntos();
   actualizarProgreso();
   _initSwipeGestures();
@@ -2913,45 +2901,45 @@ function renderPuntos() {
   var count = 0;
   for (var i = 0; i < PUNTOS.length; i++) {
     var p = PUNTOS[i];
-    if (filtro && p.nombre.toLowerCase().indexOf(filtro) === -1 && p.direccion.toLowerCase().indexOf(filtro) === -1) continue;
+    if (filtro && p.nombre.toLowerCase().indexOf(filtro) === -1 && (p.direccion || '').toLowerCase().indexOf(filtro) === -1) continue;
     count++;
     var kfcBadge = p.esKfc ? '<span class="badge-kfc-sm">KFC</span> ' : '';
-    var urgBadge = p.urgente ? '<span style="color:#e53e3e;font-size:0.8rem;font-weight:700">🔴</span> ' : '';
-    var notaHtml = p.nota ? '<div class="punto-card-nota">📌 ' + esc(p.nota) + '</div>' : '';
-    var obsHtml  = (p.done && p.observacion) ? '<div class="punto-card-obs">📝 ' + esc(p.observacion) + '</div>' : '';
+    var urgBadge = p.urgente ? '<span class="badge-urgente">URGENTE</span> ' : '';
+    var notaHtml = p.nota ? '<div class="punto-card-nota">' + esc(p.nota) + '</div>' : '';
+    var obsHtml  = (p.done && p.observacion) ? '<div class="punto-card-obs">' + esc(p.observacion) + '</div>' : '';
 
     var dirHtml = p.direccion
-      ? '<a href="https://maps.google.com/?q=' + encodeURIComponent(p.direccion) + '" target="_blank" rel="noopener" class="punto-card-dir punto-card-dir-link">📍 ' + esc(p.direccion) + '</a>'
+      ? '<a href="https://maps.google.com/?q=' + encodeURIComponent(p.direccion) + '" target="_blank" rel="noopener" class="punto-card-dir punto-card-dir-link">' + esc(p.direccion) + '</a>'
       : '';
 
-    var hora = p.done && p.horaCompletado ? '<div class="punto-card-hora">&#10003; ' + esc(p.horaCompletado) + '</div>' : '';
+    var hora = p.done && p.horaCompletado ? '<div class="punto-card-hora">' + esc(p.horaCompletado) + '</div>' : '';
 
     var accion;
     if (p.done) {
-      accion = '<span class="btn-done-icon">&#10003;</span>';
+      accion = '<div class="punto-estado-done"><span class="punto-estado-icon">&#10003;</span><span class="punto-estado-label">Listo</span></div>';
     } else if (p.enCamino) {
-      accion = '<div style="display:flex;flex-direction:column;gap:6px;align-items:center">'
-        + '<span style="font-size:0.7rem;color:#f97316;font-weight:700">En camino</span>'
-        + '<button class="btn-success" onclick="abrirMarcarListo(' + i + ')">&#10003; Listo</button>'
+      accion = '<div class="punto-acciones">'
+        + '<button class="btn-en-camino-active" onclick="marcarEnCamino(' + i + ')" title="Cancelar en camino">En camino</button>'
+        + '<button class="btn-marcar-listo" onclick="abrirMarcarListo(' + i + ')">Marcar listo</button>'
         + '</div>';
     } else {
-      accion = '<div style="display:flex;flex-direction:column;gap:6px;align-items:center">'
-        + '<button class="btn-en-camino" onclick="marcarEnCamino(' + i + ')" title="En camino">🚗</button>'
-        + '<button class="btn-success" onclick="abrirMarcarListo(' + i + ')">&#10003; Listo</button>'
+      accion = '<div class="punto-acciones">'
+        + '<button class="btn-en-camino" onclick="marcarEnCamino(' + i + ')" title="En camino">En camino</button>'
+        + '<button class="btn-marcar-listo" onclick="abrirMarcarListo(' + i + ')">Marcar listo</button>'
         + '</div>';
     }
 
     var estadoClass = p.done ? ' done' : (p.enCamino ? ' en-camino' : '');
 
     html += '<div class="punto-card' + estadoClass + '" id="punto-card-' + i + '" data-idx="' + i + '">'
-      + '<div class="punto-card-num">' + (p.done ? '&#10003;' : (p.enCamino ? '🚗' : p.num)) + '</div>'
+      + '<div class="punto-card-num">' + p.num + '</div>'
       + '<div class="punto-card-body">'
       +   '<div class="punto-card-nombre">' + urgBadge + kfcBadge + esc(p.nombre) + '</div>'
       +   dirHtml
       +   '<div class="punto-card-mision">' + (p.mision || '').split('\n').filter(function(l){return l.trim();}).map(function(l){return esc(l);}).join('<br>') + '</div>'
       +   notaHtml + hora + obsHtml
       + '</div>'
-      + '<div class="punto-card-actions">' + accion + '</div>'
+      + accion
       + '</div>';
   }
   if (!count && filtro) html = '<div class="no-clientes">Sin resultados para "<strong>' + esc(filtro) + '</strong>"</div>';
