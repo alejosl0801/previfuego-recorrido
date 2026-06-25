@@ -3289,9 +3289,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
       });
       reg.update();
+      setInterval(function() { reg.update(); }, 60000);
     }).catch(function() {});
     navigator.serviceWorker.addEventListener('message', function(e) {
       if (e.data && e.data.type === 'sw-updated') window.location.reload();
+    });
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      window.location.reload();
     });
   }
   if (!navigator.onLine) {
