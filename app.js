@@ -2697,7 +2697,8 @@ function renderTablaSeguimiento(puntos) {
   var counters = document.getElementById('seg-counters');
   if (!cardsWrap || !counters) return;
   if (!puntos || !puntos.length) {
-    cardsWrap.innerHTML = '<div style="text-align:center;color:#aaa;padding:40px 20px">Sin recorrido publicado para esta fecha.</div>';
+    cardsWrap.innerHTML = '<div style="text-align:center;color:#aaa;padding:40px 20px">Sin recorrido publicado para esta fecha.</div>'
+      + '<button class="btn-primary btn-full" onclick="segAgregarPunto()" style="margin-top:12px">+ Agregar punto</button>';
     counters.innerHTML = '';
     return;
   }
@@ -2736,9 +2737,144 @@ function renderTablaSeguimiento(puntos) {
       + (p.mision ? '<div class="seg-punto-mision">' + esc(p.mision) + '</div>' : '')
       + (p.nota ? '<div class="seg-punto-nota">' + esc(p.nota) + '</div>' : '')
       + (p.observacion ? '<div class="seg-punto-obs">' + esc(p.observacion) + '</div>' : '')
+      + '<div class="seg-punto-actions">'
+      + '<button class="seg-btn-edit" onclick="segEditarPunto(' + i + ')">Editar</button>'
+      + '<button class="seg-btn-del" onclick="segEliminarPunto(' + i + ')">Eliminar</button>'
+      + '</div>'
       + '</div></div>';
   });
+  html += '<button class="btn-agregar-punto" onclick="segAgregarPunto()">+ Agregar punto al recorrido</button>';
   cardsWrap.innerHTML = html;
+}
+
+function _segGuardarRecorrido(puntos, callback) {
+  var fecha = _segFechaSeleccionada || fechaHoy();
+  dbxDownloadJSON(DBX_RECORRIDOS)
+  .then(function(recorridos) {
+    if (!recorridos[fecha]) recorridos[fecha] = {};
+    recorridos[fecha].puntos = puntos;
+    recorridos[fecha].fecha = fecha;
+    recorridos[fecha].editado = new Date().toISOString();
+    return dbxUpload(DBX_RECORRIDOS, JSON.stringify(recorridos, null, 2));
+  })
+  .then(function() {
+    _segPuntosCache = puntos;
+    aplicarFiltroSeguimiento();
+    showToast('Recorrido actualizado');
+    if (callback) callback();
+  })
+  .catch(function(err) { pfModal('Error', 'No se pudo guardar: ' + String(err)); });
+}
+
+function segEditarPunto(idx) {
+  var p = _segPuntosCache[idx];
+  if (!p) return;
+  var overlay = document.getElementById('modal-overlay');
+  var titleEl = document.getElementById('modal-title');
+  var msgEl = document.getElementById('modal-msg');
+  var actEl = document.getElementById('modal-actions');
+  if (!overlay || !titleEl || !msgEl || !actEl) return;
+  titleEl.textContent = 'Editar punto ' + (idx + 1);
+  msgEl.innerHTML = '<div class="seg-edit-form">'
+    + '<label class="seg-edit-label">Nombre:</label>'
+    + '<input type="text" id="seg-edit-nombre" class="seg-edit-input" value="' + esc(p.nombre || '').replace(/"/g, '&quot;') + '">'
+    + '<label class="seg-edit-label">Direcci\xF3n:</label>'
+    + '<input type="text" id="seg-edit-dir" class="seg-edit-input" value="' + esc(p.direccion || '').replace(/"/g, '&quot;') + '">'
+    + '<label class="seg-edit-label">Misi\xF3n:</label>'
+    + '<textarea id="seg-edit-mision" class="seg-edit-input" rows="3">' + esc(p.mision || '') + '</textarea>'
+    + '<label class="seg-edit-label">Nota:</label>'
+    + '<input type="text" id="seg-edit-nota" class="seg-edit-input" value="' + esc(p.nota || '').replace(/"/g, '&quot;') + '">'
+    + '</div>';
+  actEl.innerHTML = '';
+  var btnCancel = document.createElement('button');
+  btnCancel.className = 'btn-ghost';
+  btnCancel.textContent = 'Cancelar';
+  btnCancel.onclick = function() { overlay.classList.add('hidden'); document.body.style.overflow = ''; };
+  var btnSave = document.createElement('button');
+  btnSave.className = 'btn-primary';
+  btnSave.textContent = 'Guardar';
+  btnSave.onclick = function() {
+    var nombre = document.getElementById('seg-edit-nombre');
+    var dir = document.getElementById('seg-edit-dir');
+    var mision = document.getElementById('seg-edit-mision');
+    var nota = document.getElementById('seg-edit-nota');
+    var updated = _segPuntosCache.slice();
+    updated[idx] = Object.assign({}, updated[idx], {
+      nombre: nombre ? nombre.value.trim() : p.nombre,
+      direccion: dir ? dir.value.trim() : p.direccion,
+      mision: mision ? mision.value.trim() : p.mision,
+      nota: nota ? nota.value.trim() : p.nota
+    });
+    overlay.classList.add('hidden');
+    document.body.style.overflow = '';
+    _segGuardarRecorrido(updated);
+  };
+  actEl.appendChild(btnCancel);
+  actEl.appendChild(btnSave);
+  overlay.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function segEliminarPunto(idx) {
+  var p = _segPuntosCache[idx];
+  if (!p) return;
+  pfConfirm('Eliminar punto', '\xBFEliminar "' + (p.nombre || 'Punto ' + (idx+1)) + '" del recorrido?', function() {
+    var updated = _segPuntosCache.slice();
+    updated.splice(idx, 1);
+    _segGuardarRecorrido(updated);
+  });
+}
+
+function segAgregarPunto() {
+  var overlay = document.getElementById('modal-overlay');
+  var titleEl = document.getElementById('modal-title');
+  var msgEl = document.getElementById('modal-msg');
+  var actEl = document.getElementById('modal-actions');
+  if (!overlay || !titleEl || !msgEl || !actEl) return;
+  titleEl.textContent = 'Agregar punto';
+  msgEl.innerHTML = '<div class="seg-edit-form">'
+    + '<label class="seg-edit-label">Nombre:</label>'
+    + '<input type="text" id="seg-edit-nombre" class="seg-edit-input" placeholder="Nombre del cliente">'
+    + '<label class="seg-edit-label">Direcci\xF3n:</label>'
+    + '<input type="text" id="seg-edit-dir" class="seg-edit-input" placeholder="Direcci\xF3n">'
+    + '<label class="seg-edit-label">Misi\xF3n:</label>'
+    + '<textarea id="seg-edit-mision" class="seg-edit-input" rows="3" placeholder="Descripci\xF3n de la tarea"></textarea>'
+    + '<label class="seg-edit-label">Nota:</label>'
+    + '<input type="text" id="seg-edit-nota" class="seg-edit-input" placeholder="Nota opcional">'
+    + '</div>';
+  actEl.innerHTML = '';
+  var btnCancel = document.createElement('button');
+  btnCancel.className = 'btn-ghost';
+  btnCancel.textContent = 'Cancelar';
+  btnCancel.onclick = function() { overlay.classList.add('hidden'); document.body.style.overflow = ''; };
+  var btnSave = document.createElement('button');
+  btnSave.className = 'btn-primary';
+  btnSave.textContent = 'Agregar';
+  btnSave.onclick = function() {
+    var nombre = document.getElementById('seg-edit-nombre');
+    if (!nombre || !nombre.value.trim()) { showToast('Escribe un nombre'); return; }
+    var dir = document.getElementById('seg-edit-dir');
+    var mision = document.getElementById('seg-edit-mision');
+    var nota = document.getElementById('seg-edit-nota');
+    var nuevo = {
+      nombre: nombre.value.trim(),
+      direccion: dir ? dir.value.trim() : '',
+      mision: mision ? mision.value.trim() : 'Mantenimiento',
+      nota: nota ? nota.value.trim() : '',
+      tecnico: 'Equipo',
+      done: false, enCamino: false, horaCompletado: null, observacion: '',
+      urgente: false, esKfc: false, extintores: 0
+    };
+    var updated = _segPuntosCache.slice();
+    updated.push(nuevo);
+    overlay.classList.add('hidden');
+    document.body.style.overflow = '';
+    _segGuardarRecorrido(updated);
+  };
+  actEl.appendChild(btnCancel);
+  actEl.appendChild(btnSave);
+  overlay.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
 }
 
 /* ===================================================

@@ -2449,3 +2449,69 @@ html.dark .historial-dia { background: #1e1e1e; }
 html.dark .historial-dia-header { background: #252525; border-bottom-color: #333; }
 html.dark .historial-punto { border-bottom-color: #333; }
 html.dark .recorrido-textarea { background: #1e1e1e; border-color: #333; color: #e5e7eb; }
+
+/* ===== SEGUIMIENTO EDIT CONTROLS ===== */
+.seg-punto-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.seg-btn-edit, .seg-btn-del {
+  border: none;
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 32px;
+}
+.seg-btn-edit {
+  background: #eff6ff;
+  color: #2563eb;
+}
+.seg-btn-edit:active { background: #dbeafe; }
+.seg-btn-del {
+  background: #fef2f2;
+  color: #dc2626;
+}
+.seg-btn-del:active { background: #fee2e2; }
+.btn-agregar-punto {
+  width: 100%;
+  padding: 14px;
+  background: #f9fafb;
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  margin-top: 8px;
+}
+.btn-agregar-punto:active { background: #f3f4f6; border-color: #9ca3af; }
+.seg-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.seg-edit-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #374151;
+  margin-top: 4px;
+}
+.seg-edit-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+.seg-edit-input:focus { border-color: #2563eb; }
+html.dark .seg-btn-edit { background: #1e3a5f; color: #93c5fd; }
+html.dark .seg-btn-del { background: #3b1111; color: #fca5a5; }
+html.dark .btn-agregar-punto { background: #1e1e1e; border-color: #444; color: #9ca3af; }
+html.dark .seg-edit-input { background: #1e1e1e; border-color: #444; color: #e5e7eb; }
