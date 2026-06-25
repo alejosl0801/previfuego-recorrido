@@ -14,6 +14,28 @@
   <link rel="apple-touch-icon" href="icon-192.png" />
   <title>Previfuego Recorrido</title>
   <link rel="stylesheet" href="style.css" />
+  <script>
+  (function(){
+    var V='7.0';
+    if(navigator.serviceWorker){
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        regs.forEach(function(r){r.update()});
+      });
+      fetch('sw.js?_cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.text()}).then(function(t){
+        var m=t.match(/CACHE_VERSION\s*=\s*'([^']+)'/);
+        if(m&&m[1]!==V){
+          caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k)}))}).then(function(){
+            navigator.serviceWorker.getRegistrations().then(function(regs){
+              Promise.all(regs.map(function(r){return r.unregister()})).then(function(){
+                location.reload(true);
+              });
+            });
+          });
+        }
+      }).catch(function(){});
+    }
+  })();
+  </script>
 </head>
 <body>
 

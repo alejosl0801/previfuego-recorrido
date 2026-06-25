@@ -18,7 +18,10 @@ self.addEventListener('activate', e => e.waitUntil(
   caches.keys().then(ks => Promise.all(
     ks.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
   )).then(() => self.clients.claim()).then(() => {
-    self.clients.matchAll().then(cls => cls.forEach(c => c.postMessage({type: 'sw-updated', version: CACHE_VERSION})));
+    self.clients.matchAll({type: 'window'}).then(cls => cls.forEach(c => {
+      c.postMessage({type: 'sw-updated', version: CACHE_VERSION});
+      if (c.navigate) c.navigate(c.url);
+    }));
   })
 ));
 self.addEventListener('message', e => {
