@@ -1,4 +1,4 @@
-const CACHE_VERSION = '8.2';
+const CACHE_VERSION = '8.3';
 const CACHE_NAME = 'pfrecorrido-v' + CACHE_VERSION;
 const APP_ASSETS = [
   '/previfuego-recorrido/',
@@ -17,12 +17,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => e.waitUntil(
   caches.keys().then(ks => Promise.all(
     ks.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-  )).then(() => self.clients.claim()).then(() => {
-    self.clients.matchAll({type: 'window'}).then(cls => cls.forEach(c => {
-      c.postMessage({type: 'sw-updated', version: CACHE_VERSION});
-      if (c.navigate) c.navigate(c.url);
-    }));
-  })
+  )).then(() => self.clients.claim())
 ));
 self.addEventListener('message', e => {
   const d = e.data || {};
@@ -39,7 +34,8 @@ self.addEventListener('fetch', e => {
   const url = e.request.url;
   if (url.includes('dropboxapi.com') ||
       url.includes('dropbox.com') ||
-      url.includes('script.google.com')) return;
+      url.includes('script.google.com') ||
+      url.includes('googleapis.com')) return;
   const isAppFile = APP_ASSETS.some(a => url.endsWith(a) || url.includes('/previfuego-recorrido/'));
   if (isAppFile) {
     e.respondWith(
@@ -50,13 +46,13 @@ self.addEventListener('fetch', e => {
         }
         return r;
       }).catch(() => caches.match(e.request, {ignoreSearch: true})
-        .then(r => r || caches.match('/previfuego-recorrido/index.html', {ignoreSearch: true})))
+        .then(r => r || (e.request.mode === 'navigate' ? caches.match('/previfuego-recorrido/index.html', {ignoreSearch: true}) : undefined)))
     );
   } else {
     e.respondWith(
       caches.match(e.request, {ignoreSearch: true})
         .then(r => r || fetch(e.request))
-        .catch(() => caches.match('/previfuego-recorrido/index.html', {ignoreSearch: true}))
+        .catch(() => e.request.mode === 'navigate' ? caches.match('/previfuego-recorrido/index.html', {ignoreSearch: true}) : undefined)
     );
   }
 });

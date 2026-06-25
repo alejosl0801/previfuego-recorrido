@@ -14,30 +14,6 @@
   <link rel="apple-touch-icon" href="icon-192.png" />
   <title>Previfuego Recorrido</title>
   <link rel="stylesheet" href="style.css" />
-  <script>
-  (function(){
-    var V='8.2';
-    if(sessionStorage.getItem('pf_vc')===V) return;
-    sessionStorage.setItem('pf_vc',V);
-    if(navigator.serviceWorker){
-      navigator.serviceWorker.getRegistrations().then(function(regs){
-        regs.forEach(function(r){r.update()});
-      });
-      fetch('sw.js?_cb='+Date.now(),{cache:'no-store'}).then(function(r){return r.text()}).then(function(t){
-        var m=t.match(/CACHE_VERSION\s*=\s*'([^']+)'/);
-        if(m&&m[1]!==V){
-          caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k)}))}).then(function(){
-            navigator.serviceWorker.getRegistrations().then(function(regs){
-              Promise.all(regs.map(function(r){return r.unregister()})).then(function(){
-                location.reload(true);
-              });
-            });
-          });
-        }
-      }).catch(function(){});
-    }
-  })();
-  </script>
 </head>
 <body>
 
@@ -142,7 +118,7 @@
             <option value="MARZO">Marzo</option>
             <option value="ABRIL">Abril</option>
             <option value="MAYO">Mayo</option>
-            <option value="JUNIO" selected>Junio</option>
+            <option value="JUNIO">Junio</option>
             <option value="JULIO">Julio</option>
             <option value="AGOSTO">Agosto</option>
             <option value="SEPTIEMBRE">Septiembre</option>
@@ -189,6 +165,7 @@
         <p class="recorrido-crear-hint">Pega el recorrido que te dio ChatGPT:</p>
         <textarea id="dictar-pegar-texto" class="recorrido-textarea" rows="5" placeholder="Pega aqu&#xED; el recorrido de ChatGPT..."></textarea>
         <button id="btn-pegar-recorrido" class="btn-primary btn-full" onclick="procesarTextoPegado()">&#x1F4CB; Procesar recorrido</button>
+        <div id="dictar-status" class="dictar-status"></div>
         <div id="dictar-puntos-lista" class="dictar-puntos-lista"></div>
         <div class="recorrido-publish-wrap" id="recorrido-publish-wrap" style="display:none">
           <label class="dictar-manana-label"><input type="checkbox" id="dictar-chk-manana"> Para ma&#xF1;ana</label>

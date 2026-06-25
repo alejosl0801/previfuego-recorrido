@@ -41,13 +41,8 @@ html.dark .seg-table td { border-bottom-color: #2a2a2a; }
 html.dark .seg-table tr:nth-child(even) td { background: #1a1a1a; }
 html.dark .search-wrap,
 html.dark .search-wrap input,
-html.dark .seg-search-wrap input,
 html.dark .clientes-search-wrap input { background: #1e1e1e; color: #e8e8e8; border-color: #333; }
 html.dark .opts-input, html.dark .opts-select { background: #2a2a2a; color: #e8e8e8; border-color: #444; }
-html.dark .valeria-chat { background: #181818; }
-html.dark .chat-valeria .chat-texto { background: #2d1f5e; color: #e0d8ff; }
-html.dark .chat-usuario .chat-texto { background: #1e3a6e; color: #d8eaff; }
-html.dark .valeria-text-input { background: #1e1e1e; color: #e8e8e8; border-color: #333; }
 html.dark #cargando { background: rgba(0,0,0,0.85); }
 html.dark #cargando p { color: #aaa; }
 html.dark .modal-msg { color: #bbb; }
@@ -72,12 +67,10 @@ html.dark .badge-pending { background: #713f12; color: #fde68a; }
 html.dark .badge-en-camino { background: #7c2d12; color: #fed7aa; }
 html.dark .tecnico-tag { background: #2a2a2a; color: #aaa; }
 html.dark .config-section h3 { color: #e8e8e8; }
-html.dark .valeria-input-row { background: #1e1e1e; border-top-color: #333; }
 html.dark .admin-publish-wrap { background: rgba(30,30,30,.97); }
 html.dark .qf-btn { background: #2a2a2a; color: #aaa; border-color: #444; }
 html.dark .btn-icon-admin { background: #2a2a2a; border-color: #444; color: #aaa; }
 html.dark .obs-clasif-badge { background: #1e293b; color: #94a3b8; }
-html.dark .valeria-sugerencia-chip { background: #2d1f5e; color: #c4b5fd; }
 html.dark .ruta-preview { border-top-color: #333; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -89,12 +82,6 @@ html.dark .ruta-preview { border-top-color: #333; }
 }
 
 /* ===== SAFE AREA ===== */
-.app-header {
-  padding-left: max(12px, env(safe-area-inset-left));
-  padding-right: max(12px, env(safe-area-inset-right));
-  padding-top: env(safe-area-inset-top, 0px);
-  min-height: calc(56px + env(safe-area-inset-top, 0px));
-}
 .admin-publish-wrap {
   padding-bottom: max(14px, env(safe-area-inset-bottom));
 }
@@ -117,7 +104,10 @@ html.dark .ruta-preview { border-top-color: #333; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+  padding-top: env(safe-area-inset-top, 0px);
+  min-height: calc(56px + env(safe-area-inset-top, 0px));
   height: 56px;
   position: sticky;
   top: 0;
@@ -171,7 +161,7 @@ html.dark .ruta-preview { border-top-color: #333; }
   padding: 8px 16px;
   font-size: 0.88rem;
   font-weight: 600;
-  z-index: 9999;
+  z-index: 9500;
 }
 .offline-banner.hidden { display: none; }
 
@@ -427,7 +417,7 @@ html.dark .ruta-preview { border-top-color: #333; }
   display: flex;
   align-items: center;
   gap: 14px;
-  z-index: 9000;
+  z-index: 8500;
   box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   font-size: 0.88rem;
   max-width: calc(100vw - 32px);
@@ -679,24 +669,6 @@ html.dark .ruta-preview { border-top-color: #333; }
   -webkit-appearance: none;
 }
 
-.seg-search-wrap {
-  padding: 8px 14px;
-  background: #f5f5f5;
-  flex-shrink: 0;
-}
-
-.seg-search-wrap input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1.5px solid #ddd;
-  border-radius: 8px;
-  font-size: 0.88rem;
-  background: #fff;
-  outline: none;
-  -webkit-appearance: none;
-}
-.seg-search-wrap input:focus { border-color: #9e1212; }
-
 .seguimiento-counters {
   display: flex;
   gap: 10px;
@@ -731,14 +703,6 @@ html.dark .ruta-preview { border-top-color: #333; }
 .seg-counter-total {
   font-size: 0.8rem;
   color: #aaa;
-}
-
-#seg-tabla-wrap {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: auto;
-  padding: 0 14px 14px;
-  -webkit-overflow-scrolling: touch;
 }
 
 .seg-table {
@@ -956,17 +920,6 @@ html.dark .ruta-preview { border-top-color: #333; }
   letter-spacing: 0.02em;
 }
 
-.badge-kfc-sm {
-  display: inline-block;
-  background: #f97316;
-  color: #fff;
-  border-radius: 12px;
-  padding: 1px 6px;
-  font-size: 0.65rem;
-  font-weight: 700;
-  vertical-align: middle;
-  margin-left: 3px;
-}
 
 /* ===== CLIENTES GRUPO HEADER ===== */
 .clientes-grupo-header {
@@ -1163,156 +1116,6 @@ html.dark .cliente-tipo-tag { background: #1e2a5e; color: #93b4ff; }
   color: #fff;
 }
 
-/* ===== VALERIA CHAT ===== */
-.valeria-chips {
-  display: flex;
-  gap: 6px;
-  padding: 8px 14px 4px;
-  overflow-x: auto;
-  flex-shrink: 0;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-.valeria-chips::-webkit-scrollbar { display: none; }
-.valeria-chip {
-  background: #f0f0f0;
-  color: #555;
-  border: 1px solid #ddd;
-  border-radius: 20px;
-  padding: 4px 12px;
-  font-size: 0.78rem;
-  cursor: pointer;
-  white-space: nowrap;
-  -webkit-tap-highlight-color: transparent;
-}
-.valeria-chip:active { background: #e5e5e5; }
-
-.valeria-chat {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: #f8f8f8;
-  min-height: 160px;
-  max-height: 40vh;
-}
-
-.chat-burbuja {
-  display: flex;
-  max-width: 85%;
-}
-.chat-usuario {
-  align-self: flex-end;
-  justify-content: flex-end;
-}
-.chat-valeria {
-  align-self: flex-start;
-  flex-direction: column;
-}
-.btn-copiar-instruccion {
-  margin-top: 6px;
-  padding: 6px 12px;
-  background: #7c3aed;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  align-self: flex-start;
-}
-.btn-copiar-instruccion:hover { background: #6d28d9; }
-html.dark .btn-copiar-instruccion { background: #6d28d9; }
-.chat-texto {
-  padding: 10px 14px;
-  border-radius: 16px;
-  font-size: 0.9rem;
-  line-height: 1.4;
-  word-break: break-word;
-}
-.chat-usuario .chat-texto {
-  background: #1d4ed8;
-  color: #fff;
-  border-bottom-right-radius: 4px;
-}
-.chat-valeria .chat-texto {
-  background: #5b21b6;
-  color: #f3f0ff;
-  border-bottom-left-radius: 4px;
-}
-.chat-thinking .chat-texto {
-  background: #e5e7eb;
-  color: #888;
-  font-style: italic;
-}
-
-.valeria-input-row {
-  display: flex;
-  gap: 8px;
-  padding: 10px 14px;
-  background: #fff;
-  border-top: 1px solid #e5e5e5;
-  flex-shrink: 0;
-  align-items: center;
-}
-
-.valeria-text-input {
-  flex: 1;
-  padding: 10px 14px;
-  border: 1.5px solid #ddd;
-  border-radius: 24px;
-  font-size: 0.9rem;
-  outline: none;
-  background: #f8f8f8;
-  -webkit-appearance: none;
-}
-.valeria-text-input:focus { border-color: #5b21b6; background: #fff; }
-
-.btn-mic-small {
-  background: #9e1212;
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  width: 44px;
-  height: 44px;
-  font-size: 1.2rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  -webkit-tap-highlight-color: transparent;
-}
-.btn-mic-small:active { background: #7a0e0e; }
-.btn-mic-small.grabando {
-  background: #388e3c;
-  animation: pulse-mic-green 1s ease-in-out infinite;
-}
-
-.btn-valeria-send {
-  background: #5b21b6;
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  width: 44px;
-  height: 44px;
-  font-size: 1.2rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  -webkit-tap-highlight-color: transparent;
-}
-.btn-valeria-send:active { background: #3b0764; }
-
-@keyframes pulse-mic-green {
-  0%   { box-shadow: 0 0 0 0 rgba(56,142,60,.5); }
-  70%  { box-shadow: 0 0 0 14px rgba(56,142,60,0); }
-  100% { box-shadow: 0 0 0 0 rgba(56,142,60,0); }
-}
-
 /* ===== RUTA PREVIEW ===== */
 .ruta-preview {
   padding: 12px 16px;
@@ -1401,7 +1204,7 @@ html.dark .ruta-preview-drag:active { color: #aaa; }
   position: sticky;
   bottom: 0;
   background: rgba(245,245,245,.97);
-  padding: 12px 0 8px;
+  padding: 12px 0 max(8px, env(safe-area-inset-bottom));
   z-index: 10;
 }
 
@@ -1424,7 +1227,6 @@ html.dark .ruta-preview-drag:active { color: #aaa; }
 
 /* ===== LANDSCAPE OPTIMIZATION ===== */
 @media (orientation: landscape) and (max-height: 500px) {
-  .valeria-chat { max-height: 25vh; }
   .puntos-list { padding-bottom: 60px; }
   .app-header { height: 48px; min-height: 48px; }
 }
@@ -1448,18 +1250,11 @@ html.dark .ruta-preview-drag:active { color: #aaa; }
     max-width: 640px;
     margin: 0 auto;
   }
-  #seg-tabla-wrap {
-    max-width: 720px;
-    margin: 0 auto;
-  }
-  .valeria-chat {
-    max-height: 50vh;
-  }
 }
 
 /* ===== PRINT ===== */
 @media print {
-  .app-header, .tabs, .seg-toolbar, .seg-search-wrap, .auto-refresh-note,
+  .app-header, .tabs, .seg-toolbar, .auto-refresh-note,
   .btn-back, .btn-icon, .btn-icon-admin { display: none !important; }
   .seg-table { box-shadow: none; }
   .screen { display: block !important; }
@@ -1524,24 +1319,7 @@ html.dark .mes-progress { background: #2a2a30; }
   font-size: 0.68rem; font-weight: 700; border-radius: 999px; text-align: center;
 }
 
-/* Valeria proactive suggestion + obs classification */
-.valeria-sugerencia-chip {
-  background: #f3e8ff; border: 1px solid #d8b4fe; color: #6b21a8;
-  border-radius: 12px; padding: 10px 12px; margin: 0 0 10px;
-  font-size: 0.82rem; line-height: 1.35; display: flex; gap: 8px;
-  align-items: flex-start; justify-content: space-between;
-}
-.obs-clasif-badge {
-  display: inline-block; margin-top: 3px; padding: 1px 6px;
-  font-size: 0.66rem; font-weight: 700; border-radius: 999px;
-  background: #f1f5f9; color: #334155;
-}
-
 /* ===== MODO DICTAR RECORRIDO ===== */
-#modo-recorrido-panel {
-  flex: 1;
-  overflow: hidden;
-}
 .dictar-header {
   display: flex;
   align-items: center;
@@ -1651,21 +1429,6 @@ html.dark .dictar-publish-row { background: #181818; border-top-color: #2a2a2a; 
   letter-spacing: 0.02em;
 }
 .btn-dictar-open:active { background: linear-gradient(135deg,#7f1d1d,#9b1c1c); }
-
-/* Ensure chat mode scrolls properly */
-#modo-chat-valeria {
-  flex: 1;
-  overflow: hidden;
-}
-
-/* ── Dictar Recorrido: card-based mode ── */
-#modo-recorrido-panel {
-  display: none;
-  flex-direction: column;
-  height: 100%;
-  background: var(--bg, #f4f4f4);
-}
-html.dark #modo-recorrido-panel { background: #111; }
 
 .dictar-count-badge {
   background: #dc2626;
@@ -1793,25 +1556,6 @@ html.dark .dictar-punto-footer select { background: #2a2a2a; border-color: #444;
 }
 html.dark .dictar-bottom { background: #1a1a1a; border-top-color: #2a2a2a; }
 
-#btn-mic-recorrido {
-  width: 100%;
-  padding: 12px;
-  font-size: 1rem;
-  font-weight: 700;
-  background: linear-gradient(135deg,#dc2626,#b91c1c);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-#btn-mic-recorrido:active { opacity: 0.8; }
-#btn-mic-recorrido.grabando { background: linear-gradient(135deg,#7f1d1d,#991b1b); animation: pulse-rec 1s infinite; }
-@keyframes pulse-rec {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(200,0,0,.4); }
-  50%       { box-shadow: 0 0 0 8px rgba(200,0,0,0); }
-}
-
 .dictar-publish-wrap {
   display: flex;
   align-items: center;
@@ -1925,6 +1669,12 @@ html.dark .dictar-manana-label { color: #aaa; }
   font-size: 0.82rem;
   color: #6b7280;
   margin-top: 2px;
+}
+.punto-card-mision {
+  font-size: 0.82rem;
+  color: #dc2626;
+  margin-top: 2px;
+  font-weight: 600;
 }
 .punto-card-dir-link {
   color: #2563eb;
