@@ -60,7 +60,7 @@
     <div class="s1-tabs">
       <button class="s1-tab active" onclick="switchTecTab('hoy')" id="tec-tab-hoy">Hoy</button>
       <button class="s1-tab" onclick="switchTecTab('historial')" id="tec-tab-historial">Historial</button>
-      <button class="btn-icon" onclick="recargarRecorrido()" title="Actualizar" style="margin-left:auto">&#8635;</button>
+      <button class="btn-icon" onclick="recargarRecorrido()" title="Actualizar" aria-label="Actualizar recorrido" style="margin-left:auto">&#8635;</button>
     </div>
     <div id="tec-tab-hoy-content">
       <div class="progress-bar-wrap">
@@ -163,7 +163,7 @@
           <span id="dictar-count-badge" class="dictar-count-badge">0 puntos</span>
         </div>
         <p class="recorrido-crear-hint">Pega el recorrido que te dio ChatGPT:</p>
-        <textarea id="dictar-pegar-texto" class="recorrido-textarea" rows="5" placeholder="Pega aqu&#xED; el recorrido de ChatGPT..."></textarea>
+        <textarea id="dictar-pegar-texto" class="recorrido-textarea" aria-label="Texto del recorrido" rows="5" placeholder="Pega aqu&#xED; el recorrido de ChatGPT..."></textarea>
         <button id="btn-pegar-recorrido" class="btn-primary btn-full" onclick="procesarTextoPegado()">&#x1F4CB; Procesar recorrido</button>
         <div id="dictar-status" class="dictar-status"></div>
         <div id="dictar-puntos-lista" class="dictar-puntos-lista"></div>
@@ -241,7 +241,7 @@
 
       <div class="config-section" style="margin-top:16px;margin-bottom:24px">
         <h3>Informaci&#xF3;n</h3>
-        <p style="font-size:0.82rem;color:#777">Versi&#xF3;n: <strong id="cfg-version">4.0</strong></p>
+        <p style="font-size:0.82rem;color:#777">Versi&#xF3;n: <strong id="cfg-version">4.1</strong></p>
         <p style="font-size:0.82rem;color:#777;margin-top:4px" id="cfg-last-sync">&#xDA;ltima sync: —</p>
         <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn-ghost btn-sm" onclick="toggleDarkMode()">&#x1F319; Modo oscuro</button>

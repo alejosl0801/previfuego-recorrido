@@ -397,13 +397,11 @@ var USUARIO_ACTUAL = null;
 var PUNTOS = [];
 var CLIENTES_DISPONIBLES = [];
 var VISITAS_MES = {};
-var RUTA_PREVIEW = [];
 var _seguimientoInterval = null;
 var _seguimientoIntervaloSeg = 30;
 var _toastQueue = [];
 var _toastTimer = null;
 var _toastShowing = false;
-var _currentRec = null;
 var _undoTimer = null;
 var _undoIdx = null;
 var _undoData = null;
@@ -463,7 +461,7 @@ window.addEventListener('online', function() {
   if (b) b.classList.add('hidden');
   showToast('✅ Conexi\xF3n restaurada');
   // Retry pending tech progress upload if it stalled while offline
-  if (USUARIO_ACTUAL && !USUARIOS[USUARIO_ACTUAL].esAdmin && PUNTOS.length) subirFichas();
+  if (USUARIO_ACTUAL && USUARIOS[USUARIO_ACTUAL] && !USUARIOS[USUARIO_ACTUAL].esAdmin && PUNTOS.length) subirFichas();
 });
 
 /* ===================================================
@@ -703,9 +701,12 @@ function limpiarCache() {
       }).then(function() {
         sessionStorage.removeItem('pf_vc');
         if (navigator.serviceWorker) {
+          navigator.serviceWorker.addEventListener('controllerchange', function() {
+            window.location.reload(true);
+          });
           navigator.serviceWorker.getRegistration().then(function(reg) {
             if (reg) reg.update();
-            window.location.reload(true);
+            setTimeout(function() { window.location.reload(true); }, 3000);
           });
         } else {
           window.location.reload(true);
@@ -1065,7 +1066,6 @@ function login(usuario) {
 function logout() {
   detenerSeguimiento();
   if (_DICTAR_REC) { try { _DICTAR_REC.abort(); } catch(e) {} _DICTAR_REC = null; }
-  if (_currentRec) { try { _currentRec.abort(); } catch(e) {} _currentRec = null; }
   if (_undoTimer) { clearTimeout(_undoTimer); _undoTimer = null; }
   if (_guardarVisitasTimer) { clearTimeout(_guardarVisitasTimer); _guardarVisitasTimer = null; }
   if (_filtroClientesTimer) { clearTimeout(_filtroClientesTimer); _filtroClientesTimer = null; }
@@ -1081,7 +1081,6 @@ function logout() {
   PUNTOS = [];
   CLIENTES_DISPONIBLES = [];
   VISITAS_MES = {};
-  RUTA_PREVIEW = [];
   _DICTAR_PUNTOS = [];
   _clientesFiltro = '';
   _clientesQuickFilter = 'todos';
@@ -1133,25 +1132,6 @@ function _claveMesActual() {
   return mes + '_' + new Date().getFullYear();
 }
 
-function _mostrarOverlayClientes(show) {
-  var cont = document.getElementById('clientes-mes-lista');
-  if (!cont) return;
-  var ov = document.getElementById('clientes-loading-overlay');
-  if (show) {
-    cont.style.position = 'relative';
-    if (!ov) {
-      ov = document.createElement('div');
-      ov.id = 'clientes-loading-overlay';
-      ov.className = 'clientes-loading-overlay';
-      ov.innerHTML = '<div class="spinner-sm"></div><span>Actualizando...</span>';
-      cont.appendChild(ov);
-    }
-    ov.style.display = 'flex';
-  } else if (ov) {
-    ov.style.display = 'none';
-  }
-}
-
 
 var _cargandoClientes = false;
 var _cargandoClientesGen = 0;  // Generation counter to discard stale responses
@@ -1166,7 +1146,7 @@ function cargarClientes() {
   var mesEl = document.getElementById('admin-mes');
   var mes = mesEl ? mesEl.value : '';
 
-  if (_cargandoClientes) return;
+  if (_cargandoClientes) { showToast('Cargando clientes, espera...'); return; }
   _cargandoClientes = true;
   _cargandoClientesGen++;
   var genActual = _cargandoClientesGen;
@@ -1211,7 +1191,6 @@ function cargarClientes() {
     _cargandoClientes = false;
     mostrarCargando(false);
     if (sk) sk.style.display = 'none';
-    _mostrarOverlayClientes(false);
 
     _mesUltimoCargado = mes;
     var claveMes = _claveMesActual();
@@ -1247,11 +1226,13 @@ function _guardarVisitas() {
   _visitasPendientes[clave] = JSON.parse(JSON.stringify(VISITAS_MES));
   _guardarVisitasTimer = setTimeout(function() {
     var pendientes = _visitasPendientes;
-    _visitasPendientes = {};
     dbxDownloadJSON(DBX_VISITAS)
     .then(function(data) {
       Object.keys(pendientes).forEach(function(k) { data[k] = pendientes[k]; });
       return dbxUpload(DBX_VISITAS, JSON.stringify(data, null, 2));
+    })
+    .then(function() {
+      Object.keys(pendientes).forEach(function(k) { delete _visitasPendientes[k]; });
     })
     .catch(function(e) { console.error('[PF] guardarVisitas error:', e); });
   }, 500);
@@ -1394,15 +1375,10 @@ function renderClientesMes() {
   }
   if (!html) {
     if (_clientesFiltro) {
-      // Filter returned 0 — auto-clear it so clients don't "disappear"
-      _clientesFiltro = '';
-      var buscarEl2 = document.getElementById('clientes-buscar');
-      if (buscarEl2) buscarEl2.value = '';
-      // Re-render without filter
-      renderClientesMes();
-      return;
+      html = '<div class="no-clientes">Sin resultados para "' + esc(_clientesFiltro) + '"</div>';
+    } else {
+      html = '<div class="no-clientes">Sin clientes para este mes.</div>';
     }
-    html = '<div class="no-clientes">Sin clientes para este mes.</div>';
   }
   cont.innerHTML = html;
 }
@@ -1469,9 +1445,9 @@ function _resaltar(texto, filtro) {
 var _DICTAR_PUNTOS = [];  // Array of structured point objects
 var _DICTAR_REC = null;   // Active SpeechRecognition
 
-function _dictatStatus(msg) {
+function _dictatStatus(msg, color) {
   var el = document.getElementById('dictar-status');
-  if (el) el.textContent = msg;
+  if (el) { el.textContent = msg; el.style.color = color || ''; }
 }
 
 function procesarTextoPegado() {
@@ -1648,7 +1624,7 @@ function _renderDictarPuntos() {
 function _dictarEliminarPunto(idx) {
   _DICTAR_PUNTOS.splice(idx, 1);
   _renderDictarPuntos();
-  _dictatStatus(_DICTAR_PUNTOS.length + ' punto(s). Pulsa micr\xF3fono para agregar m\xE1s.');
+  _dictatStatus(_DICTAR_PUNTOS.length + ' punto(s). Pega m\xE1s texto para agregar.');
 }
 
 function publicarRecorridoDictado() {
@@ -2007,6 +1983,8 @@ function cargarHistorial() {
 function cargarRecorrido() {
   if (!USUARIO_ACTUAL || !USUARIOS[USUARIO_ACTUAL]) return;
   showScreen('s1');
+  var fechaEl = document.getElementById('s1-fecha');
+  if (fechaEl) fechaEl.textContent = fechaHoy();
   mostrarCargando(true);
   var vacio = document.getElementById('s1-vacio');
   if (vacio) vacio.style.display = 'none';
@@ -2343,6 +2321,7 @@ var _subirFichasReintentos = 0;
 
 function subirFichas() {
   if (_subirFichasTimer) clearTimeout(_subirFichasTimer);
+  if (!_subirFichasPending) _subirFichasReintentos = 0;
   _subirFichasTimer = setTimeout(function() { _ejecutarSubirFichas(); }, 800);
 }
 
@@ -2376,6 +2355,8 @@ function _ejecutarSubirFichas() {
         }
         if (local && serverP.enCamino && !local.enCamino && !local.done) local.enCamino = true;
       });
+      renderPuntos();
+      actualizarProgreso();
     });
   })
   .then(function() { _subirFichasReintentos = 0; })
@@ -2451,11 +2432,15 @@ document.addEventListener('DOMContentLoaded', function() {
   if (cParam && !getRefreshToken()) {
     try {
       var rt = atob(decodeURIComponent(cParam));
-      if (rt) {
-        _lsSet('pf_dbx_refresh_token', rt);
+      if (rt && rt.length > 10) {
         window.history.replaceState({}, '', window.location.pathname);
-        showToast('✅ Dropbox conectado autom\xE1ticamente');
-        sincronizarConfig();
+        refreshAccessToken(rt).then(function() {
+          _lsSet('pf_dbx_refresh_token', rt);
+          showToast('✅ Dropbox conectado autom\xE1ticamente');
+          sincronizarConfig();
+        }).catch(function() {
+          showToast('❌ C\xF3digo de conexi\xF3n inv\xE1lido');
+        });
       }
     } catch(e) {}
   } else if (cParam) {
@@ -2472,7 +2457,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function _swReload() { if (_swReloading) return; _swReloading = true; window.location.reload(); }
     navigator.serviceWorker.register('/previfuego-recorrido/sw.js').then(function(reg) {
       reg.update();
-      setInterval(function() { reg.update(); }, 60000);
+      setInterval(function() { if (!document.hidden) reg.update(); }, 60000);
     }).catch(function() {});
     navigator.serviceWorker.addEventListener('controllerchange', _swReload);
   }
