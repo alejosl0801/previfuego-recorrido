@@ -3298,7 +3298,7 @@ function _ejecutarSubirFichas() {
       var match = snapshot.filter(function(s) { return s.nombre === p.nombre; })[0];
       if (match) {
         if (match.done) { p.done = true; p.horaCompletado = match.horaCompletado; }
-        if (match.enCamino) p.enCamino = true;
+        p.enCamino = match.done ? false : match.enCamino;
         if (match.observacion) p.observacion = match.observacion;
       }
       return p;
@@ -3311,7 +3311,7 @@ function _ejecutarSubirFichas() {
           local.done = true;
           local.horaCompletado = serverP.horaCompletado;
         }
-        if (local && serverP.enCamino && !local.enCamino) local.enCamino = true;
+        if (local && serverP.enCamino && !local.enCamino && !local.done) local.enCamino = true;
       });
     });
   })
