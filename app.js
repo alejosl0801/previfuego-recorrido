@@ -702,12 +702,27 @@ function verificarConexion() {
 }
 
 function limpiarCache() {
-  pfConfirm('Limpiar cach\xE9', '\xBFEliminar cach\xE9 local de clientes y puntos?', function() {
+  pfConfirm('Limpiar cach\xE9', '\xBFEliminar cach\xE9 y recargar con la \xFAltima versi\xF3n?', function() {
     _lsRemove('pf_clientes_cache');
     var hoy = fechaHoy();
     _lsRemove('pf_puntos_' + hoy);
     _lsRemove('pf_estado_' + hoy);
-    showToast('✅ Cach\xE9 eliminada');
+    if ('caches' in window) {
+      caches.keys().then(function(ks) {
+        return Promise.all(ks.map(function(k) { return caches.delete(k); }));
+      }).then(function() {
+        if (navigator.serviceWorker) {
+          navigator.serviceWorker.getRegistrations().then(function(regs) {
+            regs.forEach(function(r) { r.unregister(); });
+            window.location.reload(true);
+          });
+        } else {
+          window.location.reload(true);
+        }
+      });
+    } else {
+      window.location.reload(true);
+    }
   });
 }
 
@@ -3266,7 +3281,18 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedUser && USUARIOS[savedUser]) login(savedUser);
   }
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/previfuego-recorrido/sw.js').catch(function() {});
+    navigator.serviceWorker.register('/previfuego-recorrido/sw.js').then(function(reg) {
+      reg.addEventListener('updatefound', function() {
+        var nw = reg.installing;
+        if (nw) nw.addEventListener('statechange', function() {
+          if (nw.state === 'activated') window.location.reload();
+        });
+      });
+      reg.update();
+    }).catch(function() {});
+    navigator.serviceWorker.addEventListener('message', function(e) {
+      if (e.data && e.data.type === 'sw-updated') window.location.reload();
+    });
   }
   if (!navigator.onLine) {
     var b = document.getElementById('offline-banner');

@@ -1,4 +1,4 @@
-const CACHE_VERSION = '6.3';
+const CACHE_VERSION = '6.4';
 const CACHE_NAME = 'pfrecorrido-v' + CACHE_VERSION;
 const ASSETS = [
   '/previfuego-recorrido/',
@@ -16,7 +16,9 @@ self.addEventListener('install', e => e.waitUntil(
 self.addEventListener('activate', e => e.waitUntil(
   caches.keys().then(ks => Promise.all(
     ks.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-  )).then(() => self.clients.claim())
+  )).then(() => self.clients.claim()).then(() => {
+    self.clients.matchAll().then(cls => cls.forEach(c => c.postMessage({type: 'sw-updated'})));
+  })
 ));
 self.addEventListener('message', e => {
   const d = e.data || {};
