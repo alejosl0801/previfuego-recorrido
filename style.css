@@ -35,7 +35,6 @@ html.dark .config-section,
 html.dark .seg-counter-card,
 html.dark .seg-table,
 html.dark .modal-box,
-html.dark .ruta-preview-item { background: #1e1e1e; border-color: #333; }
 html.dark .seg-table thead { background: #6b0d0d; }
 html.dark .seg-table td { border-bottom-color: #2a2a2a; }
 html.dark .seg-table tr:nth-child(even) td { background: #1a1a1a; }
@@ -67,11 +66,8 @@ html.dark .badge-pending { background: #713f12; color: #fde68a; }
 html.dark .badge-en-camino { background: #7c2d12; color: #fed7aa; }
 html.dark .tecnico-tag { background: #2a2a2a; color: #aaa; }
 html.dark .config-section h3 { color: #e8e8e8; }
-html.dark .admin-publish-wrap { background: rgba(30,30,30,.97); }
 html.dark .qf-btn { background: #2a2a2a; color: #aaa; border-color: #444; }
 html.dark .btn-icon-admin { background: #2a2a2a; border-color: #444; color: #aaa; }
-html.dark .obs-clasif-badge { background: #1e293b; color: #94a3b8; }
-html.dark .ruta-preview { border-top-color: #333; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
@@ -1081,22 +1077,6 @@ html.dark .cliente-tipo-tag { background: #1e2a5e; color: #93b4ff; }
   font-size: 0.78rem;
   color: #555;
 }
-.cliente-historial {
-  font-size: 0.72rem;
-  color: #999;
-  margin-top: 2px;
-}
-.alerta-30d {
-  display: inline-block;
-  background: #fff3cd;
-  color: #b45309;
-  border-radius: 8px;
-  padding: 1px 6px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  margin-left: 4px;
-  vertical-align: middle;
-}
 .btn-visitado {
   flex-shrink: 0;
   background: #f0f0f0;
@@ -1116,97 +1096,6 @@ html.dark .cliente-tipo-tag { background: #1e2a5e; color: #93b4ff; }
   color: #fff;
 }
 
-/* ===== RUTA PREVIEW ===== */
-.ruta-preview {
-  padding: 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-top: 2px solid #e5e5e5;
-}
-.ruta-preview-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-weight: 700;
-  font-size: 1rem;
-  padding-bottom: 4px;
-}
-.ruta-preview-lista {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.ruta-preview-item {
-  background: #fff;
-  border-radius: 10px;
-  padding: 12px 14px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.08);
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  transition: opacity 0.15s, box-shadow 0.15s;
-}
-.ruta-preview-item.rp-dragging { opacity: 0.4; }
-.ruta-preview-item.rp-drag-over { box-shadow: 0 -3px 0 0 #9e1212, 0 1px 4px rgba(0,0,0,.08); }
-.ruta-preview-drag {
-  cursor: grab;
-  color: #bbb;
-  font-size: 1rem;
-  padding: 2px 0;
-  flex-shrink: 0;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: none;
-}
-.ruta-preview-drag:active { cursor: grabbing; color: #888; }
-html.dark .ruta-preview-drag { color: #555; }
-html.dark .ruta-preview-drag:active { color: #aaa; }
-.rp-touch-ghost { border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
-.ruta-preview-num {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: #9e1212;
-  color: #fff;
-  font-weight: 700;
-  font-size: 0.85rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-.ruta-preview-info {
-  flex: 1;
-  min-width: 0;
-}
-.ruta-preview-info strong {
-  display: block;
-  font-size: 0.93rem;
-}
-.ruta-preview-info small {
-  font-size: 0.78rem;
-  color: #777;
-  display: block;
-  margin-top: 2px;
-}
-.ruta-preview-info select {
-  margin-top: 6px;
-  font-size: 0.82rem;
-  padding: 4px 8px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  background: #f9f9f9;
-}
-.admin-publish-wrap {
-  position: sticky;
-  bottom: 0;
-  background: rgba(245,245,245,.97);
-  padding: 12px 0 max(8px, env(safe-area-inset-bottom));
-  z-index: 10;
-}
 
 /* ===== OPTS INPUT / SELECT ===== */
 .opts-input, .opts-select {
@@ -1257,10 +1146,10 @@ html.dark .ruta-preview-drag:active { color: #aaa; }
   .app-header, .tabs, .seg-toolbar, .auto-refresh-note,
   .btn-back, .btn-icon, .btn-icon-admin { display: none !important; }
   .seg-table { box-shadow: none; }
-  .screen { display: block !important; }
-  #sadmin { display: block !important; }
-  #tab-seguimiento { display: block !important; }
-  #tab-clientes { display: block !important; }
+  .screen:not(.active) { display: none !important; }
+  .screen.active { display: block !important; }
+  .tab-content:not(.active) { display: none !important; }
+  .tab-content.active { display: block !important; }
   .clientes-bulk-row, .clientes-search-wrap, .btn-visitado, .fab-top { display: none !important; }
 }
 
@@ -1320,21 +1209,6 @@ html.dark .mes-progress { background: #2a2a30; }
 }
 
 /* ===== MODO DICTAR RECORRIDO ===== */
-.dictar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px 8px;
-  border-bottom: 1px solid #eee;
-  background: #fff;
-  gap: 8px;
-}
-html.dark .dictar-header { background: #1e1e1e; border-bottom-color: #333; }
-.dictar-title {
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: #9b1c1c;
-}
 .dictar-status {
   font-size: 0.78rem;
   color: #555;
@@ -1344,91 +1218,7 @@ html.dark .dictar-header { background: #1e1e1e; border-bottom-color: #333; }
   min-height: 26px;
 }
 html.dark .dictar-status { background: #181818; border-bottom-color: #2a2a2a; color: #aaa; }
-.recorrido-editor {
-  flex: 1;
-  width: 100%;
-  font-family: 'Courier New', monospace;
-  font-size: 0.82rem;
-  line-height: 1.55;
-  padding: 12px;
-  border: none;
-  outline: none;
-  resize: none;
-  background: #fff;
-  color: #1a1a1a;
-  overflow-y: auto;
-}
-html.dark .recorrido-editor { background: #141414; color: #e0e0e0; }
-.dictar-actions {
-  display: flex;
-  gap: 8px;
-  padding: 8px 10px;
-  border-top: 1px solid #eee;
-  background: #fff;
-  align-items: center;
-}
-html.dark .dictar-actions { background: #1e1e1e; border-top-color: #333; }
-.btn-dictar-mic {
-  background: #9b1c1c;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 10px 16px;
-  font-size: 0.88rem;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: background .2s;
-}
-.btn-dictar-mic:active { background: #7f1d1d; }
-.btn-dictar-mic.grabando {
-  background: #c00;
-  animation: pulse-mic 1s infinite;
-}
-@keyframes pulse-mic {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(200,0,0,.4); }
-  50%       { box-shadow: 0 0 0 8px rgba(200,0,0,0); }
-}
-.dictar-hint {
-  font-size: 0.74rem;
-  color: #888;
-  padding: 4px 12px 6px;
-  background: #fff;
-  border-top: 1px solid #f0f0f0;
-  text-align: center;
-}
-html.dark .dictar-hint { background: #1e1e1e; border-top-color: #2a2a2a; color: #666; }
-.dictar-publish-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 12px 8px;
-  background: #fafafa;
-  border-top: 1px solid #eee;
-}
-html.dark .dictar-publish-row { background: #181818; border-top-color: #2a2a2a; }
 
-/* "Dictar Recorrido" open button at top of Valeria chat mode */
-.btn-dictar-open {
-  width: 100%;
-  background: linear-gradient(135deg, #9b1c1c, #c0392b);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  padding: 13px 16px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  letter-spacing: 0.02em;
-}
-.btn-dictar-open:active { background: linear-gradient(135deg,#7f1d1d,#9b1c1c); }
 
 .dictar-count-badge {
   background: #dc2626;
@@ -1546,21 +1336,6 @@ html.dark .dictar-punto-footer select { background: #2a2a2a; border-color: #444;
 }
 .dictar-punto-del:hover { color: #dc2626; }
 
-.dictar-bottom {
-  padding: 10px 12px;
-  background: #fff;
-  border-top: 1px solid #e5e5e5;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-html.dark .dictar-bottom { background: #1a1a1a; border-top-color: #2a2a2a; }
-
-.dictar-publish-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
 
 .dictar-manana-label {
   display: flex;
@@ -2041,6 +1816,9 @@ html.dark .historial-dia { background: #1e1e1e; }
 html.dark .historial-dia-header { background: #252525; border-bottom-color: #333; }
 html.dark .historial-punto { border-bottom-color: #333; }
 html.dark .recorrido-textarea { background: #1e1e1e; border-color: #333; color: #e5e7eb; }
+html.dark .recorrido-crear-title { color: #e5e7eb; }
+html.dark .recorrido-crear-hint { color: #9ca3af; }
+html.dark .recorrido-crear-panel { background: #1a1a1a; }
 
 /* ===== SEGUIMIENTO EDIT CONTROLS ===== */
 .seg-punto-actions {
