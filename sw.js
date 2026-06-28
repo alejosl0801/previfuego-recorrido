@@ -1,4 +1,4 @@
-const CACHE_VERSION = '8.5';
+const CACHE_VERSION = '8.6';
 const CACHE_NAME = 'pfrecorrido-v' + CACHE_VERSION;
 const APP_ASSETS = [
   '/previfuego-recorrido/',
@@ -32,7 +32,8 @@ self.addEventListener('fetch', e => {
   if (url.includes('dropboxapi.com') ||
       url.includes('dropbox.com') ||
       url.includes('googleapis.com')) return;
-  const isAppFile = APP_ASSETS.some(a => url.endsWith(a));
+  const urlNoQuery = url.split('?')[0];
+  const isAppFile = APP_ASSETS.some(a => urlNoQuery.endsWith(a));
   if (isAppFile) {
     e.respondWith(
       fetch(e.request).then(r => {
