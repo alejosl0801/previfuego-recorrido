@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = '4.2';
+var APP_VERSION = '4.3';
 
 /* CLIENTES_BD generado desde: BASE_DATOS_KFC_9.xlsx + OTRAS_EMPRESAS.xlsx + MATRIZ_SUSHICORP.xlsx */
 var CLIENTES_BD = [
@@ -641,6 +641,36 @@ function generarCodigoConexion() {
   }
 }
 
+function _tecUsarCodigo() {
+  var input = document.getElementById('tec-codigo-conexion');
+  if (!input || !input.value.trim()) { showToast('Pega el c\xF3digo primero'); return; }
+  var val = input.value.trim();
+  try {
+    var rt;
+    if (val.startsWith('http')) {
+      var url = new URL(val);
+      var cParam = url.searchParams.get('c');
+      if (!cParam) { showToast('❌ Link inv\xE1lido'); return; }
+      rt = atob(decodeURIComponent(cParam));
+    } else {
+      rt = atob(val);
+    }
+    _lsSet('pf_dbx_refresh_token', rt);
+    _lsRemove('pf_dbx_access_token');
+    _lsRemove('pf_dbx_token_exp');
+    input.value = '';
+    refreshAccessToken().then(function() {
+      showToast('✅ Dropbox conectado');
+      cargarRecorrido();
+    }).catch(function() {
+      _lsRemove('pf_dbx_refresh_token');
+      showToast('❌ C\xF3digo inv\xE1lido');
+    });
+  } catch(e) {
+    showToast('❌ C\xF3digo inv\xE1lido');
+  }
+}
+
 function usarCodigoConexion() {
   var input = document.getElementById('cfg-codigo-conexion');
   if (!input || !input.value.trim()) { showToast('Pega el c\xF3digo primero'); return; }
@@ -903,7 +933,7 @@ function _retryBackoff(fn, maxIntentos) {
         intento++;
         var msg = String(err && err.message || err);
         // Don't retry auth/expired errors — surface immediately
-        if (intento >= maxIntentos || err.noRetry || /expir|reconecta|invalid_grant/i.test(msg)) { reject(err); return; }
+        if (intento >= maxIntentos || err.noRetry || /expir|reconecta|invalid_grant|no conectado/i.test(msg)) { reject(err); return; }
         setTimeout(run, Math.pow(2, intento) * 1000);
       });
     }
@@ -1708,6 +1738,11 @@ function pfRenderSeguimiento() {
   if (segTab && !segTab.classList.contains('active')) return;
   var modal = document.getElementById('modal-overlay');
   if (modal && !modal.classList.contains('hidden')) return;
+  if (!getRefreshToken()) {
+    var cardsWrap = document.getElementById('seg-cards-wrap');
+    if (cardsWrap) cardsWrap.innerHTML = '<div style="text-align:center;color:#c00;padding:40px 20px"><strong>⚠️ Dropbox no conectado</strong><br><small>Ve a ⚙️ Config para conectar.</small></div>';
+    return;
+  }
   dbxDownloadJSON(DBX_RECORRIDOS)
   .then(function(recorridos) {
     var fechaBuscar = _segFechaSeleccionada || fechaHoy();
@@ -2000,6 +2035,10 @@ function cargarRecorrido() {
   showScreen('s1');
   var fechaEl = document.getElementById('s1-fecha');
   if (fechaEl) fechaEl.textContent = fechaHoy();
+  if (!getRefreshToken()) {
+    _mostrarConectarDropbox();
+    return;
+  }
   mostrarCargando(true);
   var vacio = document.getElementById('s1-vacio');
   if (vacio) vacio.style.display = 'none';
@@ -2024,6 +2063,24 @@ function cargarRecorrido() {
     }
     mostrarVacio('Sin conexi\xF3n con el servidor.\nVerifica tu internet e intenta de nuevo.');
   });
+}
+
+function _mostrarConectarDropbox() {
+  var lista = document.getElementById('lista-puntos');
+  if (lista) lista.innerHTML = '';
+  var vacio = document.getElementById('s1-vacio');
+  if (vacio) {
+    vacio.style.display = 'flex';
+    vacio.innerHTML = '<p style="font-size:1.1rem;font-weight:700">&#x26A0;&#xFE0F; Dropbox no conectado</p>'
+      + '<p style="font-size:0.85rem;color:#666;margin:8px 0 16px">Este dispositivo necesita conectarse a Dropbox para ver los recorridos.</p>'
+      + '<div style="width:100%;max-width:320px">'
+      + '<button class="btn-primary btn-full" onclick="iniciarOAuth()" style="margin-bottom:10px">&#x1F517; Conectar con Dropbox</button>'
+      + '<p style="font-size:0.78rem;color:#888;text-align:center;margin:12px 0 6px">O pega un c\xF3digo de conexi\xF3n:</p>'
+      + '<input type="text" id="tec-codigo-conexion" class="opts-input" placeholder="Pega el c\xF3digo aqu\xED" style="font-size:13px;margin-bottom:8px" />'
+      + '<button class="btn-ghost btn-full" onclick="_tecUsarCodigo()">&#x1F517; Conectar con c\xF3digo</button>'
+      + '</div>';
+  }
+  actualizarProgreso();
 }
 
 function cargarRecorridoLocal() {
